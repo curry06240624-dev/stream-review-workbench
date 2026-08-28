@@ -1,80 +1,105 @@
-/* 內部工具：好讀第一。淺底、一個藍綠色 accent、不玩花的。 */
+/* 指揮中心：暗色作戰室。一個青色 accent 管操作，紅/琥珀/灰藍三色只管嚴重度。
+   數字全部等寬字體 —— 戰情看的是數字，不是裝飾。 */
 :root{
-  --bg:#f4f6f8; --card:#ffffff; --edge:#dde3e9;
-  --ink:#17222b; --dim:#5a6b7a; --faint:#8b9aa8;
-  --accent:#0e7a6a; --accent-soft:#e2f2ef;
-  --warn:#9a5b00; --warn-soft:#fdf1dd;
-  --bad:#a33; --bad-soft:#fbe9e9;
+  --bg:#0d1420; --panel:#131c2b; --panel2:#0f1826; --edge:#243349;
+  --ink:#e7edf5; --dim:#94a5ba; --faint:#5d6f85;
+  --accent:#2fd6c3; --accent-dim:#17443f; --accent-soft:rgba(47,214,195,.09);
+  --hi:#ff5d5d;   --hi-soft:rgba(255,93,93,.12);      /* 重大 */
+  --mid:#e3b23c;  --mid-soft:rgba(227,178,60,.12);    /* 中 */
+  --low:#7d93ad;  --low-soft:rgba(125,147,173,.12);   /* 輕微 */
+  --mono:"IBM Plex Mono","Cascadia Mono",Consolas,ui-monospace,monospace;
 }
 *{box-sizing:border-box}
 body{
   margin:0; background:var(--bg); color:var(--ink);
-  font:15px/1.75 "Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif;
+  font:14.5px/1.7 "Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif;
 }
-.wrap{max-width:860px; margin:0 auto; padding:26px 18px 70px}
-header.top{display:flex; align-items:center; gap:14px; margin-bottom:22px}
-header.top h1{font-size:19px; margin:0; letter-spacing:.02em}
-header.top .sub{color:var(--faint); font-size:12.5px}
+.wrap{max-width:1060px; margin:0 auto; padding:22px 20px 70px}
+
+header.top{display:flex; align-items:center; gap:14px; margin-bottom:20px}
+header.top h1{font-size:18px; margin:0; letter-spacing:.04em}
+header.top h1 .mk{color:var(--accent); margin-right:8px}
+header.top .sub{color:var(--faint); font-size:12px; letter-spacing:.06em}
 header.top .sp{flex:1}
-header.top .who{font-size:13px; color:var(--dim)}
+header.top .who{font-size:12.5px; color:var(--dim)}
 
-.card{background:var(--card); border:1px solid var(--edge); border-radius:12px; padding:20px}
+.card{background:var(--panel); border:1px solid var(--edge); border-radius:12px; padding:18px 20px}
 .card + .card{margin-top:14px}
-h2{font-size:15px; margin:0 0 12px}
+h2{font-size:12px; margin:0 0 14px; color:var(--faint); font-weight:700;
+   letter-spacing:.14em; text-transform:uppercase; font-family:var(--mono)}
 
-label{display:block; font-size:13px; color:var(--dim); margin:12px 0 5px}
+/* ── 戰情磚 ── */
+.tiles{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-bottom:14px}
+.tile{background:var(--panel); border:1px solid var(--edge); border-radius:12px; padding:14px 16px}
+.tile .n{font-family:var(--mono); font-size:26px; font-weight:600; letter-spacing:-.02em;
+         font-variant-numeric:tabular-nums; display:block; line-height:1.2}
+.tile .n.hi{color:var(--hi)} .tile .n.ok{color:var(--accent)}
+.tile .l{font-size:12px; color:var(--dim); margin-top:4px; letter-spacing:.04em}
+
+/* 嚴重度長條（真資料堆疊） */
+.sevbar{display:flex; height:10px; border-radius:6px; overflow:hidden; background:var(--panel2); margin:6px 0 8px}
+.sevbar i{display:block; height:100%}
+.sevbar .s-hi{background:var(--hi)} .sevbar .s-mid{background:var(--mid)} .sevbar .s-low{background:var(--low)}
+.sevkey{display:flex; gap:16px; font-size:12px; color:var(--dim); font-family:var(--mono)}
+.sevkey b{font-weight:600}
+.sevkey .k-hi{color:var(--hi)} .sevkey .k-mid{color:var(--mid)} .sevkey .k-low{color:var(--low)}
+
+/* ── 表格 ── */
+table.list{width:100%; border-collapse:collapse; font-size:13.5px}
+table.list th{color:var(--faint); font-weight:600; text-align:left; font-size:11.5px;
+  letter-spacing:.08em; padding:7px 10px; border-bottom:1px solid var(--edge); font-family:var(--mono)}
+table.list td{padding:9px 10px; border-bottom:1px solid var(--edge)}
+table.list tr:last-child td{border-bottom:0}
+table.list a{color:var(--accent); font-weight:600; text-decoration:none}
+.num{font-family:var(--mono); font-variant-numeric:tabular-nums}
+td.hi{color:var(--hi); font-weight:700}
+
+/* ── 表單 ── */
+label{display:block; font-size:12.5px; color:var(--dim); margin:12px 0 5px; letter-spacing:.03em}
 input,textarea,select{
   width:100%; border:1px solid var(--edge); border-radius:8px; padding:9px 11px;
-  font:inherit; background:#fff; color:var(--ink);
+  font:inherit; background:var(--panel2); color:var(--ink);
 }
-input:focus,textarea:focus{outline:2px solid var(--accent-soft); border-color:var(--accent)}
-textarea{resize:vertical; min-height:120px; line-height:1.7}
+input:focus,textarea:focus{outline:0; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft)}
+textarea{resize:vertical; min-height:120px; line-height:1.7; font-size:13.5px}
 .row2{display:grid; grid-template-columns:1fr 1fr; gap:0 14px}
 .row4{display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:0 14px}
 
-.btn{
-  display:inline-block; border:0; border-radius:9px; padding:10px 18px; font:inherit;
-  background:var(--accent); color:#fff; cursor:pointer; font-weight:600;
-}
-.btn:disabled{opacity:.55; cursor:default}
-.btn.ghost{background:transparent; color:var(--accent); border:1px solid var(--accent)}
-.btn.sm{padding:6px 12px; font-size:13px}
+.btn{display:inline-block; border:0; border-radius:9px; padding:10px 18px; font:inherit;
+     background:var(--accent); color:#062521; cursor:pointer; font-weight:700}
+.btn:disabled{opacity:.5; cursor:default}
+.btn.ghost{background:transparent; color:var(--accent); border:1px solid var(--accent-dim)}
+.btn.sm{padding:6px 13px; font-size:13px}
 
-.err{margin-top:12px; padding:10px 13px; border-radius:8px; background:var(--bad-soft);
-     color:var(--bad); font-size:13.5px; display:none}
+.err{margin-top:12px; padding:10px 13px; border-radius:8px; background:var(--hi-soft);
+     color:var(--hi); font-size:13.5px; display:none}
 .err.on{display:block}
-.note{padding:11px 14px; border-radius:9px; background:var(--warn-soft); color:var(--warn);
-      font-size:13.5px; line-height:1.7}
 
-table.list{width:100%; border-collapse:collapse; font-size:14px}
-table.list th{color:var(--faint); font-weight:600; text-align:left; font-size:12.5px;
-              padding:8px 10px; border-bottom:1px solid var(--edge)}
-table.list td{padding:10px; border-bottom:1px solid var(--edge)}
-table.list tr:last-child td{border-bottom:0}
-table.list a{color:var(--accent); font-weight:600; text-decoration:none}
-.num{font-variant-numeric:tabular-nums}
+/* ── 覆盤項目 ── */
+.item{border:1px solid var(--edge); border-radius:11px; padding:14px 17px; margin-top:12px;
+      background:var(--panel2); border-left-width:3px}
+.item.sev-hi{border-left-color:var(--hi)} .item.sev-mid{border-left-color:var(--mid)}
+.item.sev-low{border-left-color:var(--low)} .item.action{border-left-color:var(--accent)}
+.item .k{font-size:11px; font-weight:700; letter-spacing:.1em; color:var(--faint); font-family:var(--mono)}
+.item p{margin:7px 0 0; font-size:14.5px}
+.sev{display:inline-block; font-size:11px; padding:2px 10px; border-radius:99px;
+     font-weight:700; font-family:var(--mono); letter-spacing:.06em; vertical-align:1px; margin-left:8px}
+.sev.sev-hi{background:var(--hi-soft); color:var(--hi)}
+.sev.sev-mid{background:var(--mid-soft); color:var(--mid)}
+.sev.sev-low{background:var(--low-soft); color:var(--low)}
+.quote{margin-top:10px; padding:8px 13px; border-left:2px solid var(--accent);
+       background:var(--accent-soft); border-radius:0 8px 8px 0;
+       font-size:13px; color:var(--dim); line-height:1.7}
+.quote .pos{color:var(--faint); font-size:11.5px; font-family:var(--mono)}
+.quote.badq{border-left-color:var(--hi); background:var(--hi-soft)}
+.crit{margin-top:8px; font-size:13px; color:var(--dim)}
+.crit b{color:var(--mid)}
 
-.item{border:1px solid var(--edge); border-radius:11px; padding:15px 17px; margin-top:12px}
-.item .k{font-size:12px; font-weight:700; letter-spacing:.08em; color:var(--accent)}
-.item.action .k{color:var(--warn)}
-.item p{margin:7px 0 0}
-.quote{
-  margin-top:10px; padding:9px 13px; border-left:3px solid var(--accent);
-  background:var(--accent-soft); border-radius:0 8px 8px 0;
-  font-size:13.5px; color:var(--dim); line-height:1.7;
-}
-.quote .pos{color:var(--faint); font-size:12px}
-.quote.badq{border-left-color:var(--bad); background:var(--bad-soft)}
-.badge{display:inline-block; font-size:11.5px; padding:2px 9px; border-radius:99px;
-       background:var(--accent-soft); color:var(--accent); font-weight:700}
-.badge.warn{background:var(--warn-soft); color:var(--warn)}
-.crit{margin-top:8px; font-size:13.5px; color:var(--dim)}
-.crit b{color:var(--warn)}
+.metrics{display:flex; gap:20px; flex-wrap:wrap; font-size:12.5px; color:var(--dim); font-family:var(--mono)}
+.metrics b{color:var(--ink); font-variant-numeric:tabular-nums; font-size:15px}
 
-.metrics{display:flex; gap:18px; flex-wrap:wrap; font-size:13.5px; color:var(--dim)}
-.metrics b{color:var(--ink); font-variant-numeric:tabular-nums}
-
-.loading{display:none; margin-top:14px; color:var(--dim); font-size:14px}
+.loading{display:none; margin-top:14px; color:var(--accent); font-size:13.5px; font-family:var(--mono)}
 .loading.on{display:block}
-a.plain{color:var(--accent)}
-.foot{margin-top:26px; font-size:12px; color:var(--faint); line-height:1.7}
+a.plain{color:var(--accent); text-decoration:none}
+.foot{margin-top:24px; font-size:11.5px; color:var(--faint); line-height:1.8}
+.empty{color:var(--faint); font-size:13.5px}

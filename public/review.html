@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>覆盤結果｜直播覆盤工作台</title>
+<title>覆盤結果｜直播 AI 指揮中心</title>
 <link rel="stylesheet" href="app.css">
 </head>
 <body>
@@ -17,7 +17,7 @@
   <div class="card" id="head"><h2>載入中…</h2></div>
 
   <div class="card">
-    <h2>本場最大的問題 <span class="badge" id="pcount"></span></h2>
+    <h2>本場最大的問題 <span class="sev sev-mid" id="pcount"></span></h2>
     <div id="problems"></div>
   </div>
 
@@ -50,6 +50,7 @@
     + "<span>在線峰值 <b>" + (m.peak_viewers ?? "–") + "</b></span>"
     + "<span>留言 <b>" + (m.comments ?? "–") + "</b></span>"
     + "<span>詢單 <b>" + (m.inquiries ?? "–") + "</b></span>"
+    + (m.viewers_total > 0 ? "<span>詢單率 <b>" + (m.inquiries / m.viewers_total * 100).toFixed(2) + "%</b></span>" : "")
     + "<span>模型 <b>" + esc(j.review.model) + "</b></span></div>"
     + (j.review.notes ? '<p style="margin:12px 0 0;color:var(--dim)">' + esc(j.review.notes) + "</p>" : "");
 
@@ -57,9 +58,10 @@
   const acts  = j.items.filter((x) => x.kind === "action");
   document.getElementById("pcount").textContent = probs.length + " 個";
 
+  const sevCls = (s) => s === "重大" ? "sev-hi" : s === "輕微" ? "sev-low" : "sev-mid";
   document.getElementById("problems").innerHTML = probs.length ? probs.map((p) =>
-    '<div class="item"><span class="k">問題 ' + p.seq + "</span>　"
-    + '<span class="badge' + (p.severity === "重大" ? "" : " warn") + '">' + esc(p.severity || "中") + "</span>"
+    '<div class="item ' + sevCls(p.severity) + '"><span class="k">問題 ' + p.seq + "</span>"
+    + '<span class="sev ' + sevCls(p.severity) + '">' + esc(p.severity || "中") + "</span>"
     + "<p>" + esc(p.ai_text) + "</p>"
     + '<div class="quote' + (p.quote_ok ? "" : " badq") + '">「' + esc(p.quote) + "」"
     + '<span class="pos">　約 ' + esc(p.quote_pos || "?") + (p.quote_ok ? "" : "　⚠ 出處對不上原文，請人工確認") + "</span></div></div>"

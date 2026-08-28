@@ -84,6 +84,42 @@ async function route(request, env, db, url) {
   const me = await currentUser(request, db);
   if (!me) return J({ ok: false, error: "not_logged_in", message: "請先登入。" }, 401);
 
+  /* ── 指揮中心總覽：全部是真算出來的數字，沒有裝飾用的假儀表 ── */
+  if (p === "/api/dashboard" && m === "GET") {
+    const streams = await db.all(
+      `SELECT l.id, l.live_date, l.metrics_json, s.name AS streamer,
+              (SELECT r.id FROM reviews r WHERE r.livestream_id = l.id AND r.status='done'
+                ORDER BY r.id DESC LIMIT 1) AS review_id
+         FROM livestreams l JOIN streamers s ON s.id = l.streamer_id
+        ORDER BY l.live_date DESC, l.id DESC`);
+    const probs = await db.all(
+      `SELECT ri.severity, ri.quote_ok, l.streamer_id, s.name AS streamer, r.livestream_id
+         FROM review_items ri
+         JOIN reviews r ON r.id = ri.review_id AND r.status='done'
+         JOIN livestreams l ON l.id = r.livestream_id
+         JOIN streamers s ON s.id = l.streamer_id
+        WHERE ri.kind = 'problem'`);
+
+    const sev = { 重大: 0, 中: 0, 輕微: 0 };
+    let quoteOk = 0;
+    for (const x of probs) { if (sev[x.severity] !== undefined) sev[x.severity]++; if (x.quote_ok) quoteOk++; }
+
+    const byStreamer = {};
+    for (const l of streams) {
+      const b = byStreamer[l.streamer] ||= { streamer: l.streamer, count: 0, last: "", inquiries: 0, viewers: 0, hi: 0, last_review: null };
+      b.count++; if (l.live_date > b.last) b.last = l.live_date;
+      if (!b.last_review && l.review_id) b.last_review = l.review_id;
+      try { const mm = JSON.parse(l.metrics_json); b.inquiries += mm.inquiries || 0; b.viewers += mm.viewers_total || 0; } catch (e) {}
+    }
+    for (const x of probs) if (x.severity === "重大" && byStreamer[x.streamer]) byStreamer[x.streamer].hi++;
+
+    return J({ ok: true,
+      totals: { streams: streams.length, problems: probs.length, sev,
+                quote_rate: probs.length ? Math.round(quoteOk / probs.length * 100) : null },
+      streamers: Object.values(byStreamer),
+      recent: streams.slice(0, 6) });
+  }
+
   if (p === "/api/livestreams" && m === "GET") {
     const rows = await db.all(
       `SELECT l.id, l.live_date, l.metrics_json, s.name AS streamer,
