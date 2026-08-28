@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>初始化｜直播覆盤工作台</title>
+<link rel="stylesheet" href="app.css">
+<style>.wrap{max-width:460px; padding-top:8vh}</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <h2>建立管理員帳號（只做一次）</h2>
+    <p style="color:var(--dim); font-size:13.5px; margin:0 0 6px">
+      需要部署時設定的初始化代碼。系統已經有帳號的話，這一頁不能用。
+    </p>
+    <label for="code">初始化代碼</label>
+    <input id="code" autocomplete="off">
+    <label for="name">顯示名稱</label>
+    <input id="name" maxlength="40">
+    <label for="email">電子郵件</label>
+    <input id="email" type="email" autocomplete="email">
+    <label for="pw">密碼（至少 8 個字）</label>
+    <input id="pw" type="password" autocomplete="new-password" minlength="8">
+    <div class="err" id="err"></div>
+    <div style="margin-top:16px"><button class="btn" id="go" style="width:100%">建立並登入</button></div>
+  </div>
+</div>
+<script src="app.js"></script>
+<script>
+(async () => {
+  const me = await api("/api/me");
+  if (me.user) { location.href = "index.html"; return; }
+  if (!me.needsSetup) { location.href = "login.html"; return; }
+  document.getElementById("go").addEventListener("click", async () => {
+    showErr("");
+    const j = await api("/api/setup", {
+      code: document.getElementById("code").value.trim(),
+      name: document.getElementById("name").value.trim(),
+      email: document.getElementById("email").value.trim(),
+      password: document.getElementById("pw").value,
+    });
+    if (j.ok) { location.href = "index.html"; return; }
+    showErr(j.message || "初始化失敗");
+  });
+})();
+</script>
+</body>
+</html>

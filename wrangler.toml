@@ -1,0 +1,32 @@
+# 直播覆盤工作台 —— 主系統底座上的第一個模組
+#
+# 儲存用 Durable Object 的 SQLite，不用 D1，原因有三：
+#   1. 這台開發帳號的 D1 是 10/10 滿的（而且那些是客戶的庫，不混用）
+#   2. DO SQLite 和 D1 是同一個 SQL 方言，schema 原封不動就能搬 ——
+#      正式上線搬去公司帳號時，開 D1 跑同一份 schema 即可
+#   3. 主系統之後的即時收件匣本來就需要 DO，現在引入是順路不是繞路
+#
+# 部署目標：瑋瑋公司自己開的 Cloudflare 帳號（等他開好）。
+# 開好之前一律 `npx wrangler dev` 本機跑，不部署到任何現有帳號。
+
+name = "stream-review-workbench"
+main = "src/index.js"
+compatibility_date = "2026-06-24"   # 這版 wrangler 的 workerd 最高支援到這天
+
+[assets]
+directory = "public"
+
+[[durable_objects.bindings]]
+name = "APPDB"
+class_name = "AppDB"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["AppDB"]
+
+# 秘密（本機放 .dev.vars，永不進 git；部署用 wrangler secret put）：
+#   GEMINI_API_KEY  必填
+#   SETUP_CODE      首次建立管理員帳號用的一次性代碼
+# 一般變數：
+[vars]
+GEMINI_MODEL = "gemini-3.7-flash"

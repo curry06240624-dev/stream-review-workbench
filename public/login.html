@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>登入｜直播覆盤工作台</title>
+<link rel="stylesheet" href="app.css">
+<style>.wrap{max-width:420px; padding-top:9vh}</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <h2>直播覆盤工作台</h2>
+    <label for="email">電子郵件</label>
+    <input id="email" type="email" autocomplete="email">
+    <label for="pw">密碼</label>
+    <input id="pw" type="password" autocomplete="current-password">
+    <div class="err" id="err"></div>
+    <div style="margin-top:16px"><button class="btn" id="go" style="width:100%">登入</button></div>
+  </div>
+</div>
+<script src="app.js"></script>
+<script>
+(async () => {
+  const me = await api("/api/me");
+  if (me.needsSetup) { location.href = "setup.html"; return; }
+  if (me.user) { location.href = "index.html"; return; }
+  const go = async () => {
+    showErr("");
+    const j = await api("/api/login", {
+      email: document.getElementById("email").value.trim(),
+      password: document.getElementById("pw").value,
+    });
+    if (j.ok) { location.href = "index.html"; return; }
+    showErr(j.message || "登入失敗");
+  };
+  document.getElementById("go").addEventListener("click", go);
+  document.getElementById("pw").addEventListener("keydown", (e) => { if (e.key === "Enter") go(); });
+})();
+</script>
+</body>
+</html>

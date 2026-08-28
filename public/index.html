@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>直播覆盤工作台</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>直播覆盤工作台</h1>
+      <div class="sub">每一場直播，AI 先整理、運營來判斷</div>
+    </div>
+    <span class="sp"></span>
+    <span class="who" id="who"></span>
+    <button class="btn ghost sm" onclick="logout()">登出</button>
+  </header>
+
+  <div class="card">
+    <h2 style="display:flex;align-items:center">直播列表
+      <span style="flex:1"></span>
+      <a class="btn sm" href="new.html" style="text-decoration:none">＋ 新增直播</a>
+    </h2>
+    <table class="list" id="tbl">
+      <thead><tr><th>日期</th><th>直播主</th><th class="num">觀看</th><th class="num">在線峰值</th><th class="num">詢單</th><th>覆盤</th></tr></thead>
+      <tbody id="rows"><tr><td colspan="6" style="color:var(--faint)">載入中…</td></tr></tbody>
+    </table>
+  </div>
+
+  <p class="foot">
+    第一階段：全部使用假資料，不連接任何正式系統。<br>
+    AI 覆盤的每一條問題都附逐字稿原文出處，出處對不上的會標示出來 —— 請以人的判斷為準。
+  </p>
+</div>
+
+<script src="app.js"></script>
+<script>
+(async () => {
+  if (!await requireLogin()) return;
+  const j = await api("/api/livestreams");
+  const tb = document.getElementById("rows");
+  if (!j.ok) { tb.innerHTML = '<tr><td colspan="6">' + esc(j.message || "載入失敗") + "</td></tr>"; return; }
+  if (!j.livestreams.length) {
+    tb.innerHTML = '<tr><td colspan="6" style="color:var(--faint)">還沒有資料 —— 按右上「新增直播」貼第一場逐字稿。</td></tr>';
+    return;
+  }
+  tb.innerHTML = j.livestreams.map((l) => {
+    let m = {};
+    try { m = JSON.parse(l.metrics_json); } catch (e) {}
+    const rv = l.review_id
+      ? '<a href="review.html?id=' + l.review_id + '">看覆盤 →</a>'
+      : '<span style="color:var(--faint)">無</span>';
+    return "<tr><td>" + esc(l.live_date) + "</td><td>" + esc(l.streamer) + "</td>"
+      + '<td class="num">' + (m.viewers_total ?? "–") + '</td><td class="num">' + (m.peak_viewers ?? "–")
+      + '</td><td class="num">' + (m.inquiries ?? "–") + "</td><td>" + rv + "</td></tr>";
+  }).join("");
+})();
+</script>
+</body>
+</html>
