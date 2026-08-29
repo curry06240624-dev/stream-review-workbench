@@ -7,17 +7,14 @@
 <title>直播 AI 指揮中心</title>
 <link rel="stylesheet" href="app.css">
 </head>
-<body>
+<body class="app">
+<div class="side" id="side"></div>
+<div class="main">
 <div class="wrap">
   <header class="top">
-    <div>
-      <h1><span class="mk">◤</span>直播 AI 指揮中心</h1>
-      <div class="sub">COMMAND CENTER ・ 覆盤模組 v1</div>
-    </div>
+    <div><h1>總覽</h1><div class="sub">全公司戰情，數字全部即時計算</div></div>
     <span class="sp"></span>
-    <span class="who" id="who"></span>
     <a class="btn sm" href="new.html" style="text-decoration:none">＋ 分析新直播</a>
-    <button class="btn ghost sm" onclick="logout()">登出</button>
   </header>
 
   <!-- 戰情磚：全部是資料庫真算出來的 -->
@@ -49,11 +46,15 @@
     AI 覆盤的每一條問題都附逐字稿原文出處並經伺服器逐字核對 —— 出處對不上的會標示，請以人的判斷為準。
   </p>
 </div>
+</div>
 
 <script src="app.js"></script>
 <script>
 (async () => {
-  if (!await requireLogin()) return;
+  const u = await requireLogin();
+  if (!u) return;
+  const ib = await api("/api/inbox");
+  renderSidebar(u, "index.html", ib.ok ? ib.counts : null);
   const j = await api("/api/dashboard");
   if (!j.ok) { document.getElementById("strows").innerHTML = '<tr><td colspan="7">' + esc(j.message || "載入失敗") + "</td></tr>"; return; }
 

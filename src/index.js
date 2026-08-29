@@ -7,6 +7,7 @@
 import { AppDB } from "./db.js";
 import { currentUser, createUser, issueSession, login, setCookie, cookieOf } from "./auth.js";
 import { runReview } from "./gemini.js";
+import { listConversations, getConversation, assign, reply, inboxCounts, canSeeAll } from "./inbox.js";
 
 export { AppDB };
 
@@ -83,6 +84,107 @@ async function route(request, env, db, url) {
   /* ── 以下全部要登入 ── */
   const me = await currentUser(request, db);
   if (!me) return J({ ok: false, error: "not_logged_in", message: "請先登入。" }, 401);
+
+  /* ── 假資料寫入。只有 admin，而且只在對話數為 0 時能跑 ——
+       這是開發用的種子，不是給正式資料用的匯入端點。 ── */
+  if (p === "/api/seed-inbox" && m === "POST") {
+    if (me.role !== "admin") return J({ ok: false, error: "forbidden" }, 403);
+    const n = await db.first("SELECT COUNT(*) AS c FROM conversations");
+    if (n.c > 0) return J({ ok: false, error: "not_empty", message: `已經有 ${n.c} 個對話了，不重複寫入。` }, 409);
+    const b = await request.json().catch(() => ({}));
+    let nc = 0, nv = 0, nm = 0;
+    for (const c of b.contacts || []) {
+      const ct = await db.run(
+        "INSERT INTO contacts (display_name, phone, grade, created_at) VALUES (?, ?, ?, ?)",
+        String(c.display_name).slice(0, 40), String(c.phone || "").slice(0, 30),
+        ["S", "A", "B", "C"].includes(c.grade) ? c.grade : "C", now());
+      nc++;
+      await db.run(
+        "INSERT INTO contact_channels (contact_id, channel, channel_uid, source) VALUES (?, 'line', ?, ?)",
+        ct.lastRowId, String(c.channel_uid), String(c.source || ""));
+      const msgs = c.messages || [];
+      const last = msgs.length ? msgs[msgs.length - 1].created_at : now();
+      const cv = await db.run(
+        `INSERT INTO conversations (contact_id, channel, assigned_to, last_message_at, unread, created_at)
+         VALUES (?, 'line', ?, ?, ?, ?)`,
+        ct.lastRowId, c.assigned_to ?? null, last,
+        msgs.length && msgs[msgs.length - 1].direction === "in" ? 1 : 0, now());
+      nv++;
+      for (const msg of msgs) {
+        await db.run(
+          `INSERT INTO messages (conversation_id, direction, sender_user_id, text, created_at)
+           VALUES (?, ?, ?, ?, ?)`,
+          cv.lastRowId, msg.direction === "out" ? "out" : "in",
+          msg.sender_user_id ?? null, String(msg.text).slice(0, 2000), msg.created_at || now());
+        nm++;
+      }
+    }
+    return J({ ok: true, contacts: nc, conversations: nv, messages: nm });
+  }
+
+  /* ── 成員管理：只有 admin 能開帳號（運營／訊息手） ── */
+  if (p === "/api/members" && m === "GET") {
+    if (me.role !== "admin") return J({ ok: false, error: "forbidden" }, 403);
+    const rows = await db.all(
+      `SELECT u.id, u.email, u.name, u.role, u.created_at,
+              (SELECT COUNT(*) FROM conversations c WHERE c.assigned_to = u.id) AS conv_count
+         FROM users u ORDER BY u.id`);
+    return J({ ok: true, members: rows });
+  }
+  if (p === "/api/members" && m === "POST") {
+    if (me.role !== "admin") return J({ ok: false, error: "forbidden", message: "只有管理者可以新增成員。" }, 403);
+    const b = await request.json().catch(() => ({}));
+    const email = String(b.email || "").trim().toLowerCase();
+    const password = String(b.password || "");
+    const name = String(b.name || "").trim();
+    const role = ["operator", "agent"].includes(b.role) ? b.role : "agent";
+    if (!/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(email)) return J({ ok: false, error: "bad_email", message: "信箱格式不對。" }, 400);
+    if (password.length < 8) return J({ ok: false, error: "weak", message: "密碼至少 8 個字。" }, 400);
+    if (!name) return J({ ok: false, error: "no_name", message: "要填名字。" }, 400);
+    if (await db.first("SELECT id FROM users WHERE email = ?", email)) {
+      return J({ ok: false, error: "taken", message: "這個信箱已經有帳號了。" }, 409);
+    }
+    const id = await createUser(db, { email, name, password, role });
+    return J({ ok: true, id });
+  }
+
+  /* ══ 訊息中心 ══ 權限全部在伺服器端算，見 inbox.js 的說明 ══ */
+  if (p === "/api/inbox" && m === "GET") {
+    const box = url.searchParams.get("box") || "all";
+    const [conversations, counts] = await Promise.all([
+      listConversations(db, me, box), inboxCounts(db, me),
+    ]);
+    let agents = [];
+    if (canSeeAll(me.role)) {
+      agents = await db.all("SELECT id, name, role FROM users WHERE role='agent' ORDER BY name");
+    }
+    return J({ ok: true, conversations, counts, agents, me: { id: me.id, role: me.role, name: me.name } });
+  }
+
+  const mConv = p.match(/^\/api\/conversations\/(\d+)$/);
+  if (mConv && m === "GET") {
+    const data = await getConversation(db, me, Number(mConv[1]));
+    // 看不到就是 404 —— 回 403 等於承認「這個對話存在」，那本身就是洩漏
+    if (!data) return J({ ok: false, error: "not_found", message: "找不到這個對話。" }, 404);
+    return J({ ok: true, ...data });
+  }
+
+  const mAssign = p.match(/^\/api\/conversations\/(\d+)\/assign$/);
+  if (mAssign && m === "POST") {
+    const b = await request.json().catch(() => ({}));
+    const to = b.to_user_id === null || b.to_user_id === "" ? null : Number(b.to_user_id);
+    const r = await assign(db, me, Number(mAssign[1]), to, now());
+    if (r.error) return J({ ok: false, ...r }, r.error === "forbidden" ? 403 : 404);
+    return J({ ok: true });
+  }
+
+  const mReply = p.match(/^\/api\/conversations\/(\d+)\/reply$/);
+  if (mReply && m === "POST") {
+    const b = await request.json().catch(() => ({}));
+    const r = await reply(db, me, Number(mReply[1]), b.text, now());
+    if (r.error) return J({ ok: false, ...r }, r.error === "not_found" ? 404 : 400);
+    return J({ ok: true });
+  }
 
   /* ── 指揮中心總覽：全部是真算出來的數字，沒有裝飾用的假儀表 ── */
   if (p === "/api/dashboard" && m === "GET") {

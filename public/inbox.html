@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>訊息中心｜AI 指揮中心</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body class="app">
+<div class="side" id="side"></div>
+
+<div class="main">
+  <div class="mc">
+    <div class="col-list">
+      <div class="hd">
+        <span class="t">收件匣</span>
+        <select id="box" style="width:auto;padding:4px 8px;font-size:12px;margin-left:auto"></select>
+      </div>
+      <div class="convs" id="convs"></div>
+    </div>
+
+    <div class="col-thread">
+      <div class="hd" id="chd"><span class="t">訊息中心</span></div>
+      <div class="thread" id="thread"><div class="ph">從左邊選一個對話</div></div>
+      <div id="foot"></div>
+    </div>
+
+    <div class="col-side" id="cside"></div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+let ME = null, DATA = null, CUR = null;
+
+(async () => {
+  const u = await requireLogin();
+  if (!u) return;
+  await load();
+})();
+
+async function load(keep) {
+  const box = document.getElementById("box").value || "all";
+  const j = await api("/api/inbox?box=" + encodeURIComponent(box));
+  if (!j.ok) return;
+  DATA = j; ME = j.me;
+  renderSidebar(ME, "inbox.html", j.counts);
+  renderBoxes(box);
+  renderList();
+  if (keep) openConv(keep, true);
+}
+
+function renderBoxes(cur) {
+  const c = DATA.counts, canAll = ME.role === "admin" || ME.role === "operator";
+  const opts = canAll
+    ? [["all", "全部 " + c.all], ["unassigned", "未指派 " + c.unassigned], ["mine", "我的 " + c.mine]]
+    : [["all", "我的對話 " + c.mine]];
+  const sel = document.getElementById("box");
+  sel.innerHTML = opts.map(([v, t]) => '<option value="' + v + '"' + (v === cur ? " selected" : "") + ">" + t + "</option>").join("");
+  sel.onchange = () => load();
+}
+
+function renderList() {
+  const el = document.getElementById("convs");
+  if (!DATA.conversations.length) {
+    el.innerHTML = '<div style="padding:22px 16px" class="empty">這個收件匣沒有對話。</div>'; return;
+  }
+  el.innerHTML = DATA.conversations.map((c) =>
+    '<a class="cv' + (CUR === c.id ? " on" : "") + '" href="#" onclick="openConv(' + c.id + ');return false">'
+    + '<div class="r1"><span class="nm">' + esc(c.display_name) + "</span>"
+    + '<span class="tm">' + ago(c.last_message_at) + "</span></div>"
+    + '<div class="pv">' + (c.last_dir === "out" ? "↩ " : "") + esc(c.last_text || "") + "</div>"
+    + '<div class="r3"><span class="gr g-' + esc(c.grade) + '">' + esc(c.grade) + "</span>"
+    + '<span class="who2' + (c.assigned_to ? "" : " none") + '">'
+    + (c.assigned_to ? esc(c.agent_name) : "未指派") + "</span>"
+    + (c.unread ? '<span class="dot"></span>' : "") + "</div></a>"
+  ).join("");
+}
+
+async function openConv(id, silent) {
+  const j = await api("/api/conversations/" + id);
+  if (!j.ok) {
+    document.getElementById("thread").innerHTML =
+      '<div class="ph">' + esc(j.message || "看不到這個對話") + "</div>";
+    return;
+  }
+  CUR = id; renderList();
+  const c = j.conversation, canAll = ME.role === "admin" || ME.role === "operator";
+  const mine = c.assigned_to === ME.id;
+
+  document.getElementById("chd").innerHTML =
+    '<button class="btn ghost sm mobonly" onclick="backToList()" style="margin-right:4px">←</button>'
+    + '<span class="t">' + esc(c.display_name) + "</span>"
+    + '<span class="gr g-' + esc(c.grade) + '">' + esc(c.grade) + "</span>"
+    + '<span style="margin-left:auto">' + (c.assigned_to ? esc(c.agent_name) : "未指派") + "</span>"
+    + '<button class="btn ghost sm mobonly" onclick="toggleInfo()">客戶</button>';
+  document.body.classList.add("conv-open");
+
+  document.getElementById("thread").innerHTML = j.messages.map((m) =>
+    '<div class="bub ' + (m.direction === "in" ? "in" : "out") + '">' + esc(m.text)
+    + '<span class="mt">' + (m.direction === "out" && m.sender_name ? esc(m.sender_name) + "・" : "")
+    + when(m.created_at) + "</span></div>").join("");
+  const th = document.getElementById("thread"); th.scrollTop = th.scrollHeight;
+
+  // 可以回覆的條件跟伺服器端一致：管理職，或這通指派給我
+  document.getElementById("foot").innerHTML = (canAll || mine)
+    ? '<div class="composer"><textarea id="rp" placeholder="輸入回覆…"></textarea>'
+      + '<button class="btn" onclick="send(' + id + ')">送出</button></div>'
+    : '<div class="locked">這個對話指派給 ' + esc(c.agent_name || "其他人") + '，你不能回覆。</div>';
+  const rp = document.getElementById("rp");
+  if (rp) { autoGrow(rp); rp.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) send(id); }); }
+
+  // 右欄：客戶資料＋指派
+  let side = '<div class="kv">電話（自有身分鍵）<b>' + esc(c.phone || "—") + "</b></div>"
+    + '<div class="kv">分級<b>' + esc(c.grade) + "</b></div>"
+    + '<div class="kv">渠道<b>' + j.channels.map((x) => esc(x.channel.toUpperCase())).join("、") + "</b></div>"
+    + '<div class="kv">獲客來源<b>' + esc(j.channels[0]?.source || "—") + "</b></div>";
+  if (canAll) {
+    side += '<label for="asg">指派給</label><select id="asg">'
+      + '<option value="">未指派</option>'
+      + DATA.agents.map((a) => '<option value="' + a.id + '"'
+        + (a.id === c.assigned_to ? " selected" : "") + ">" + esc(a.name) + "</option>").join("")
+      + "</select>"
+      + '<button class="btn sm" style="margin-top:10px;width:100%" onclick="doAssign(' + id + ')">更新指派</button>';
+  }
+  side += '<p style="font-size:11.5px;color:var(--faint);margin-top:18px;line-height:1.7">'
+    + "第一階段：假資料，不連接 LINE。<br>回覆只寫進本系統，不會真的送出。</p>";
+  document.getElementById("cside").innerHTML = side;
+}
+
+/* 手機版：切換客戶資料欄（桌機一直都在，這個 class 不影響） */
+function toggleInfo() {
+  document.body.classList.toggle("info-open");
+}
+
+/* 手機版：從對話退回收件匣（桌機兩欄同時在，這個 class 不影響） */
+function backToList() {
+  document.body.classList.remove("conv-open", "info-open");
+  CUR = null; renderList();
+}
+
+async function send(id) {
+  const ta = document.getElementById("rp");
+  const text = ta.value.trim();
+  if (!text) return;
+  const j = await api("/api/conversations/" + id + "/reply", { text });
+  if (!j.ok) return alert(j.message || "送出失敗");
+  ta.value = "";
+  await load(id);
+}
+
+async function doAssign(id) {
+  const v = document.getElementById("asg").value;
+  const j = await api("/api/conversations/" + id + "/assign", { to_user_id: v === "" ? null : Number(v) });
+  if (!j.ok) return alert(j.message || "指派失敗");
+  await load(id);
+}
+
+function ago(iso) {
+  const d = (Date.now() - new Date(iso).getTime()) / 60000;
+  if (d < 1) return "剛剛";
+  if (d < 60) return Math.floor(d) + " 分";
+  if (d < 1440) return Math.floor(d / 60) + " 小時";
+  return Math.floor(d / 1440) + " 天";
+}
+function when(iso) {
+  const d = new Date(iso);
+  return (d.getMonth() + 1) + "/" + d.getDate() + " "
+    + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+}
+</script>
+</body>
+</html>

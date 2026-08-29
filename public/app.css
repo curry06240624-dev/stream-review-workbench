@@ -103,3 +103,106 @@ textarea{resize:vertical; min-height:120px; line-height:1.7; font-size:13.5px}
 a.plain{color:var(--accent); text-decoration:none}
 .foot{margin-top:24px; font-size:11.5px; color:var(--faint); line-height:1.8}
 .empty{color:var(--faint); font-size:13.5px}
+
+/* ══ 側邊欄：照 Super 8 的模組結構排，瑋瑋的人不用重學 ══ */
+body.app{display:flex; min-height:100vh}
+.side{
+  width:196px; flex:none; background:var(--panel2); border-right:1px solid var(--edge);
+  display:flex; flex-direction:column; padding:16px 0;
+}
+.side .brand{padding:0 18px 16px; font-size:14.5px; font-weight:700; letter-spacing:.03em}
+.side .brand .mk{color:var(--accent); margin-right:6px}
+.side .brand small{display:block; color:var(--faint); font-size:10.5px; font-weight:400;
+                   letter-spacing:.12em; font-family:var(--mono); margin-top:3px}
+.side nav{display:flex; flex-direction:column; gap:1px; flex:1}
+.side a.nv{
+  display:flex; align-items:center; gap:9px; padding:9px 18px; color:var(--dim);
+  text-decoration:none; font-size:13.5px; border-left:2px solid transparent;
+}
+.side a.nv:hover{background:var(--panel); color:var(--ink)}
+.side a.nv.on{background:var(--panel); color:var(--accent); border-left-color:var(--accent); font-weight:600}
+.side a.nv .ct{margin-left:auto; font-family:var(--mono); font-size:11px;
+               background:var(--edge); color:var(--dim); padding:1px 7px; border-radius:99px}
+.side a.nv.on .ct{background:var(--accent); color:#062521}
+.side .foot2{padding:12px 18px 0; border-top:1px solid var(--edge); font-size:11.5px; color:var(--faint)}
+.side .foot2 b{color:var(--dim); display:block; font-size:12.5px; font-weight:600}
+.main{flex:1; min-width:0; display:flex; flex-direction:column}
+
+/* ══ 訊息中心三欄 ══ */
+.mc{display:grid; grid-template-columns:288px 1fr 236px; flex:1; min-height:0}
+.mc > div{min-width:0; display:flex; flex-direction:column}
+.mc .col-list{border-right:1px solid var(--edge)}
+.mc .col-side{border-left:1px solid var(--edge); padding:16px; overflow-y:auto}
+.mc .hd{padding:11px 15px; border-bottom:1px solid var(--edge); display:flex; align-items:center;
+        gap:9px; font-size:12px; color:var(--faint); font-family:var(--mono); letter-spacing:.1em}
+.mc .hd .t{color:var(--ink); font-family:"Noto Sans TC",sans-serif; font-size:14.5px;
+           font-weight:700; letter-spacing:0}
+
+.convs{overflow-y:auto; flex:1}
+.cv{padding:11px 15px; border-bottom:1px solid var(--edge); cursor:pointer; display:block;
+    text-decoration:none; color:inherit; border-left:2px solid transparent}
+.cv:hover{background:var(--panel)}
+.cv.on{background:var(--panel); border-left-color:var(--accent)}
+.cv .r1{display:flex; align-items:baseline; gap:7px}
+.cv .nm{font-weight:600; font-size:14px}
+.cv .tm{margin-left:auto; font-size:11px; color:var(--faint); font-family:var(--mono); flex:none}
+.cv .pv{font-size:12.5px; color:var(--dim); margin-top:3px; overflow:hidden;
+        text-overflow:ellipsis; white-space:nowrap}
+.cv .r3{display:flex; align-items:center; gap:6px; margin-top:6px}
+.gr{font-family:var(--mono); font-size:10.5px; font-weight:700; padding:1px 6px; border-radius:4px}
+.gr.g-S{background:var(--hi-soft); color:var(--hi)}
+.gr.g-A{background:var(--mid-soft); color:var(--mid)}
+.gr.g-B{background:var(--accent-soft); color:var(--accent)}
+.gr.g-C{background:var(--low-soft); color:var(--low)}
+.who2{font-size:11px; color:var(--faint); font-family:var(--mono)}
+.who2.none{color:var(--mid)}
+.dot{width:7px; height:7px; border-radius:99px; background:var(--accent); flex:none; margin-left:auto}
+
+.thread{flex:1; overflow-y:auto; padding:18px 20px; display:flex; flex-direction:column; gap:11px}
+.bub{max-width:74%; padding:9px 14px; border-radius:13px; font-size:14px; line-height:1.65}
+.bub.in{background:var(--panel); border:1px solid var(--edge); align-self:flex-start; border-bottom-left-radius:4px}
+.bub.out{background:var(--accent-dim); color:var(--ink); align-self:flex-end; border-bottom-right-radius:4px}
+.bub .mt{display:block; font-size:10.5px; color:var(--faint); font-family:var(--mono); margin-top:5px}
+.composer{border-top:1px solid var(--edge); padding:12px 16px; display:flex; gap:10px; align-items:flex-end}
+.composer textarea{min-height:42px; max-height:150px; margin:0}
+.locked{border-top:1px solid var(--edge); padding:14px 16px; color:var(--mid);
+        font-size:13px; background:var(--mid-soft)}
+.ph{flex:1; display:grid; place-items:center; color:var(--faint); font-size:13.5px}
+.kv{font-size:12.5px; color:var(--dim); margin-bottom:11px}
+.kv b{display:block; color:var(--ink); font-size:13.5px; font-family:var(--mono); margin-top:2px}
+
+/* ══ 手機版 ══ 三欄塞不進 375px，改成單欄切換：收件匣 ↔ 對話
+   （實測 375px 下文件寬 720px、右欄完全在螢幕外） */
+.mobonly{display:none}
+@media (max-width: 900px){
+  body.app{flex-direction:column}
+  .side{
+    width:100%; flex:none; flex-direction:row; align-items:center; padding:0 6px;
+    border-right:0; border-bottom:1px solid var(--edge); overflow-x:auto;
+  }
+  .side .brand{padding:11px 8px; font-size:13px; white-space:nowrap}
+  .side .brand small{display:none}
+  .side nav{flex-direction:row; flex:0 0 auto; gap:0}
+  .side a.nv{border-left:0; border-bottom:2px solid transparent; padding:13px 11px; white-space:nowrap}
+  .side a.nv.on{border-left-color:transparent; border-bottom-color:var(--accent); background:transparent}
+  .side .foot2{
+    border-top:0; padding:0 8px 0 14px; margin-left:auto; white-space:nowrap;
+    display:flex; align-items:center; gap:10px;
+  }
+  .side .foot2 b{display:inline; font-size:12.5px}
+  .side .foot2 > div{margin-top:0 !important}
+
+  .mc{grid-template-columns:1fr; height:auto}
+  .mc .col-list{border-right:0}
+  .mc .col-thread, .mc .col-side{display:none}
+  body.conv-open .mc .col-list{display:none}
+  body.conv-open .mc .col-thread{display:flex}
+  body.conv-open.info-open .mc .col-side{display:flex; border-left:0; border-top:1px solid var(--edge)}
+  .mobonly{display:inline-block}
+  .thread{padding:14px}
+  .bub{max-width:86%}
+  .wrap{padding:16px 14px 60px}
+  .tiles{grid-template-columns:repeat(2,1fr)}
+  table.list{font-size:12.5px}
+  table.list th,table.list td{padding:7px 6px}
+}

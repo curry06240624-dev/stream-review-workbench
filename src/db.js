@@ -32,6 +32,62 @@ CREATE TABLE IF NOT EXISTS failed_logins (
   count INTEGER NOT NULL DEFAULT 0,
   until TEXT
 );
+/* ══ 訊息中心（Super 8 的核心）══════════════════════════════════
+   權限模型照瑋瑋電話裡描述的：運營指派對話給訊息手，被指派者獨占，
+   同層級互不可見，管理職全見。role: admin | operator | agent
+
+   ⚠️ 身分鍵的設計是這套系統勝過 Super 8 的地方：
+   LINE 的 userId 是綁「單一官方帳號」的（官方 FAQ 查證過），換帳號就對不回來。
+   所以 contacts 的主軸是 phone（自有身分鍵），channel_uid 只是某個渠道的別名。
+   一個人可以有多個 channel_uid（LINE 換號、FB、IG），但 phone 只有一組。 */
+CREATE TABLE IF NOT EXISTS contacts (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  display_name  TEXT NOT NULL,
+  phone         TEXT NOT NULL DEFAULT '',      -- 自有身分鍵，跨渠道跨帳號都對得回來
+  grade         TEXT NOT NULL DEFAULT 'C',     -- S | A | B | C（C＝未持續互動）
+  note          TEXT NOT NULL DEFAULT '',
+  blocked       INTEGER NOT NULL DEFAULT 0,
+  created_at    TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS contact_channels (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  contact_id  INTEGER NOT NULL REFERENCES contacts(id),
+  channel     TEXT NOT NULL,                   -- line | fb | ig
+  channel_uid TEXT NOT NULL,                   -- 該渠道的 ID，換官方帳號就會變
+  source      TEXT NOT NULL DEFAULT '',        -- 獲客渠道：meta | ig | line_search…
+  UNIQUE(channel, channel_uid)
+);
+CREATE TABLE IF NOT EXISTS conversations (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  contact_id      INTEGER NOT NULL REFERENCES contacts(id),
+  channel         TEXT NOT NULL DEFAULT 'line',
+  assigned_to     INTEGER REFERENCES users(id),  -- NULL＝未指派，在運營的收件匣
+  status          TEXT NOT NULL DEFAULT 'open',  -- open | closed
+  last_message_at TEXT NOT NULL,
+  unread          INTEGER NOT NULL DEFAULT 0,
+  created_at      TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS messages (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  conversation_id INTEGER NOT NULL REFERENCES conversations(id),
+  direction       TEXT NOT NULL,                 -- in（客戶）| out（我們）
+  sender_user_id  INTEGER REFERENCES users(id),  -- out 才有
+  text            TEXT NOT NULL,
+  created_at      TEXT NOT NULL
+);
+/* 指派紀錄：誰把誰的對話轉給誰。瑋瑋要的可稽核性，Super 8 沒有給他這個。 */
+CREATE TABLE IF NOT EXISTS assignment_log (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  conversation_id INTEGER NOT NULL REFERENCES conversations(id),
+  from_user_id    INTEGER,
+  to_user_id      INTEGER,
+  by_user_id      INTEGER NOT NULL REFERENCES users(id),
+  created_at      TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_conv_assigned ON conversations(assigned_to, last_message_at);
+CREATE INDEX IF NOT EXISTS idx_msg_conv      ON messages(conversation_id, id);
+CREATE INDEX IF NOT EXISTS idx_cc_contact    ON contact_channels(contact_id);
+
 CREATE TABLE IF NOT EXISTS streamers (
   id       INTEGER PRIMARY KEY AUTOINCREMENT,
   name     TEXT NOT NULL UNIQUE,

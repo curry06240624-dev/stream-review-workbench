@@ -49,3 +49,24 @@ async function logout() {
   await api("/api/logout", {});
   location.href = "login.html";
 }
+
+/* 共用側邊欄。模組順序照 Super 8 的排法，瑋瑋的人不用重學位置。 */
+function renderSidebar(me, active, counts) {
+  const canAll = me.role === "admin" || me.role === "operator";
+  const roleTxt = me.role === "admin" ? "管理者" : me.role === "operator" ? "運營" : "訊息手";
+  const nav = (href, label, ct) =>
+    '<a class="nv' + (active === href ? " on" : "") + '" href="' + href + '">' + label
+    + (ct != null && ct !== "" ? '<span class="ct">' + ct + "</span>" : "") + "</a>";
+  const el = document.getElementById("side");
+  if (!el) return;
+  el.innerHTML =
+    '<div class="brand"><span class="mk">◤</span>AI 指揮中心<small>COMMAND CENTER</small></div>'
+    + "<nav>"
+    + nav("index.html", "總覽")
+    + nav("inbox.html", "訊息中心", counts ? counts.all : "")
+    + nav("new.html", "AI 覆盤")
+    + "</nav>"
+    + '<div class="foot2"><b>' + esc(me.name || "") + "</b>"
+    + roleTxt + (canAll ? "" : "・只看得到指派給你的")
+    + '<div style="margin-top:9px"><a class="plain" href="#" onclick="logout();return false">登出</a></div></div>';
+}
