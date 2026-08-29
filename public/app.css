@@ -1,308 +1,425 @@
-/* 指揮中心：暗色作戰室。一個青色 accent 管操作，紅/琥珀/灰藍三色只管嚴重度。
-   數字全部等寬字體 —— 戰情看的是數字，不是裝飾。 */
+/* ══════════════════════════════════════════════════════════════════════
+   AI 指揮中心 —— 視覺方向：航管派工板（dispatch strip board）
+
+   為什麼是派工板而不是「科幻 HUD」：
+   這個產品的本質就是航管在做的事 —— 每通對話是一張「進程條」（strip），
+   運營把它從「未指派」的槽位移到某個訊息手的槽位。既然結構一樣，
+   就照真正的儀器來做，而不是貼一層發光特效。
+
+   由此推導出的規則（每一條都有理由，不是裝飾）：
+   ‧ 零圓角、只有髮絲線 —— 儀器面板是切出來的，不是捏出來的
+   ‧ 每張 strip 左緣有一條狀態槽：琥珀＝等人回，青＝進行中，暗＝已處理
+   ‧ 所有數字等寬 + tabular-nums —— 數字要能上下對齊掃視
+   ‧ 面板對角的定位標記取代圓角與陰影
+   ‧ 顏色只有兩個語意：青＝系統／進行中，琥珀＝需要人介入。其餘是灰階
+   ‧ 客戶分級 S→C 走「青色由亮到暗」的單一色軸，不是四種顏色 ——
+     分級是程度不是類別，用彩虹色會讓人以為它們是不同種東西
+   ══════════════════════════════════════════════════════════════════════ */
+
 :root{
-  --bg:#0d1420; --panel:#131c2b; --panel2:#0f1826; --edge:#243349;
-  --ink:#e7edf5; --dim:#94a5ba; --faint:#5d6f85;
-  --accent:#2fd6c3; --accent-dim:#17443f; --accent-soft:rgba(47,214,195,.09);
-  --hi:#ff5d5d;   --hi-soft:rgba(255,93,93,.12);      /* 重大 */
-  --mid:#e3b23c;  --mid-soft:rgba(227,178,60,.12);    /* 中 */
-  --low:#7d93ad;  --low-soft:rgba(125,147,173,.12);   /* 輕微 */
+  --void:#06090d;        /* 機殼 */
+  --panel:#0b1219;       /* 面板 */
+  --panel-2:#080e14;     /* 凹面（側欄、輸入框） */
+  --rule:#16212c;        /* 髮絲線 */
+  --rule-2:#0f1821;      /* 更暗的分隔 */
+
+  --cyan:#5cd8ea;        /* 系統／進行中 */
+  --cyan-2:#3f9dad;
+  --cyan-3:#2a6675;
+  --cyan-soft:rgba(92,216,234,.10);
+  --amber:#e9a445;       /* 需要人介入 */
+  --amber-soft:rgba(233,164,69,.11);
+  --alert:#ff6b5e;       /* 真的錯誤才用 */
+  --alert-soft:rgba(255,107,94,.11);
+
+  --ink:#dbe6ef;
+  --dim:#7a8b9b;
+  --faint:#4a5a6a;
+
   --mono:"IBM Plex Mono","Cascadia Mono",Consolas,ui-monospace,monospace;
+  --sans:"Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif;
+
+  /* 相容：舊標記仍引用這些名字 */
+  --bg:var(--void); --edge:var(--rule); --accent:var(--cyan);
+  --accent-dim:var(--cyan-3); --accent-soft:var(--cyan-soft);
+  --hi:var(--alert); --hi-soft:var(--alert-soft);
+  --mid:var(--amber); --mid-soft:var(--amber-soft);
+  --low:var(--faint); --low-soft:rgba(74,90,106,.14);
+  --panel2:var(--panel-2);
 }
+
 *{box-sizing:border-box}
 body{
-  margin:0; background:var(--bg); color:var(--ink);
-  font:14.5px/1.7 "Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif;
+  margin:0; background:var(--void); color:var(--ink);
+  font:14px/1.65 var(--sans);
+  -webkit-font-smoothing:antialiased;
 }
-/* 一般頁面：.main 不捲，捲的是 .wrap 自己 */
-.wrap{max-width:1060px; margin:0 auto; padding:22px 20px 60px; width:100%;
+::selection{background:var(--cyan-3); color:#031014}
+:focus-visible{outline:1px solid var(--cyan); outline-offset:1px}
+
+/* ── 版面骨架：固定滿版、各區內捲 ──────────────────────────────
+   用 min-height:100vh 會讓整頁被內容撐長，側欄底部被推出畫面外。 */
+body.app{display:flex; height:100vh; height:100dvh; overflow:hidden}
+.wrap{max-width:1080px; margin:0 auto; padding:20px 22px 56px; width:100%;
       overflow-y:auto; flex:1; min-height:0}
+.main{flex:1; min-width:0; display:flex; flex-direction:column; overflow:hidden}
 
-header.top{display:flex; align-items:center; gap:14px; margin-bottom:20px}
-header.top h1{font-size:18px; margin:0; letter-spacing:.04em}
-header.top h1 .mk{color:var(--accent); margin-right:8px}
-header.top .sub{color:var(--faint); font-size:12px; letter-spacing:.06em}
-header.top .sp{flex:1}
-header.top .who{font-size:12.5px; color:var(--dim)}
-
-.card{background:var(--panel); border:1px solid var(--edge); border-radius:12px; padding:18px 20px}
-.card + .card{margin-top:14px}
-h2{font-size:12px; margin:0 0 14px; color:var(--faint); font-weight:700;
-   letter-spacing:.14em; text-transform:uppercase; font-family:var(--mono)}
-
-/* ── 戰情磚 ── */
-.tiles{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-bottom:14px}
-.tile{background:var(--panel); border:1px solid var(--edge); border-radius:12px; padding:14px 16px}
-.tile .n{font-family:var(--mono); font-size:26px; font-weight:600; letter-spacing:-.02em;
-         font-variant-numeric:tabular-nums; display:block; line-height:1.2}
-.tile .n.hi{color:var(--hi)} .tile .n.ok{color:var(--accent)}
-.tile .l{font-size:12px; color:var(--dim); margin-top:4px; letter-spacing:.04em}
-
-/* 嚴重度長條（真資料堆疊） */
-.sevbar{display:flex; height:10px; border-radius:6px; overflow:hidden; background:var(--panel2); margin:6px 0 8px}
-.sevbar i{display:block; height:100%}
-.sevbar .s-hi{background:var(--hi)} .sevbar .s-mid{background:var(--mid)} .sevbar .s-low{background:var(--low)}
-.sevkey{display:flex; gap:16px; font-size:12px; color:var(--dim); font-family:var(--mono)}
-.sevkey b{font-weight:600}
-.sevkey .k-hi{color:var(--hi)} .sevkey .k-mid{color:var(--mid)} .sevkey .k-low{color:var(--low)}
-
-/* ── 表格 ── */
-table.list{width:100%; border-collapse:collapse; font-size:13.5px}
-table.list th{color:var(--faint); font-weight:600; text-align:left; font-size:11.5px;
-  letter-spacing:.08em; padding:7px 10px; border-bottom:1px solid var(--edge); font-family:var(--mono)}
-table.list td{padding:9px 10px; border-bottom:1px solid var(--edge)}
-table.list tr:last-child td{border-bottom:0}
-table.list a{color:var(--accent); font-weight:600; text-decoration:none}
-.num{font-family:var(--mono); font-variant-numeric:tabular-nums}
-td.hi{color:var(--hi); font-weight:700}
-.trunc{max-width:290px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-
-/* ── 表單 ── */
-label{display:block; font-size:12.5px; color:var(--dim); margin:12px 0 5px; letter-spacing:.03em}
-input,textarea,select{
-  width:100%; border:1px solid var(--edge); border-radius:8px; padding:9px 11px;
-  font:inherit; background:var(--panel2); color:var(--ink);
+/* ── 側欄 ───────────────────────────────────────────────── */
+.side{
+  width:186px; flex:none; background:var(--panel-2);
+  border-right:1px solid var(--rule);
+  display:flex; flex-direction:column; padding:0; height:100%; overflow:hidden;
 }
-input:focus,textarea:focus{outline:0; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft)}
-textarea{resize:vertical; min-height:120px; line-height:1.7; font-size:13.5px}
+.side .brand{
+  padding:15px 16px 13px; font-size:13.5px; font-weight:700; letter-spacing:.02em;
+  border-bottom:1px solid var(--rule);
+}
+.side .brand .mk{color:var(--cyan); margin-right:7px}
+.side .brand small{
+  display:block; color:var(--faint); font-size:9.5px; font-weight:400;
+  letter-spacing:.22em; font-family:var(--mono); margin-top:4px;
+}
+.side nav{display:flex; flex-direction:column; flex:1; overflow-y:auto; min-height:0;
+          padding-top:6px}
+.side a.nv{
+  display:flex; align-items:center; gap:9px; padding:9px 16px; color:var(--dim);
+  text-decoration:none; font-size:13.5px;
+  border-left:2px solid transparent;   /* 與 strip 的狀態槽同一套語彙 */
+}
+.side a.nv:hover{background:var(--panel); color:var(--ink)}
+.side a.nv.on{background:var(--panel); color:var(--cyan); border-left-color:var(--cyan);
+              font-weight:500}
+.side a.nv .ct{
+  margin-left:auto; font-family:var(--mono); font-size:10.5px;
+  font-variant-numeric:tabular-nums; border:1px solid var(--rule); color:var(--dim);
+  padding:0 6px; line-height:16px;
+}
+.side a.nv.on .ct{border-color:var(--cyan-3); color:var(--cyan)}
+.side .foot2{
+  padding:11px 16px 13px; border-top:1px solid var(--rule);
+  font-size:11px; color:var(--faint); flex:none; max-height:46vh; overflow-y:auto;
+}
+.side .foot2 b{color:var(--dim); display:block; font-size:12.5px; font-weight:500}
+.side .foot2 .roletxt{font-size:11px}
+a.plain{color:var(--cyan-2); text-decoration:none}
+a.plain:hover{color:var(--cyan)}
+
+/* ── 頁首 ───────────────────────────────────────────────── */
+header.top{display:flex; align-items:flex-end; gap:14px; margin-bottom:18px;
+           padding-bottom:12px; border-bottom:1px solid var(--rule)}
+header.top h1{font-size:19px; margin:0; font-weight:700; letter-spacing:.01em}
+header.top .sub{color:var(--faint); font-size:11.5px; font-family:var(--mono);
+                letter-spacing:.04em; margin-top:3px}
+header.top .sp{flex:1}
+header.top .who{font-size:12px; color:var(--dim); font-family:var(--mono)}
+
+/* 區塊標題：前面一道青色刻度，中文靠字距拉出儀器標籤的語氣 */
+h2{
+  font-size:11px; margin:0 0 13px; color:var(--dim); font-weight:500;
+  letter-spacing:.2em; display:flex; align-items:center; gap:8px;
+}
+h2::before{content:""; width:2px; height:11px; background:var(--cyan); flex:none}
+
+/* ── 讀數列：取代四張大數字卡片 ────────────────────────────
+   儀表板的預設答案是「大數字＋小標籤」的卡片牆。這裡改成一條儀器讀數列：
+   等寬數字、髮絲線分隔，需要人介入的那格轉琥珀。 */
+.tiles{
+  display:flex; border:1px solid var(--rule); background:var(--panel);
+  margin-bottom:16px; position:relative; overflow:hidden;
+}
+.tiles::after{   /* 載入時一道青線掃過，只發生一次 */
+  content:""; position:absolute; top:0; left:0; height:1px; width:100%;
+  background:linear-gradient(90deg,transparent,var(--cyan),transparent);
+  transform:translateX(-100%); animation:sweep .9s cubic-bezier(.22,.61,.36,1) forwards;
+}
+@keyframes sweep{to{transform:translateX(100%)}}
+@media (prefers-reduced-motion:reduce){.tiles::after{display:none}}
+.tile{flex:1; padding:12px 16px 13px; border-left:1px solid var(--rule); min-width:0}
+.tile:first-child{border-left:0}
+.tile .n{
+  font-family:var(--mono); font-size:23px; font-weight:500; letter-spacing:-.01em;
+  font-variant-numeric:tabular-nums; display:block; line-height:1.15; color:var(--ink);
+}
+.tile .n.hi{color:var(--amber)}      /* 需要人介入 */
+.tile .n.ok{color:var(--cyan)}
+.tile .l{font-size:11px; color:var(--dim); margin-top:5px; letter-spacing:.09em}
+
+/* ── 卡片：對角定位標記取代圓角與陰影 ───────────────────── */
+.card{background:var(--panel); border:1px solid var(--rule); padding:16px 18px 17px;
+      position:relative}
+.card::before,.card::after{
+  content:""; position:absolute; width:6px; height:6px;
+  border:1px solid var(--cyan-3); pointer-events:none;
+}
+.card::before{top:-1px; left:-1px; border-right:0; border-bottom:0}
+.card::after{bottom:-1px; right:-1px; border-left:0; border-top:0}
+.card + .card{margin-top:14px}
+
+/* 分級長條：單一色軸（亮→暗），因為分級是程度不是類別 */
+.sevbar{display:flex; gap:2px; height:9px; background:var(--panel-2); margin:5px 0 10px;
+        padding:1px; border:1px solid var(--rule-2)}
+.sevbar i{display:block; height:100%}   /* 用 2px 細縫切開，不然同色系的階差看不出來 */
+.sevbar .s-hi{background:var(--cyan)}
+.sevbar .s-mid{background:var(--cyan-2)}
+.sevbar .s-b{background:var(--cyan-3)}
+.sevbar .s-low{background:var(--faint)}
+.sevkey{display:flex; gap:18px; font-size:11.5px; color:var(--dim); font-family:var(--mono);
+        font-variant-numeric:tabular-nums; flex-wrap:wrap}
+.sevkey b{font-weight:500}
+.sevkey .k-hi{color:var(--cyan)}
+.sevkey .k-mid{color:var(--cyan-2)}
+.sevkey .k-b{color:var(--cyan-3)}
+.sevkey .k-low{color:var(--faint)}
+
+/* ── 表格：只有髮絲線，數字等寬右對齊 ───────────────────── */
+table.list{width:100%; border-collapse:collapse; font-size:13px}
+table.list th{
+  color:var(--faint); font-weight:500; text-align:left; font-size:10.5px;
+  letter-spacing:.14em; padding:0 10px 7px; border-bottom:1px solid var(--rule);
+  font-family:var(--mono); white-space:nowrap;
+}
+table.list td{padding:9px 10px; border-bottom:1px solid var(--rule-2)}
+table.list tr:last-child td{border-bottom:0}
+table.list tbody tr:hover{background:var(--panel-2)}
+table.list a{color:var(--cyan-2); text-decoration:none}
+table.list a:hover{color:var(--cyan)}
+.num{font-family:var(--mono); font-variant-numeric:tabular-nums; text-align:right}
+/* 要寫成 table.list th.num：table.list th 的權重(0,1,2)比 th.num(0,1,1) 高，
+   只寫 th.num 會被壓掉，標題就跟下面的數字對不齊。 */
+table.list th.num{text-align:right}
+td.hi{color:var(--amber); font-weight:500}
+.trunc{max-width:290px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+       color:var(--dim); font-size:12.5px}
+.empty{color:var(--faint); font-size:13px}
+
+/* ── 分級標記：單一色軸，S 實心、往下逐階變暗 ───────────── */
+.gr{
+  display:inline-block; font-family:var(--mono); font-size:10.5px; font-weight:600;
+  width:18px; height:18px; line-height:16px; text-align:center;
+  border:1px solid var(--rule); color:var(--faint); flex:none;
+}
+.gr.g-S{background:var(--cyan); border-color:var(--cyan); color:#031014}
+.gr.g-A{border-color:var(--cyan-2); color:var(--cyan-2)}
+.gr.g-B{border-color:var(--cyan-3); color:var(--cyan-3)}
+.gr.g-C{border-color:var(--rule); color:var(--faint)}
+
+/* ── 表單 ───────────────────────────────────────────────── */
+label{display:block; font-size:10.5px; color:var(--faint); margin:13px 0 5px;
+      letter-spacing:.14em; font-family:var(--mono)}
+input,textarea,select{
+  width:100%; border:1px solid var(--rule); padding:8px 11px;
+  font:inherit; font-size:13.5px; background:var(--panel-2); color:var(--ink);
+}
+input:focus,textarea:focus,select:focus{outline:0; border-color:var(--cyan-3);
+                                        background:var(--panel)}
+input::placeholder,textarea::placeholder{color:var(--faint)}
+textarea{resize:vertical; min-height:74px; line-height:1.7}
 .row2{display:grid; grid-template-columns:1fr 1fr; gap:0 14px}
 .row4{display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:0 14px}
 
-.btn{display:inline-block; border:0; border-radius:9px; padding:10px 18px; font:inherit;
-     background:var(--accent); color:#062521; cursor:pointer; font-weight:700}
-.btn:disabled{opacity:.5; cursor:default}
-.btn.ghost{background:transparent; color:var(--accent); border:1px solid var(--accent-dim)}
-.btn.sm{padding:6px 13px; font-size:13px}
+.btn{
+  display:inline-block; border:1px solid var(--cyan); padding:8px 17px; font:inherit;
+  font-size:13px; background:var(--cyan); color:#031014; cursor:pointer; font-weight:600;
+  letter-spacing:.03em;
+}
+.btn:hover{background:#79e2f2; border-color:#79e2f2}
+.btn:disabled{opacity:.4; cursor:default}
+.btn.ghost{background:transparent; color:var(--cyan-2); border-color:var(--cyan-3)}
+.btn.ghost:hover{background:var(--cyan-soft); color:var(--cyan); border-color:var(--cyan-2)}
+.btn.sm{padding:5px 12px; font-size:12px}
 
-.err{margin-top:12px; padding:10px 13px; border-radius:8px; background:var(--hi-soft);
-     color:var(--hi); font-size:13.5px; display:none}
+.chip{
+  border:1px solid var(--rule); background:var(--panel-2); color:var(--dim);
+  padding:3px 11px; font:inherit; font-size:12px; cursor:pointer; font-family:var(--mono);
+}
+.chip:hover{border-color:var(--cyan-3); color:var(--ink)}
+.chip.on{background:var(--cyan); border-color:var(--cyan); color:#031014; font-weight:600}
+
+.err{margin-top:12px; padding:9px 12px; background:var(--alert-soft);
+     border-left:2px solid var(--alert); color:var(--alert); font-size:13px; display:none}
 .err.on{display:block}
-
-/* ── 卡片內的條列項目 ── */
-.item{border:1px solid var(--edge); border-radius:11px; padding:14px 17px; margin-top:12px;
-      background:var(--panel2); border-left-width:3px}
-.item.sev-hi{border-left-color:var(--hi)} .item.sev-mid{border-left-color:var(--mid)}
-.item.sev-low{border-left-color:var(--low)} .item.action{border-left-color:var(--accent)}
-.item .k{font-size:11px; font-weight:700; letter-spacing:.1em; color:var(--faint); font-family:var(--mono)}
-.item p{margin:7px 0 0; font-size:14.5px}
-.sev{display:inline-block; font-size:11px; padding:2px 10px; border-radius:99px;
-     font-weight:700; font-family:var(--mono); letter-spacing:.06em; vertical-align:1px; margin-left:8px}
-.sev.sev-hi{background:var(--hi-soft); color:var(--hi)}
-.sev.sev-mid{background:var(--mid-soft); color:var(--mid)}
-.sev.sev-low{background:var(--low-soft); color:var(--low)}
-.quote{margin-top:10px; padding:8px 13px; border-left:2px solid var(--accent);
-       background:var(--accent-soft); border-radius:0 8px 8px 0;
-       font-size:13px; color:var(--dim); line-height:1.7}
-.quote .pos{color:var(--faint); font-size:11.5px; font-family:var(--mono)}
-.quote.badq{border-left-color:var(--hi); background:var(--hi-soft)}
-.crit{margin-top:8px; font-size:13px; color:var(--dim)}
-.crit b{color:var(--mid)}
-
-.metrics{display:flex; gap:20px; flex-wrap:wrap; font-size:12.5px; color:var(--dim); font-family:var(--mono)}
-.metrics b{color:var(--ink); font-variant-numeric:tabular-nums; font-size:15px}
-
-.loading{display:none; margin-top:14px; color:var(--accent); font-size:13.5px; font-family:var(--mono)}
+.loading{display:none; margin-top:13px; color:var(--cyan-2); font-size:12.5px;
+         font-family:var(--mono); letter-spacing:.06em}
 .loading.on{display:block}
-a.plain{color:var(--accent); text-decoration:none}
-.foot{margin-top:24px; font-size:11.5px; color:var(--faint); line-height:1.8}
-.empty{color:var(--faint); font-size:13.5px}
+.foot{margin-top:22px; font-size:11px; color:var(--faint); line-height:1.85;
+      border-top:1px solid var(--rule-2); padding-top:12px}
 
-/* ══ 側邊欄：照 Super 8 的模組結構排，瑋瑋的人不用重學 ══ */
-/* 固定滿版高度、外層不捲 —— 用 min-height 的話整頁會被內容撐長，
-   側邊欄底部（登出／切換身分）就被推出畫面外看不到。
-   改成每個區塊自己內捲，畫面永遠貼齊視窗。
-   100dvh 是手機瀏覽器網址列縮放時的正確高度，不支援的退回 100vh。 */
-body.app{display:flex; height:100vh; height:100dvh; overflow:hidden}
-.side{
-  width:196px; flex:none; background:var(--panel2); border-right:1px solid var(--edge);
-  display:flex; flex-direction:column; padding:16px 0; height:100%; overflow:hidden;
+/* ══ 訊息中心：三欄 ═══════════════════════════════════════ */
+.mc{display:grid; grid-template-columns:296px 1fr 244px; flex:1; min-height:0}
+.mc > div{min-width:0; display:flex; flex-direction:column; min-height:0}
+.mc .col-list{border-right:1px solid var(--rule)}
+.mc .col-side{border-left:1px solid var(--rule); padding:15px 16px; overflow-y:auto;
+              background:var(--panel-2)}
+.hd{
+  padding:11px 15px; border-bottom:1px solid var(--rule); display:flex; align-items:center;
+  gap:9px; font-size:10.5px; color:var(--faint); font-family:var(--mono);
+  letter-spacing:.14em; flex:none; background:var(--panel);
 }
-.side .brand{padding:0 18px 16px; font-size:14.5px; font-weight:700; letter-spacing:.03em}
-.side .brand .mk{color:var(--accent); margin-right:6px}
-.side .brand small{display:block; color:var(--faint); font-size:10.5px; font-weight:400;
-                   letter-spacing:.12em; font-family:var(--mono); margin-top:3px}
-.side nav{display:flex; flex-direction:column; gap:1px; flex:1; overflow-y:auto; min-height:0}
-.side a.nv{
-  display:flex; align-items:center; gap:9px; padding:9px 18px; color:var(--dim);
-  text-decoration:none; font-size:13.5px; border-left:2px solid transparent;
+.hd .t{color:var(--ink); font-family:var(--sans); font-size:14px; font-weight:700;
+       letter-spacing:0}
+.ct2{font-family:var(--mono); font-size:10.5px; color:var(--faint);
+     font-variant-numeric:tabular-nums}
+
+/* ── STRIP：這個設計的簽名元素 ─────────────────────────────
+   固定幾何、左緣狀態槽、右側等寬時間欄。系統裡每一種列都長這樣，
+   掃視時眼睛永遠知道去哪裡找哪個資訊。 */
+.convs,.rows{overflow-y:auto; flex:1; min-height:0}
+.cv{
+  padding:10px 14px 11px; border-bottom:1px solid var(--rule-2); cursor:pointer;
+  display:block; text-decoration:none; color:inherit;
+  border-left:2px solid var(--rule);      /* 狀態槽 */
 }
-.side a.nv:hover{background:var(--panel); color:var(--ink)}
-.side a.nv.on{background:var(--panel); color:var(--accent); border-left-color:var(--accent); font-weight:600}
-.side a.nv .ct{margin-left:auto; font-family:var(--mono); font-size:11px;
-               background:var(--edge); color:var(--dim); padding:1px 7px; border-radius:99px}
-.side a.nv.on .ct{background:var(--accent); color:#062521}
-.side .foot2{padding:12px 18px 0; border-top:1px solid var(--edge); font-size:11.5px;
-             color:var(--faint); flex:none;   /* 永遠貼在底部，不被上面的內容擠掉 */
-             max-height:46vh; overflow-y:auto}
-.side .foot2 b{color:var(--dim); display:block; font-size:12.5px; font-weight:600}
-.main{flex:1; min-width:0; display:flex; flex-direction:column; overflow:hidden}
-
-/* ══ 訊息中心三欄 ══ */
-.mc{display:grid; grid-template-columns:288px 1fr 236px; flex:1; min-height:0}
-.mc > div{min-width:0; display:flex; flex-direction:column}
-.mc .col-list{border-right:1px solid var(--edge)}
-.mc .col-side{border-left:1px solid var(--edge); padding:16px; overflow-y:auto}
-.mc .hd{padding:11px 15px; border-bottom:1px solid var(--edge); display:flex; align-items:center;
-        gap:9px; font-size:12px; color:var(--faint); font-family:var(--mono); letter-spacing:.1em}
-.mc .hd .t{color:var(--ink); font-family:"Noto Sans TC",sans-serif; font-size:14.5px;
-           font-weight:700; letter-spacing:0}
-
-.convs{overflow-y:auto; flex:1}
-.cv{padding:11px 15px; border-bottom:1px solid var(--edge); cursor:pointer; display:block;
-    text-decoration:none; color:inherit; border-left:2px solid transparent}
 .cv:hover{background:var(--panel)}
-.cv.on{background:var(--panel); border-left-color:var(--accent)}
-.cv .r1{display:flex; align-items:baseline; gap:7px}
-.cv .nm{font-weight:600; font-size:14px}
-.cv .tm{margin-left:auto; font-size:11px; color:var(--faint); font-family:var(--mono); flex:none}
+.cv.on{background:var(--panel); border-left-color:var(--cyan)}
+.cv .r1{display:flex; align-items:baseline; gap:8px}
+.cv .nm{font-weight:500; font-size:13.5px}
+.cv .tm{margin-left:auto; font-size:10.5px; color:var(--faint); font-family:var(--mono);
+        font-variant-numeric:tabular-nums; flex:none}
 .cv .pv{font-size:12.5px; color:var(--dim); margin-top:3px; overflow:hidden;
         text-overflow:ellipsis; white-space:nowrap}
-.cv .r3{display:flex; align-items:center; gap:6px; margin-top:6px}
-.gr{font-family:var(--mono); font-size:10.5px; font-weight:700; padding:1px 6px; border-radius:4px}
-.gr.g-S{background:var(--hi-soft); color:var(--hi)}
-.gr.g-A{background:var(--mid-soft); color:var(--mid)}
-.gr.g-B{background:var(--accent-soft); color:var(--accent)}
-.gr.g-C{background:var(--low-soft); color:var(--low)}
-.who2{font-size:11px; color:var(--faint); font-family:var(--mono)}
-.who2.none{color:var(--mid)}
-.dot{width:7px; height:7px; border-radius:99px; background:var(--accent); flex:none; margin-left:auto}
+.cv .r3{display:flex; align-items:center; gap:7px; margin-top:6px}
+.cv .who2{font-size:11px; color:var(--faint); font-family:var(--mono)}
+.cv .ph{font-size:10.5px; color:var(--faint); font-family:var(--mono); margin-left:auto}
+/* 未讀＝需要人介入 → 琥珀，與讀數列同一個語意 */
+.cv .dot{width:5px; height:5px; background:var(--amber); flex:none}
+.cv:has(.dot){border-left-color:var(--amber)}
 
-.thread{flex:1; overflow-y:auto; padding:18px 20px; display:flex; flex-direction:column; gap:11px}
-.bub{max-width:74%; padding:9px 14px; border-radius:13px; font-size:14px; line-height:1.65}
-.bub.in{background:var(--panel); border:1px solid var(--edge); align-self:flex-start; border-bottom-left-radius:4px}
-.bub.out{background:var(--accent-dim); color:var(--ink); align-self:flex-end; border-bottom-right-radius:4px}
-.bub .mt{display:block; font-size:10.5px; color:var(--faint); font-family:var(--mono); margin-top:5px}
-.composer{border-top:1px solid var(--edge); padding:12px 16px; display:flex; gap:10px; align-items:flex-end}
-.composer textarea{min-height:42px; max-height:150px; margin:0}
-.locked{border-top:1px solid var(--edge); padding:14px 16px; color:var(--mid);
-        font-size:13px; background:var(--mid-soft)}
-.ph{flex:1; display:grid; place-items:center; color:var(--faint); font-size:13.5px}
-.kv{font-size:12.5px; color:var(--dim); margin-bottom:11px}
-.kv b{display:block; color:var(--ink); font-size:13.5px; font-family:var(--mono); margin-top:2px}
+/* 客戶清單的 strip：同一套幾何 */
+.rows .row{
+  display:flex; align-items:center; gap:11px; padding:10px 14px;
+  border-bottom:1px solid var(--rule-2); cursor:pointer;
+  border-left:2px solid var(--rule);
+}
+.rows .row:hover{background:var(--panel)}
+.rows .row.on{background:var(--panel); border-left-color:var(--cyan)}
+.rows .info{flex:1; min-width:0}
+.rows .info b{display:block; font-size:13.5px; font-weight:500}
+.rows .info small{color:var(--faint); font-size:11.5px; font-family:var(--mono)}
+.rows .when{font-family:var(--mono); font-size:10.5px; color:var(--faint); flex:none;
+            font-variant-numeric:tabular-nums}
 
-/* ══ 手機版 ══ 三欄塞不進 375px，改成單欄切換：收件匣 ↔ 對話
-   （實測 375px 下文件寬 720px、右欄完全在螢幕外） */
+/* ── 對話串 ─────────────────────────────────────────────── */
+.thread{overflow-y:auto; flex:1; min-height:0; padding:16px 18px; display:flex;
+        flex-direction:column; gap:9px}
+.bub{
+  max-width:74%; padding:8px 12px; font-size:13.5px; line-height:1.65;
+  background:var(--panel); border:1px solid var(--rule); align-self:flex-start;
+  border-left:2px solid var(--rule);
+}
+.bub.out{align-self:flex-end; background:var(--cyan-soft); border-color:var(--cyan-3);
+         border-left:1px solid var(--cyan-3); border-right:2px solid var(--cyan-3)}
+.bub .mt{display:block; font-size:10px; color:var(--faint); margin-top:5px;
+         font-family:var(--mono); letter-spacing:.04em}
+.composer{border-top:1px solid var(--rule); padding:11px 14px; flex:none;
+          display:flex; gap:9px; align-items:flex-end; background:var(--panel)}
+.composer textarea{min-height:38px; max-height:120px; font-size:13.5px}
+.composer .locked{color:var(--faint); font-size:12px; padding:8px 2px;
+                  font-family:var(--mono); letter-spacing:.03em}
+
+/* ── 鍵值（右欄與客戶明細共用） ─────────────────────────── */
+.kv{margin-bottom:11px}
+.kv span,.fd span{display:block; font-size:10px; color:var(--faint); letter-spacing:.14em;
+                  font-family:var(--mono); margin-bottom:3px}
+.kv b,.fd b{font-size:13.5px; font-weight:500; display:block}
+.fields{display:grid; grid-template-columns:repeat(auto-fit,minmax(168px,1fr)); gap:10px;
+        margin-bottom:4px}
+.fd{background:var(--panel-2); border:1px solid var(--rule); padding:9px 12px}
+.fd b.mono{font-family:var(--mono); color:var(--cyan)}
+.col-detail .blank{flex:1; display:grid; place-items:center; color:var(--faint);
+                   font-size:12.5px; font-family:var(--mono); letter-spacing:.06em}
+.dbody{overflow-y:auto; flex:1; min-height:0; padding:16px 20px 40px}
+.sub2{font-size:10.5px; color:var(--faint); letter-spacing:.16em; font-family:var(--mono);
+      margin:22px 0 10px; font-weight:500}
+.convrow{
+  display:flex; align-items:baseline; gap:10px; padding:8px 12px; text-decoration:none;
+  color:inherit; border:1px solid var(--rule); margin-bottom:6px; background:var(--panel-2);
+  border-left:2px solid var(--rule);
+}
+.convrow:hover{border-left-color:var(--cyan); background:var(--panel)}
+.convrow b{font-family:var(--mono); font-size:10.5px; color:var(--faint); flex:none}
+.convrow .pv{flex:1; min-width:0; font-size:12.5px; color:var(--dim); overflow:hidden;
+             text-overflow:ellipsis; white-space:nowrap}
+.convrow small{color:var(--faint); font-size:10.5px; flex:none; font-family:var(--mono)}
+
+/* ══ 客戶中心：兩欄 ══════════════════════════════════════ */
+.cust{display:grid; grid-template-columns:344px 1fr; flex:1; min-height:0}
+.cust > div{min-width:0; display:flex; flex-direction:column; min-height:0}
+.cust .col-list{border-right:1px solid var(--rule)}
+.filters{padding:11px 14px; border-bottom:1px solid var(--rule); flex:none;
+         background:var(--panel-2)}
+.filters input{font-size:12.5px; padding:6px 10px}
+.chips{display:flex; gap:5px; margin-top:9px}
+.backbtn{display:none; background:none; border:0; color:var(--cyan-2);
+         font:inherit; font-size:12.5px; cursor:pointer; padding:0 6px 0 0;
+         font-family:var(--mono)}
+
+/* ── Demo 身分切換 ─────────────────────────────────────── */
+.switcher{margin-top:11px; padding-top:10px; border-top:1px solid var(--rule-2)}
+.switcher .lb{display:block; font-size:9.5px; letter-spacing:.16em; color:var(--faint);
+              font-family:var(--mono); margin-bottom:7px}
+.switcher button{
+  border:1px solid var(--rule); background:var(--panel); color:var(--dim);
+  padding:3px 8px; font:inherit; font-size:11.5px; cursor:pointer; margin:0 4px 4px 0;
+  font-family:var(--mono);
+}
+.switcher button:hover{border-color:var(--cyan-3); color:var(--ink)}
+.switcher button.on{background:var(--cyan); border-color:var(--cyan); color:#031014;
+                    font-weight:600}
+.swsel{display:none}
 .mobonly{display:none}
+
+/* ══ 手機 ════════════════════════════════════════════════
+   手機版一律加 .side / .cust 前綴提高權重 —— 基礎規則寫在這個
+   media query 後面，同權重時後面的贏，只寫類別名會被整組蓋掉。 */
 @media (max-width: 900px){
   body.app{flex-direction:column}
   .side{
     width:100%; flex:none; flex-direction:row; align-items:center; padding:0 2px;
-    border-right:0; border-bottom:1px solid var(--edge);
-    /* 撤掉桌機版的滿高設定 —— 手機是橫列，留著 height:100% 會佔滿整個畫面 */
+    border-right:0; border-bottom:1px solid var(--rule);
     height:auto; overflow-x:auto; overflow-y:hidden;
   }
-  .side nav{overflow:visible; min-height:0}
-  .side .foot2{max-height:none; overflow:visible}
-  /* 375 寬塞不下品牌＋導覽＋身分＋切換鈕，會被擠出畫面右邊看不到。
-     手機上品牌、名字、登出都省略 —— 現在是誰看切換鈕的高亮就知道。 */
   .side .brand{display:none}
-  .side .foot2 b{display:none}
-  .side .foot2 > div:not(.switcher){display:none}
-  .side .foot2 .roletxt{display:none}
-  .side nav{flex-direction:row; flex:0 0 auto; gap:0}
-  .side a.nv{border-left:0; border-bottom:2px solid transparent; padding:13px 8px; white-space:nowrap; font-size:13px}
-  .side a.nv.on{border-left-color:transparent; border-bottom-color:var(--accent); background:transparent}
+  .side nav{flex-direction:row; flex:0 0 auto; overflow:visible; min-height:0; padding-top:0}
+  .side a.nv{border-left:0; border-bottom:2px solid transparent; padding:12px 8px;
+             white-space:nowrap; font-size:13px}
+  .side a.nv.on{border-left-color:transparent; border-bottom-color:var(--cyan);
+                background:transparent}
   .side .foot2{
-    border-top:0; padding:0 6px 0 6px; margin-left:auto; white-space:nowrap;
-    display:flex; align-items:center; gap:6px; flex:none;
+    border-top:0; padding:0 6px; margin-left:auto; white-space:nowrap;
+    display:flex; align-items:center; gap:6px; flex:none; max-height:none; overflow:visible;
   }
-
-  .side .foot2 > div{margin-top:0 !important}
-  /* 一律加 .side 前綴提高權重：.switcher 的基礎樣式寫在這個 media query
-     後面，同權重時後面的贏 —— 只寫 .switcher 會被整組蓋掉。 */
+  .side .foot2 b,.side .foot2 .roletxt{display:none}
+  .side .foot2 > div:not(.switcher){display:none}
   .side .switcher{margin:0; padding:0; border-top:0; display:flex; align-items:center}
-  .side .switcher .lb, .side .switcher button{display:none}
-  /* 用 .side 提高權重：基礎的 .swsel{display:none} 寫在這個 media query
-     後面，同權重時後面的贏，只寫 .swsel 會被蓋掉（這個檔踩過兩次）。 */
-  .side .swsel{
-    display:block; width:auto; font-size:12px; padding:4px 8px;
-    background:var(--panel); border-color:var(--edge); color:var(--dim);
-  }
+  .side .switcher .lb,.side .switcher button{display:none}
+  .side .swsel{display:block; width:auto; font-size:11.5px; padding:4px 7px;
+               background:var(--panel); border-color:var(--rule); color:var(--dim);
+               font-family:var(--mono)}
 
   .mc{grid-template-columns:1fr; height:auto}
   .mc .col-list{border-right:0}
-  .mc .col-thread, .mc .col-side{display:none}
+  .mc .col-thread,.mc .col-side{display:none}
   body.conv-open .mc .col-list{display:none}
   body.conv-open .mc .col-thread{display:flex}
-  body.conv-open.info-open .mc .col-side{display:flex; border-left:0; border-top:1px solid var(--edge)}
+  body.conv-open.info-open .mc .col-side{display:flex; border-left:0;
+                                         border-top:1px solid var(--rule)}
   .mobonly{display:inline-block}
-  .thread{padding:14px}
+  .thread{padding:13px}
   .bub{max-width:86%}
-  .wrap{padding:16px 14px 60px}
-  .tiles{grid-template-columns:repeat(2,1fr)}
-  table.list{font-size:12.5px}
-  table.list th,table.list td{padding:7px 5px}
-  /* 窄畫面表格自己橫捲，不要被裁掉看不到（原本是直接被切掉，沒有捲軸） */
-  .card{overflow-x:auto}
-  .trunc{max-width:110px}
-}
 
-/* Demo 身分切換（只在 DEMO_MODE 出現） */
-.switcher{margin-top:12px; padding-top:11px; border-top:1px dashed var(--edge)}
-.switcher .lb{display:block; font-size:10.5px; letter-spacing:.1em; color:var(--faint);
-              font-family:var(--mono); margin-bottom:7px}
-.switcher button{
-  border:1px solid var(--edge); background:var(--panel); color:var(--dim);
-  border-radius:7px; padding:4px 9px; font:inherit; font-size:12px; cursor:pointer; margin:0 4px 4px 0;
-}
-.switcher button:hover{border-color:var(--accent); color:var(--ink)}
-.switcher button.on{background:var(--accent); border-color:var(--accent); color:#062521; font-weight:700}
-.swsel{display:none}   /* 桌機用按鈕，手機才換成這個下拉 */
-
-/* ══ 客戶中心：兩欄，各自內捲，底部永遠不會跑出畫面 ══ */
-.cust{display:grid; grid-template-columns:340px 1fr; flex:1; min-height:0}
-.cust > div{min-width:0; display:flex; flex-direction:column; min-height:0}
-.cust .col-list{border-right:1px solid var(--edge)}
-.cust .hd{padding:11px 15px; border-bottom:1px solid var(--edge); display:flex;
-          align-items:center; gap:9px; flex:none}
-.cust .hd .t{font-size:14.5px; font-weight:700}
-.cust .ct2{font-family:var(--mono); font-size:11px; color:var(--faint)}
-
-.filters{padding:11px 14px; border-bottom:1px solid var(--edge); flex:none}
-.filters input{font-size:13px; padding:7px 10px}
-.chips{display:flex; gap:6px; margin-top:9px}
-.chip{border:1px solid var(--edge); background:var(--panel2); color:var(--dim);
-      border-radius:7px; padding:3px 11px; font:inherit; font-size:12px; cursor:pointer}
-.chip:hover{border-color:var(--accent); color:var(--ink)}
-.chip.on{background:var(--accent); border-color:var(--accent); color:#062521; font-weight:700}
-
-.rows{overflow-y:auto; flex:1; min-height:0}
-.rows .row{display:flex; align-items:center; gap:11px; padding:11px 15px;
-           border-bottom:1px solid var(--edge); cursor:pointer; border-left:2px solid transparent}
-.rows .row:hover{background:var(--panel)}
-.rows .row.on{background:var(--panel); border-left-color:var(--accent)}
-.rows .info{flex:1; min-width:0}
-.rows .info b{display:block; font-size:14px}
-.rows .info small{color:var(--dim); font-size:12px}
-.rows .when{font-family:var(--mono); font-size:11px; color:var(--faint); flex:none}
-
-.col-detail .blank{flex:1; display:grid; place-items:center; color:var(--faint); font-size:13.5px}
-.dbody{overflow-y:auto; flex:1; min-height:0; padding:16px 20px 40px}
-.fields{display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:10px; margin-bottom:6px}
-.fd{background:var(--panel2); border:1px solid var(--edge); border-radius:9px; padding:10px 13px}
-.fd span{display:block; font-size:11px; color:var(--faint); letter-spacing:.05em}
-.fd b{font-size:14.5px; margin-top:2px; display:block}
-.fd b.mono{font-family:var(--mono); color:var(--accent)}
-.sub2{font-size:12px; color:var(--faint); letter-spacing:.12em; font-family:var(--mono);
-      margin:22px 0 10px; text-transform:uppercase}
-.convrow{display:flex; align-items:baseline; gap:10px; padding:9px 12px; text-decoration:none;
-         color:inherit; border:1px solid var(--edge); border-radius:9px; margin-bottom:7px;
-         background:var(--panel2)}
-.convrow:hover{border-color:var(--accent)}
-.convrow b{font-family:var(--mono); font-size:11.5px; color:var(--faint); flex:none}
-.convrow .pv{flex:1; min-width:0; font-size:13px; color:var(--dim); overflow:hidden;
-             text-overflow:ellipsis; white-space:nowrap}
-.convrow small{color:var(--faint); font-size:11.5px; flex:none}
-
-/* 手機：客戶中心收成單欄 */
-@media (max-width: 900px){
-  /* 單欄切換：清單 ↔ 明細，跟訊息中心同一套行為。
-     原本是直接把明細隱藏 —— 那等於手機上看不到客戶資料。 */
   .cust{grid-template-columns:1fr}
   .cust .col-detail{display:none}
   body.cust-open .cust .col-list{display:none}
   body.cust-open .cust .col-detail{display:flex}
   .cust .backbtn{display:inline-block}
+
+  .wrap{padding:15px 13px 52px}
+  .tiles{flex-wrap:wrap}
+  .tile{flex:1 0 44%; border-top:1px solid var(--rule)}
+  .tile:nth-child(-n+2){border-top:0}
+  .tile:nth-child(odd){border-left:0}
+  table.list{font-size:12px}
+  table.list th,table.list td{padding:6px 5px}
+  .card{overflow-x:auto}
+  .trunc{max-width:110px}
 }
-.backbtn{display:none; background:none; border:0; color:var(--accent);
-         font:inherit; font-size:13px; cursor:pointer; padding:0 4px 0 0}
