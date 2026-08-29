@@ -14,15 +14,24 @@ async function api(path, body, method) {
 
 /* 沒登入就丟去登入頁；needsSetup 就丟去初始化 */
 async function requireLogin() {
-  const me = await api("/api/me");
+  let me = await api("/api/me");
   if (me.needsSetup && !location.pathname.endsWith("setup.html")) {
     location.href = "setup.html"; return null;
+  }
+  /* DEMO_MODE 開著就自動用老闆身分進去 —— 開發時每次都要打帳號密碼太慢。
+     要換身分看權限差別，用側邊欄下面那排切換鈕，不用登出再登入。
+     正式環境不設 DEMO_MODE，這段就不會生效，一律走正常登入。 */
+  if (!me.user && me.demo) {
+    const j = await api("/api/demo-login", { email: "boss@test.local" });
+    if (j.ok) me = await api("/api/me");
   }
   if (!me.user && !location.pathname.endsWith("login.html") && !location.pathname.endsWith("setup.html")) {
     location.href = "login.html"; return null;
   }
   const who = document.getElementById("who");
   if (who && me.user) who.textContent = me.user.name + "（" + (me.user.role === "admin" ? "管理者" : "運營") + "）";
+  // demo 旗標在外層，掛到 user 上，renderSidebar 才看得到
+  if (me.user && me.demo) me.user.demo = true;
   return me.user;
 }
 
@@ -67,5 +76,28 @@ function renderSidebar(me, active, counts) {
     + "</nav>"
     + '<div class="foot2"><b>' + esc(me.name || "") + "</b>"
     + roleTxt + (canAll ? "" : "・只看得到指派給你的")
-    + '<div style="margin-top:9px"><a class="plain" href="#" onclick="logout();return false">登出</a></div></div>';
+    + '<div style="margin-top:9px"><a class="plain" href="#" onclick="logout();return false">登出</a></div>'
+    + (me.demo ? demoSwitcher(me) : "") + "</div>";
+  el.querySelectorAll(".switcher button").forEach((b) =>
+    b.addEventListener("click", () => demoSwitch(b.dataset.em)));
+}
+
+/* Demo 用的身分切換。點一下換人，馬上看到權限差別 —— 不用登出再登入。 */
+function demoSwitcher(me) {
+  const R = [
+    { em: "boss@test.local", n: "老闆" },
+    { em: "operator@test.local", n: "阿哲" },
+    { em: "agent1@test.local", n: "小婷" },
+    { em: "agent2@test.local", n: "阿凱" },
+  ];
+  /* 用 data 屬性帶信箱，事件在 renderSidebar 綁 ——
+     inline onclick 要在字串裡塞引號，寫錯一個整支 app.js 就掛（踩過）。 */
+  return '<div class="switcher"><span class="lb">切換身分（示範用）</span>'
+    + R.map((r) => '<button class="sw' + (me.name === r.n ? ' on' : '')
+        + '" data-em="' + r.em + '">' + r.n + "</button>").join("")
+    + "</div>";
+}
+async function demoSwitch(email) {
+  const j = await api("/api/demo-login", { email });
+  if (j.ok) location.reload();
 }

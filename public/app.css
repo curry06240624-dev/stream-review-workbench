@@ -206,3 +206,14 @@ body.app{display:flex; min-height:100vh}
   table.list{font-size:12.5px}
   table.list th,table.list td{padding:7px 6px}
 }
+
+/* Demo 身分切換（只在 DEMO_MODE 出現） */
+.switcher{margin-top:12px; padding-top:11px; border-top:1px dashed var(--edge)}
+.switcher .lb{display:block; font-size:10.5px; letter-spacing:.1em; color:var(--faint);
+              font-family:var(--mono); margin-bottom:7px}
+.switcher button{
+  border:1px solid var(--edge); background:var(--panel); color:var(--dim);
+  border-radius:7px; padding:4px 9px; font:inherit; font-size:12px; cursor:pointer; margin:0 4px 4px 0;
+}
+.switcher button:hover{border-color:var(--accent); color:var(--ink)}
+.switcher button.on{background:var(--accent); border-color:var(--accent); color:#062521; font-weight:700}

@@ -68,6 +68,24 @@ async function route(request, env, db, url) {
       { "set-cookie": setCookie(request, s.token, s.maxAge) });
   }
 
+  /* ── Demo 一鍵登入：只在 DEMO_MODE=on 時存在，而且只認這四個假帳號。
+       用途是 demo 時不用當著客戶的面打帳號密碼。
+       正式環境不要設這個變數，這個端點就會直接消失（回 404，跟沒寫過一樣）。
+       注意：它繞過的是「證明你是誰」，不是「你能看到什麼」——
+       登入後的權限一律照 role 走，跟正常登入完全同一條路。 ── */
+  if (p === "/api/demo-login" && m === "POST") {
+    if (env.DEMO_MODE !== "on") return J({ ok: false, error: "not_found" }, 404);
+    const b = await request.json().catch(() => ({}));
+    const ALLOWED = ["boss@test.local", "operator@test.local", "agent1@test.local", "agent2@test.local"];
+    const email = String(b.email || "").trim().toLowerCase();
+    if (!ALLOWED.includes(email)) return J({ ok: false, error: "not_demo_account" }, 403);
+    const u = await db.first("SELECT * FROM users WHERE email = ?", email);
+    if (!u) return J({ ok: false, error: "no_user", message: "示範帳號還沒建立。" }, 404);
+    const s = await issueSession(db, u.id);
+    return J({ ok: true, user: { email: u.email, name: u.name, role: u.role } }, 200,
+      { "set-cookie": setCookie(request, s.token, s.maxAge) });
+  }
+
   if (p === "/api/logout" && m === "POST") {
     const t = cookieOf(request);
     if (t) await db.run("DELETE FROM sessions WHERE token = ?", t);
@@ -77,7 +95,7 @@ async function route(request, env, db, url) {
   if (p === "/api/me") {
     const u = await currentUser(request, db);
     const n = await db.first("SELECT COUNT(*) AS c FROM users");
-    return J({ ok: true, user: u ? { email: u.email, name: u.name, role: u.role } : null, needsSetup: n.c === 0 });
+    return J({ ok: true, user: u ? { email: u.email, name: u.name, role: u.role } : null, needsSetup: n.c === 0, demo: env.DEMO_MODE === "on" });
   }
 
   /* ── 以下全部要登入 ── */

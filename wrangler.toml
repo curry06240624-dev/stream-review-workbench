@@ -26,3 +26,5 @@ new_sqlite_classes = ["AppDB"]
 
 # 秘密（本機放 .dev.vars，永不進 git；部署用 wrangler secret put）：
 #   SETUP_CODE      首次建立管理員帳號用的一次性代碼
+[vars]
+DEMO_MODE = "on"   # demo 用；正式環境把這行拿掉，一鍵登入就會消失
