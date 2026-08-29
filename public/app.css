@@ -75,7 +75,7 @@ textarea{resize:vertical; min-height:120px; line-height:1.7; font-size:13.5px}
      color:var(--hi); font-size:13.5px; display:none}
 .err.on{display:block}
 
-/* ── 覆盤項目 ── */
+/* ── 卡片內的條列項目 ── */
 .item{border:1px solid var(--edge); border-radius:11px; padding:14px 17px; margin-top:12px;
       background:var(--panel2); border-left-width:3px}
 .item.sev-hi{border-left-color:var(--hi)} .item.sev-mid{border-left-color:var(--mid)}

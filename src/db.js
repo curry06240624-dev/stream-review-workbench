@@ -1,10 +1,6 @@
 /**
  * AppDB —— 整個系統唯一的資料庫（Durable Object + SQLite）。
  *
- * 這份 schema 就是「底座」：第一天就照正式規格開，
- * 第二階段的四個驗收項（修改確認／保存每場／跨場重複問題／改善追蹤）
- * 全部已經有位子 —— 到時只開 UI，不動庫。
- *
  * 搬家路線：DO SQLite 與 D1 同為 SQLite 方言。正式上線搬到公司帳號時，
  * 把 SCHEMA 原封餵給 `wrangler d1 execute`，把本檔的 exec 換成 D1 prepare 即可。
  */
@@ -15,7 +11,7 @@ CREATE TABLE IF NOT EXISTS users (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   email      TEXT NOT NULL UNIQUE,
   name       TEXT NOT NULL,
-  role       TEXT NOT NULL DEFAULT 'operator',   -- admin | operator（訊息手等主系統角色之後加）
+  role       TEXT NOT NULL DEFAULT 'agent',     -- admin | operator | agent
   salt       TEXT NOT NULL,
   hash       TEXT NOT NULL,
   iter       INTEGER NOT NULL,
@@ -32,9 +28,10 @@ CREATE TABLE IF NOT EXISTS failed_logins (
   count INTEGER NOT NULL DEFAULT 0,
   until TEXT
 );
-/* ══ 訊息中心（Super 8 的核心）══════════════════════════════════
+
+/* ══ 訊息中心 ═══════════════════════════════════════════════════
    權限模型照瑋瑋電話裡描述的：運營指派對話給訊息手，被指派者獨占，
-   同層級互不可見，管理職全見。role: admin | operator | agent
+   同層級互不可見，管理職全見。
 
    ⚠️ 身分鍵的設計是這套系統勝過 Super 8 的地方：
    LINE 的 userId 是綁「單一官方帳號」的（官方 FAQ 查證過），換帳號就對不回來。
@@ -87,50 +84,10 @@ CREATE TABLE IF NOT EXISTS assignment_log (
 CREATE INDEX IF NOT EXISTS idx_conv_assigned ON conversations(assigned_to, last_message_at);
 CREATE INDEX IF NOT EXISTS idx_msg_conv      ON messages(conversation_id, id);
 CREATE INDEX IF NOT EXISTS idx_cc_contact    ON contact_channels(contact_id);
-
-CREATE TABLE IF NOT EXISTS streamers (
-  id       INTEGER PRIMARY KEY AUTOINCREMENT,
-  name     TEXT NOT NULL UNIQUE,
-  platform TEXT NOT NULL DEFAULT '',
-  active   INTEGER NOT NULL DEFAULT 1
-);
-CREATE TABLE IF NOT EXISTS livestreams (
-  id           INTEGER PRIMARY KEY AUTOINCREMENT,
-  streamer_id  INTEGER NOT NULL REFERENCES streamers(id),
-  live_date    TEXT NOT NULL,
-  metrics_json TEXT NOT NULL DEFAULT '{}',
-  transcript   TEXT NOT NULL,
-  created_by   INTEGER NOT NULL REFERENCES users(id),
-  created_at   TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS reviews (
-  id            INTEGER PRIMARY KEY AUTOINCREMENT,
-  livestream_id INTEGER NOT NULL REFERENCES livestreams(id),
-  model         TEXT NOT NULL,
-  status        TEXT NOT NULL DEFAULT 'done',    -- done | failed
-  notes         TEXT NOT NULL DEFAULT '',
-  created_at    TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS review_items (
-  id            INTEGER PRIMARY KEY AUTOINCREMENT,
-  review_id     INTEGER NOT NULL REFERENCES reviews(id),
-  kind          TEXT NOT NULL,                   -- problem | action
-  seq           INTEGER NOT NULL,
-  ai_text       TEXT NOT NULL,
-  quote         TEXT NOT NULL DEFAULT '',
-  quote_pos     TEXT NOT NULL DEFAULT '',
-  quote_ok      INTEGER NOT NULL DEFAULT 0,      -- 伺服器逐字核對過出處才是 1
-  severity      TEXT NOT NULL DEFAULT '',        -- 重大 | 中 | 輕微（problem 才有）
-  success_criteria TEXT NOT NULL DEFAULT '',
-  -- ▼ 第二階段才開 UI 的欄位（運營修改確認），位子現在就擺好
-  status        TEXT NOT NULL DEFAULT 'pending', -- pending | confirmed | edited | rejected
-  final_text    TEXT NOT NULL DEFAULT '',
-  operator_note TEXT NOT NULL DEFAULT '',
-  updated_at    TEXT
-);
-CREATE INDEX IF NOT EXISTS idx_ls_streamer ON livestreams(streamer_id, live_date);
-CREATE INDEX IF NOT EXISTS idx_ri_review  ON review_items(review_id, kind, seq);
 `;
+
+/* 舊的直播覆盤模組已移除（見 git 歷史 commit 8402e70）。
+   本機開發資料庫可能還留著那幾張表，留著無害，不會被任何查詢碰到。 */
 
 export class AppDB extends DurableObject {
   constructor(ctx, env) {
@@ -150,7 +107,7 @@ export class AppDB extends DurableObject {
     return rows.length ? rows[0] : null;
   }
 
-  /** 寫入；回 { rowsWritten, lastRowId }。 */
+  /** 寫入；回 { lastRowId }。 */
   run(query, ...params) {
     const cur = this.sql.exec(query, ...params);
     cur.toArray();                     // 讓語句真的執行完

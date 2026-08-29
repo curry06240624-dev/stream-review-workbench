@@ -1,4 +1,4 @@
-# 直播覆盤工作台 —— 主系統底座上的第一個模組
+# AI 指揮中心 —— LINE 官方帳號客服後台（Super 8 自建版）
 #
 # 儲存用 Durable Object 的 SQLite，不用 D1，原因有三：
 #   1. 這台開發帳號的 D1 是 10/10 滿的（而且那些是客戶的庫，不混用）
@@ -25,8 +25,4 @@ tag = "v1"
 new_sqlite_classes = ["AppDB"]
 
 # 秘密（本機放 .dev.vars，永不進 git；部署用 wrangler secret put）：
-#   GEMINI_API_KEY  必填
 #   SETUP_CODE      首次建立管理員帳號用的一次性代碼
-# 一般變數：
-[vars]
-GEMINI_MODEL = "gemini-3.7-flash"

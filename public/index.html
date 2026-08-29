@@ -4,46 +4,53 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>直播 AI 指揮中心</title>
+<title>總覽｜AI 指揮中心</title>
 <link rel="stylesheet" href="app.css">
 </head>
 <body class="app">
 <div class="side" id="side"></div>
+
 <div class="main">
 <div class="wrap">
   <header class="top">
-    <div><h1>總覽</h1><div class="sub">全公司戰情，數字全部即時計算</div></div>
+    <div><h1>總覽</h1><div class="sub" id="sub">數字全部即時計算</div></div>
     <span class="sp"></span>
-    <a class="btn sm" href="new.html" style="text-decoration:none">＋ 分析新直播</a>
+    <a class="btn sm" href="inbox.html" style="text-decoration:none">前往訊息中心</a>
   </header>
 
-  <!-- 戰情磚：全部是資料庫真算出來的 -->
   <div class="tiles" id="tiles"></div>
 
   <div class="card">
-    <h2>問題嚴重度分布</h2>
-    <div id="sevwrap"><p class="empty">尚無資料</p></div>
+    <h2>客戶分級</h2>
+    <div id="gradewrap"><p class="empty">尚無資料</p></div>
   </div>
 
-  <div class="card">
-    <h2>直播主戰況</h2>
+  <div class="card" id="agentcard" style="display:none">
+    <h2>訊息手戰況</h2>
     <table class="list">
-      <thead><tr><th>直播主</th><th class="num">場次</th><th>最近直播</th><th class="num">累計觀看</th><th class="num">累計詢單</th><th class="num">重大問題</th><th>最新覆盤</th></tr></thead>
-      <tbody id="strows"><tr><td colspan="7" class="empty">載入中…</td></tr></tbody>
+      <thead><tr><th>成員</th><th>職務</th><th class="num">負責對話</th><th class="num">待回</th><th class="num">累計回覆</th></tr></thead>
+      <tbody id="agrows"></tbody>
     </table>
   </div>
 
   <div class="card">
-    <h2>最近場次</h2>
+    <h2>獲客渠道</h2>
     <table class="list">
-      <thead><tr><th>日期</th><th>直播主</th><th class="num">觀看</th><th class="num">峰值</th><th class="num">詢單</th><th>覆盤</th></tr></thead>
-      <tbody id="rows"><tr><td colspan="6" class="empty">載入中…</td></tr></tbody>
+      <thead><tr><th>來源</th><th class="num">客戶數</th><th>占比</th></tr></thead>
+      <tbody id="srows"></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>最近對話</h2>
+    <table class="list">
+      <thead><tr><th>客戶</th><th>分級</th><th>負責人</th><th>最後訊息</th><th></th></tr></thead>
+      <tbody id="rrows"></tbody>
     </table>
   </div>
 
   <p class="foot">
-    第一階段：全部使用假資料，不連接任何正式系統。<br>
-    AI 覆盤的每一條問題都附逐字稿原文出處並經伺服器逐字核對 —— 出處對不上的會標示，請以人的判斷為準。
+    第一階段：全部使用假資料，不連接公司任何正式系統，不使用 LINE API。
   </p>
 </div>
 </div>
@@ -53,46 +60,62 @@
 (async () => {
   const u = await requireLogin();
   if (!u) return;
-  const ib = await api("/api/inbox");
-  renderSidebar(u, "index.html", ib.ok ? ib.counts : null);
   const j = await api("/api/dashboard");
-  if (!j.ok) { document.getElementById("strows").innerHTML = '<tr><td colspan="7">' + esc(j.message || "載入失敗") + "</td></tr>"; return; }
+  if (!j.ok) return;
+  renderSidebar(u, "index.html", { all: j.totals.conversations });
+
+  if (!j.can_see_all) document.getElementById("sub").textContent = "你的範圍：只計算指派給你的對話";
 
   const t = j.totals;
   document.getElementById("tiles").innerHTML =
-    tile(t.streams, "已分析場次") +
-    tile(t.problems, "AI 找出的問題") +
-    tile(t.sev["重大"], "重大問題", t.sev["重大"] > 0 ? "hi" : "") +
-    tile(t.quote_rate === null ? "–" : t.quote_rate + "%", "引用通過逐字核對", "ok");
+    tile(t.conversations, "進行中的對話")
+    + tile(t.unassigned, "未指派", t.unassigned > 0 ? "hi" : "")
+    + tile(t.unread, "待回覆", t.unread > 0 ? "hi" : "ok")
+    + tile(t.messages, "累計訊息");
 
-  if (t.problems > 0) {
-    const w = (n) => Math.round(n / t.problems * 100);
-    document.getElementById("sevwrap").innerHTML =
+  const g = j.grades, gt = g.S + g.A + g.B + g.C;
+  if (gt > 0) {
+    const w = (n) => Math.round(n / gt * 100);
+    document.getElementById("gradewrap").innerHTML =
       '<div class="sevbar">'
-      + '<i class="s-hi" style="width:' + w(t.sev["重大"]) + '%"></i>'
-      + '<i class="s-mid" style="width:' + w(t.sev["中"]) + '%"></i>'
-      + '<i class="s-low" style="width:' + w(t.sev["輕微"]) + '%"></i></div>'
-      + '<div class="sevkey"><span class="k-hi">■ 重大 <b>' + t.sev["重大"] + "</b></span>"
-      + '<span class="k-mid">■ 中 <b>' + t.sev["中"] + "</b></span>"
-      + '<span class="k-low">■ 輕微 <b>' + t.sev["輕微"] + "</b></span></div>";
+      + '<i class="s-hi"  style="width:' + w(g.S) + '%"></i>'
+      + '<i class="s-mid" style="width:' + w(g.A) + '%"></i>'
+      + '<i style="width:' + w(g.B) + '%;background:var(--accent)"></i>'
+      + '<i class="s-low" style="width:' + w(g.C) + '%"></i></div>'
+      + '<div class="sevkey"><span class="k-hi">■ S <b>' + g.S + "</b></span>"
+      + '<span class="k-mid">■ A <b>' + g.A + "</b></span>"
+      + '<span style="color:var(--accent)">■ B <b>' + g.B + "</b></span>"
+      + '<span class="k-low">■ C <b>' + g.C + "</b></span></div>"
+      + '<p style="font-size:12px;color:var(--faint);margin:10px 0 0">'
+      + "S／A 是有持續互動的客戶，C 是還沒指派、也還沒往來的。</p>";
   }
 
-  document.getElementById("strows").innerHTML = j.streamers.length ? j.streamers.map((s) =>
-    "<tr><td><b>" + esc(s.streamer) + "</b></td>"
-    + '<td class="num">' + s.count + "</td><td>" + esc(s.last) + "</td>"
-    + '<td class="num">' + s.viewers.toLocaleString() + '</td><td class="num">' + s.inquiries + "</td>"
-    + '<td class="num' + (s.hi > 0 ? " hi" : "") + '">' + s.hi + "</td>"
-    + "<td>" + (s.last_review ? '<a href="review.html?id=' + s.last_review + '">開啟 →</a>' : "–") + "</td></tr>"
-  ).join("") : '<tr><td colspan="7" class="empty">還沒有資料 —— 按右上「分析新直播」貼第一場逐字稿。</td></tr>';
+  if (j.can_see_all && j.agents.length) {
+    document.getElementById("agentcard").style.display = "";
+    document.getElementById("agrows").innerHTML = j.agents.map((a) =>
+      "<tr><td><b>" + esc(a.name) + "</b></td>"
+      + "<td>" + (a.role === "operator" ? "運營" : "訊息手") + "</td>"
+      + '<td class="num">' + a.assigned + "</td>"
+      + '<td class="num' + (a.unread > 0 ? " hi" : "") + '">' + a.unread + "</td>"
+      + '<td class="num">' + a.replies + "</td></tr>").join("");
+  }
 
-  document.getElementById("rows").innerHTML = j.recent.length ? j.recent.map((l) => {
-    let m = {};
-    try { m = JSON.parse(l.metrics_json); } catch (e) {}
-    return "<tr><td>" + esc(l.live_date) + "</td><td>" + esc(l.streamer) + "</td>"
-      + '<td class="num">' + (m.viewers_total ?? "–") + '</td><td class="num">' + (m.peak_viewers ?? "–")
-      + '</td><td class="num">' + (m.inquiries ?? "–") + "</td>"
-      + "<td>" + (l.review_id ? '<a href="review.html?id=' + l.review_id + '">看覆盤 →</a>' : "–") + "</td></tr>";
-  }).join("") : '<tr><td colspan="6" class="empty">還沒有場次。</td></tr>';
+  const stot = j.sources.reduce((n, s) => n + s.n, 0) || 1;
+  const NAME = { meta: "Facebook 廣告", ig: "Instagram", line_search: "LINE 搜尋" };
+  document.getElementById("srows").innerHTML = j.sources.length ? j.sources.map((s) =>
+    "<tr><td>" + esc(NAME[s.source] || s.source) + '</td><td class="num">' + s.n + "</td>"
+    + '<td style="width:44%"><div class="sevbar" style="margin:0"><i style="width:'
+    + Math.round(s.n / stot * 100) + '%;background:var(--accent)"></i></div></td></tr>'
+  ).join("") : '<tr><td colspan="3" class="empty">尚無資料</td></tr>';
+
+  document.getElementById("rrows").innerHTML = j.recent.length ? j.recent.map((c) =>
+    "<tr><td><b>" + esc(c.display_name) + "</b></td>"
+    + '<td><span class="gr g-' + esc(c.grade) + '">' + esc(c.grade) + "</span></td>"
+    + "<td>" + (c.assigned_to ? esc(c.agent_name) : '<span style="color:var(--mid)">未指派</span>') + "</td>"
+    + '<td style="max-width:290px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'
+    + (c.last_dir === "out" ? "↩ " : "") + esc(c.last_text || "") + "</td>"
+    + '<td><a href="inbox.html">開啟 →</a></td></tr>'
+  ).join("") : '<tr><td colspan="5" class="empty">還沒有對話。</td></tr>';
 
   function tile(n, label, cls) {
     return '<div class="tile"><span class="n ' + (cls || "") + '">' + n + '</span><span class="l">' + label + "</span></div>";

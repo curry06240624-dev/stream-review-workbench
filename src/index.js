@@ -6,7 +6,6 @@
  */
 import { AppDB } from "./db.js";
 import { currentUser, createUser, issueSession, login, setCookie, cookieOf } from "./auth.js";
-import { runReview } from "./gemini.js";
 import { listConversations, getConversation, assign, reply, inboxCounts, canSeeAll } from "./inbox.js";
 
 export { AppDB };
@@ -186,108 +185,49 @@ async function route(request, env, db, url) {
     return J({ ok: true });
   }
 
-  /* ── 指揮中心總覽：全部是真算出來的數字，沒有裝飾用的假儀表 ── */
+  /* ── 總覽：全部是真算出來的數字，沒有裝飾用的假儀表。
+       agent 看到的是自己的範圍，跟收件匣同一套權限。 ── */
   if (p === "/api/dashboard" && m === "GET") {
-    const streams = await db.all(
-      `SELECT l.id, l.live_date, l.metrics_json, s.name AS streamer,
-              (SELECT r.id FROM reviews r WHERE r.livestream_id = l.id AND r.status='done'
-                ORDER BY r.id DESC LIMIT 1) AS review_id
-         FROM livestreams l JOIN streamers s ON s.id = l.streamer_id
-        ORDER BY l.live_date DESC, l.id DESC`);
-    const probs = await db.all(
-      `SELECT ri.severity, ri.quote_ok, l.streamer_id, s.name AS streamer, r.livestream_id
-         FROM review_items ri
-         JOIN reviews r ON r.id = ri.review_id AND r.status='done'
-         JOIN livestreams l ON l.id = r.livestream_id
-         JOIN streamers s ON s.id = l.streamer_id
-        WHERE ri.kind = 'problem'`);
+    const all = canSeeAll(me.role);
+    const scope = all ? "" : " AND c.assigned_to = " + Number(me.id);
 
-    const sev = { 重大: 0, 中: 0, 輕微: 0 };
-    let quoteOk = 0;
-    for (const x of probs) { if (sev[x.severity] !== undefined) sev[x.severity]++; if (x.quote_ok) quoteOk++; }
+    const t = await db.first(`SELECT
+        COUNT(*) AS conversations,
+        SUM(CASE WHEN c.assigned_to IS NULL THEN 1 ELSE 0 END) AS unassigned,
+        SUM(c.unread) AS unread
+      FROM conversations c WHERE c.status='open'` + scope);
+    const msgs = await db.first(
+      `SELECT COUNT(*) AS n FROM messages mm
+        JOIN conversations c ON c.id = mm.conversation_id WHERE 1=1` + scope);
+    const grades = await db.all(
+      `SELECT ct.grade, COUNT(*) AS n FROM conversations c
+         JOIN contacts ct ON ct.id = c.contact_id WHERE 1=1` + scope + ` GROUP BY ct.grade`);
+    const sources = await db.all(
+      `SELECT cc.source, COUNT(*) AS n FROM conversations c
+         JOIN contact_channels cc ON cc.contact_id = c.contact_id
+        WHERE cc.source <> ''` + scope + ` GROUP BY cc.source ORDER BY n DESC`);
 
-    const byStreamer = {};
-    for (const l of streams) {
-      const b = byStreamer[l.streamer] ||= { streamer: l.streamer, count: 0, last: "", inquiries: 0, viewers: 0, hi: 0, last_review: null };
-      b.count++; if (l.live_date > b.last) b.last = l.live_date;
-      if (!b.last_review && l.review_id) b.last_review = l.review_id;
-      try { const mm = JSON.parse(l.metrics_json); b.inquiries += mm.inquiries || 0; b.viewers += mm.viewers_total || 0; } catch (e) {}
+    // 訊息手戰況：只有管理職看得到別人的數字
+    let agents = [];
+    if (all) {
+      agents = await db.all(
+        `SELECT u.id, u.name, u.role,
+                (SELECT COUNT(*) FROM conversations c
+                  WHERE c.assigned_to = u.id AND c.status='open') AS assigned,
+                (SELECT COALESCE(SUM(c.unread),0) FROM conversations c
+                  WHERE c.assigned_to = u.id AND c.status='open') AS unread,
+                (SELECT COUNT(*) FROM messages mm
+                  WHERE mm.sender_user_id = u.id) AS replies
+           FROM users u WHERE u.role IN ('agent','operator') ORDER BY assigned DESC, u.name`);
     }
-    for (const x of probs) if (x.severity === "重大" && byStreamer[x.streamer]) byStreamer[x.streamer].hi++;
+    const recent = await listConversations(db, me, "all");
 
+    const g = { S: 0, A: 0, B: 0, C: 0 };
+    for (const r of grades) if (g[r.grade] !== undefined) g[r.grade] = r.n;
     return J({ ok: true,
-      totals: { streams: streams.length, problems: probs.length, sev,
-                quote_rate: probs.length ? Math.round(quoteOk / probs.length * 100) : null },
-      streamers: Object.values(byStreamer),
-      recent: streams.slice(0, 6) });
-  }
-
-  if (p === "/api/livestreams" && m === "GET") {
-    const rows = await db.all(
-      `SELECT l.id, l.live_date, l.metrics_json, s.name AS streamer,
-              (SELECT r.id FROM reviews r WHERE r.livestream_id = l.id ORDER BY r.id DESC LIMIT 1) AS review_id
-         FROM livestreams l JOIN streamers s ON s.id = l.streamer_id
-        ORDER BY l.live_date DESC, l.id DESC LIMIT 100`);
-    return J({ ok: true, livestreams: rows });
-  }
-
-  if (p === "/api/livestreams" && m === "POST") {
-    const b = await request.json().catch(() => ({}));
-    const streamer = String(b.streamer || "").trim().slice(0, 40);
-    const liveDate = String(b.live_date || "").slice(0, 10);
-    const transcript = String(b.transcript || "");
-    const metrics = {
-      viewers_total: num(b.metrics?.viewers_total),
-      peak_viewers: num(b.metrics?.peak_viewers),
-      comments: num(b.metrics?.comments),
-      inquiries: num(b.metrics?.inquiries),
-    };
-    if (!streamer) return J({ ok: false, error: "no_streamer", message: "要填直播主名稱。" }, 400);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(liveDate)) return J({ ok: false, error: "bad_date", message: "日期格式要 YYYY-MM-DD。" }, 400);
-    if (transcript.length < 200) return J({ ok: false, error: "short", message: "逐字稿太短（至少 200 字），AI 覆盤不出東西。" }, 400);
-    if (transcript.length > 400000) return J({ ok: false, error: "long", message: "逐字稿太長，先拆場。" }, 400);
-
-    await db.run("INSERT INTO streamers (name) VALUES (?) ON CONFLICT(name) DO NOTHING", streamer);
-    const st = await db.first("SELECT id FROM streamers WHERE name = ?", streamer);
-    const ls = await db.run(
-      `INSERT INTO livestreams (streamer_id, live_date, metrics_json, transcript, created_by, created_at)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      st.id, liveDate, JSON.stringify(metrics), transcript, me.id, now());
-
-    // AI 覆盤。失敗也要留紀錄（status=failed），不要讓這場直播消失在列表上
-    let review;
-    try {
-      review = await runReview(env, { transcript, metrics });
-    } catch (e) {
-      const rid = await db.run(
-        `INSERT INTO reviews (livestream_id, model, status, notes, created_at) VALUES (?, ?, 'failed', ?, ?)`,
-        ls.lastRowId, env.GEMINI_MODEL || "?", String(e.message).slice(0, 300), now());
-      return J({ ok: false, error: "ai_failed", livestream_id: ls.lastRowId, review_id: rid.lastRowId,
-                 message: "直播已存檔，但 AI 覆盤失敗：" + String(e.message).slice(0, 160) }, 502);
-    }
-    const rv = await db.run(
-      `INSERT INTO reviews (livestream_id, model, status, notes, created_at) VALUES (?, ?, 'done', ?, ?)`,
-      ls.lastRowId, review.model, review.notes, now());
-    for (const it of review.items) {
-      await db.run(
-        `INSERT INTO review_items (review_id, kind, seq, ai_text, quote, quote_pos, quote_ok, severity, success_criteria)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        rv.lastRowId, it.kind, it.seq, it.ai_text, it.quote, it.quote_pos, it.quote_ok, it.severity, it.success_criteria);
-    }
-    return J({ ok: true, livestream_id: ls.lastRowId, review_id: rv.lastRowId });
-  }
-
-  const mR = p.match(/^\/api\/reviews\/(\d+)$/);
-  if (mR && m === "GET") {
-    const rv = await db.first(
-      `SELECT r.*, l.live_date, l.metrics_json, s.name AS streamer
-         FROM reviews r JOIN livestreams l ON l.id = r.livestream_id
-                        JOIN streamers  s ON s.id = l.streamer_id
-        WHERE r.id = ?`, Number(mR[1]));
-    if (!rv) return J({ ok: false, error: "not_found" }, 404);
-    const items = await db.all(
-      "SELECT * FROM review_items WHERE review_id = ? ORDER BY kind DESC, seq", rv.id);
-    return J({ ok: true, review: rv, items });
+      totals: { conversations: t.conversations || 0, unassigned: t.unassigned || 0,
+                unread: t.unread || 0, messages: msgs.n || 0 },
+      grades: g, sources, agents, recent: recent.slice(0, 8), can_see_all: all });
   }
 
   return J({ ok: false, error: "not_found", message: "沒有這個 API。" }, 404);
