@@ -9,7 +9,7 @@
 # 部署目標：瑋瑋公司自己開的 Cloudflare 帳號（等他開好）。
 # 開好之前一律 `npx wrangler dev` 本機跑，不部署到任何現有帳號。
 
-name = "stream-review-workbench"
+name = "ai-command-center"
 main = "src/index.js"
 compatibility_date = "2026-06-24"   # 這版 wrangler 的 workerd 最高支援到這天
 
