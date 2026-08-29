@@ -71,6 +71,7 @@ function renderSidebar(me, active, counts) {
   el.innerHTML =
     '<div class="brand"><span class="mk">◤</span>AI 指揮中心<small>COMMAND CENTER</small></div>'
     + "<nav>"
+    + nav("situation.html", "現場狀況", counts ? counts.waiting : "")
     + nav("index.html", "總覽")
     + nav("inbox.html", "訊息中心", counts ? counts.all : "")
     + nav("customers.html", "客戶中心")

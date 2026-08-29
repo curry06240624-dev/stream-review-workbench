@@ -8,6 +8,7 @@ import { AppDB } from "./db.js";
 import { currentUser, createUser, issueSession, login, setCookie, cookieOf } from "./auth.js";
 import { listConversations, getConversation, assign, reply, inboxCounts, canSeeAll } from "./inbox.js";
 import { listContacts, getContact, updateContact } from "./contacts.js";
+import { situation } from "./situation.js";
 
 export { AppDB };
 
@@ -247,6 +248,11 @@ async function route(request, env, db, url) {
       totals: { conversations: t.conversations || 0, unassigned: t.unassigned || 0,
                 unread: t.unread || 0, messages: msgs.n || 0 },
       grades: g, sources, agents, recent: recent.slice(0, 8), can_see_all: all });
+  }
+
+  /* ══ 現場狀況 ══ 指揮中心主畫面，依等待時間排序 ══ */
+  if (p === "/api/situation" && m === "GET") {
+    return J({ ok: true, ...(await situation(db, me, now())) });
   }
 
   /* ══ 客戶中心 ══ 權限同訊息中心：訊息手只看得到自己跟進的客戶 ══ */
