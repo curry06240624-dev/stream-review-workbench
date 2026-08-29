@@ -7,6 +7,7 @@
 import { AppDB } from "./db.js";
 import { currentUser, createUser, issueSession, login, setCookie, cookieOf } from "./auth.js";
 import { listConversations, getConversation, assign, reply, inboxCounts, canSeeAll } from "./inbox.js";
+import { listContacts, getContact, updateContact } from "./contacts.js";
 
 export { AppDB };
 
@@ -246,6 +247,58 @@ async function route(request, env, db, url) {
       totals: { conversations: t.conversations || 0, unassigned: t.unassigned || 0,
                 unread: t.unread || 0, messages: msgs.n || 0 },
       grades: g, sources, agents, recent: recent.slice(0, 8), can_see_all: all });
+  }
+
+  /* ══ 客戶中心 ══ 權限同訊息中心：訊息手只看得到自己跟進的客戶 ══ */
+  if (p === "/api/contacts" && m === "GET") {
+    const contacts = await listContacts(db, me, {
+      q: url.searchParams.get("q") || "",
+      grade: url.searchParams.get("grade") || "",
+    });
+    return J({ ok: true, contacts, can_see_all: canSeeAll(me.role) });
+  }
+
+  /* 匯出 CSV —— 對照 Super 8 的「匯出客戶資料」。
+     只有管理職能匯出：訊息手能匯出等於整份客戶名單可以被帶走。 */
+  if (p === "/api/contacts.csv" && m === "GET") {
+    if (!canSeeAll(me.role)) {
+      return J({ ok: false, error: "forbidden", message: "只有運營或管理者可以匯出客戶資料。" }, 403);
+    }
+    const rows = await listContacts(db, me, { limit: 500 });
+    /* 不用跳脫序列建字元 —— 這段程式碼經過多層工具轉手，字串裡寫
+       backslash-n 會在某一層變成真的換行，把 regex 或字串截斷（踩過兩次）。 */
+    const NL = String.fromCharCode(10), CRLF = String.fromCharCode(13, 10);
+    const BOM = String.fromCharCode(65279);   // Excel 開 UTF-8 中文要靠這個才不亂碼
+    const esc = (v) => {
+      const t = String(v ?? '');
+      return (t.includes(',') || t.includes(String.fromCharCode(34)) || t.includes(NL))
+        ? String.fromCharCode(34) + t.split(String.fromCharCode(34)).join(String.fromCharCode(34,34)) + String.fromCharCode(34)
+        : t;
+    };
+    const head = ['客戶名稱','電話','分級','渠道','獲客來源','對話數','最後往來','負責人','備註'];
+    const body = rows.map((r) => [r.display_name, r.phone, r.grade, r.channel || '', r.source || '',
+      r.conv_count, (r.last_at || '').slice(0, 10), r.agent_name || '', r.note || ''].map(esc).join(','));
+    return new Response(BOM + [head.join(','), ...body].join(CRLF), {
+      headers: {
+        "content-type": "text/csv; charset=utf-8",
+        "content-disposition": 'attachment; filename="contacts.csv"',
+        "cache-control": "no-store",
+      },
+    });
+  }
+
+  const mCt = p.match(/^\/api\/contacts\/(\d+)$/);
+  if (mCt && m === "GET") {
+    const data = await getContact(db, me, Number(mCt[1]));
+    if (!data) return J({ ok: false, error: "not_found" }, 404);
+    return J({ ok: true, ...data });
+  }
+  if (mCt && m === "PATCH") {
+    const b = await request.json().catch(() => ({}));
+    const r = await updateContact(db, me, Number(mCt[1]), b, now());
+    if (!r) return J({ ok: false, error: "not_found" }, 404);
+    if (r.error) return J({ ok: false, ...r }, 400);
+    return J({ ok: true });
   }
 
   return J({ ok: false, error: "not_found", message: "沒有這個 API。" }, 404);

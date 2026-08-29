@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>客戶中心｜AI 指揮中心</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body class="app">
+<div class="side" id="side"></div>
+
+<div class="main">
+  <div class="cust">
+    <!-- 左：清單（自己內捲） -->
+    <div class="col-list">
+      <div class="hd">
+        <span class="t">客戶中心</span>
+        <span id="cnt" class="ct2"></span>
+        <span style="flex:1"></span>
+        <button class="btn ghost sm" id="csv">匯出 CSV</button>
+      </div>
+      <div class="filters">
+        <input id="q" placeholder="搜尋名稱、電話、備註…" autocomplete="off">
+        <div class="chips" id="chips"></div>
+      </div>
+      <div class="rows" id="rows"><p class="empty" style="padding:16px">載入中…</p></div>
+    </div>
+
+    <!-- 右：明細（自己內捲） -->
+    <div class="col-detail" id="detail">
+      <div class="blank">← 從左邊選一位客戶</div>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+let ME = null, CUR = null, Q = "", GRADE = "";
+
+(async () => {
+  ME = await requireLogin();
+  if (!ME) return;
+  renderSidebar(ME, "customers.html");
+  document.getElementById("chips").innerHTML =
+    [["", "全部"], ["S", "S"], ["A", "A"], ["B", "B"], ["C", "C"]].map(([v, l]) =>
+      '<button class="chip' + (v === "" ? " on" : "") + '" data-g="' + v + '">' + l + "</button>").join("");
+  document.querySelectorAll(".chip").forEach((c) => c.addEventListener("click", () => {
+    document.querySelectorAll(".chip").forEach((x) => x.classList.remove("on"));
+    c.classList.add("on"); GRADE = c.dataset.g; load();
+  }));
+  let t;
+  document.getElementById("q").addEventListener("input", (e) => {
+    clearTimeout(t); Q = e.target.value.trim(); t = setTimeout(load, 250);
+  });
+  document.getElementById("csv").addEventListener("click", async () => {
+    // 匯出走一般導頁，讓瀏覽器自己處理下載（fetch 拿到的 blob 在這個情境沒有比較好）
+    const r = await fetch("/api/contacts.csv", { credentials: "same-origin" });
+    if (!r.ok) { const j = await r.json().catch(() => ({})); alert(j.message || "沒有權限匯出。"); return; }
+    location.href = "/api/contacts.csv";
+  });
+  load();
+})();
+
+async function load() {
+  const j = await api("/api/contacts?q=" + encodeURIComponent(Q) + "&grade=" + GRADE);
+  if (!j.ok) return;
+  document.getElementById("cnt").textContent = j.contacts.length + " 位";
+  document.getElementById("csv").style.display = j.can_see_all ? "" : "none";
+  document.getElementById("rows").innerHTML = j.contacts.length ? j.contacts.map((c) =>
+    '<div class="row' + (CUR === c.id ? " on" : "") + '" data-id="' + c.id + '">'
+    + '<span class="gr g-' + esc(c.grade) + '">' + esc(c.grade) + "</span>"
+    + "<span class=\"info\"><b>" + esc(c.display_name) + "</b>"
+    + '<small>' + esc(c.phone || "未留電話") + "　·　" + esc(c.agent_name || "未指派") + "</small></span>"
+    + '<span class="when">' + esc((c.last_at || "").slice(5, 10)) + "</span></div>"
+  ).join("") : '<p class="empty" style="padding:16px">找不到符合的客戶。</p>';
+  document.querySelectorAll("#rows .row").forEach((r) =>
+    r.addEventListener("click", () => open(Number(r.dataset.id))));
+}
+
+async function open(id) {
+  CUR = id;
+  document.querySelectorAll("#rows .row").forEach((r) =>
+    r.classList.toggle("on", Number(r.dataset.id) === id));
+  document.body.classList.add("cust-open");   // 手機版切到明細畫面
+  const j = await api("/api/contacts/" + id);
+  const d = document.getElementById("detail");
+  if (!j.ok) { d.innerHTML = '<div class="blank">看不到這位客戶。</div>'; return; }
+  const c = j.contact, ch = j.channels[0] || {};
+  const SRC = { meta: "Facebook 廣告", ig: "Instagram", line_search: "LINE 搜尋" };
+  d.innerHTML =
+    '<div class="hd"><button class="backbtn" id="back">← 清單</button>'
+    + '<span class="t">' + esc(c.display_name) + "</span>"
+    + '<span class="gr g-' + esc(c.grade) + '">' + esc(c.grade) + "</span></div>"
+    + '<div class="dbody">'
+    + '<div class="fields">'
+    + fld("電話（自有身分鍵）", esc(c.phone || "—"), 1)
+    + fld("渠道", (ch.channel || "—").toUpperCase())
+    + fld("獲客來源", esc(SRC[ch.source] || ch.source || "—"))
+    + fld("往來訊息", (j.stat.total || 0) + " 則（客戶 " + (j.stat.incoming || 0) + "）")
+    + "</div>"
+    + '<label for="gsel">分級</label>'
+    + '<select id="gsel">' + ["S", "A", "B", "C"].map((g) =>
+        '<option value="' + g + '"' + (g === c.grade ? " selected" : "") + ">" + g + "</option>").join("") + "</select>"
+    + '<label for="note">備註</label>'
+    + '<textarea id="note" style="min-height:76px" placeholder="這位客戶要注意的事…">' + esc(c.note || "") + "</textarea>"
+    + '<div style="margin-top:11px"><button class="btn sm" id="save">儲存</button>'
+    + '<span id="saved" style="margin-left:10px;color:var(--accent);font-size:12.5px;display:none">已儲存 ✓</span></div>'
+    + '<h3 class="sub2">對話紀錄（' + j.conversations.length + "）</h3>"
+    + j.conversations.map((v) =>
+        '<a class="convrow" href="inbox.html">'
+        + "<b>" + esc((v.last_message_at || "").slice(5, 16).replace("T", " ")) + "</b>"
+        + '<span class="pv">' + esc((v.last_text || "").slice(0, 46)) + "</span>"
+        + '<small>' + esc(v.agent_name || "未指派") + "</small></a>").join("")
+    + '<p class="foot" style="margin-top:18px">電話是這套系統的主鍵。LINE 的 userId 綁單一官方帳號，'
+    + "換帳號就對不回來；用電話當主鍵，換帳號客戶資料仍然接得上。</p>"
+    + "</div>";
+
+  document.getElementById("back")?.addEventListener("click",
+    () => document.body.classList.remove("cust-open"));
+  document.getElementById("save").addEventListener("click", async () => {
+    const r = await api("/api/contacts/" + id, {
+      grade: document.getElementById("gsel").value,
+      note: document.getElementById("note").value,
+    }, "PATCH");
+    if (!r.ok) { alert(r.message || "存不起來"); return; }
+    const s = document.getElementById("saved");
+    s.style.display = ""; setTimeout(() => s.style.display = "none", 1800);
+    load();
+  });
+}
+
+function fld(label, val, mono) {
+  return '<div class="fd"><span>' + label + "</span><b" + (mono ? ' class="mono"' : "") + ">" + val + "</b></div>";
+}
+</script>
+</body>
+</html>

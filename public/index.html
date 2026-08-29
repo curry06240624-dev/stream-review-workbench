@@ -112,7 +112,7 @@
     "<tr><td><b>" + esc(c.display_name) + "</b></td>"
     + '<td><span class="gr g-' + esc(c.grade) + '">' + esc(c.grade) + "</span></td>"
     + "<td>" + (c.assigned_to ? esc(c.agent_name) : '<span style="color:var(--mid)">未指派</span>') + "</td>"
-    + '<td style="max-width:290px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'
+    + '<td class="trunc">'
     + (c.last_dir === "out" ? "↩ " : "") + esc(c.last_text || "") + "</td>"
     + '<td><a href="inbox.html">開啟 →</a></td></tr>'
   ).join("") : '<tr><td colspan="5" class="empty">還沒有對話。</td></tr>';

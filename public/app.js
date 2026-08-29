@@ -73,13 +73,15 @@ function renderSidebar(me, active, counts) {
     + "<nav>"
     + nav("index.html", "總覽")
     + nav("inbox.html", "訊息中心", counts ? counts.all : "")
+    + nav("customers.html", "客戶中心")
     + "</nav>"
     + '<div class="foot2"><b>' + esc(me.name || "") + "</b>"
-    + roleTxt + (canAll ? "" : "・只看得到指派給你的")
+    + '<span class="roletxt">' + roleTxt + (canAll ? "" : "・只看得到指派給你的") + "</span>"
     + '<div style="margin-top:9px"><a class="plain" href="#" onclick="logout();return false">登出</a></div>'
     + (me.demo ? demoSwitcher(me) : "") + "</div>";
   el.querySelectorAll(".switcher button").forEach((b) =>
     b.addEventListener("click", () => demoSwitch(b.dataset.em)));
+  el.querySelector(".swsel")?.addEventListener("change", (e) => demoSwitch(e.target.value));
 }
 
 /* Demo 用的身分切換。點一下換人，馬上看到權限差別 —— 不用登出再登入。 */
@@ -92,10 +94,15 @@ function demoSwitcher(me) {
   ];
   /* 用 data 屬性帶信箱，事件在 renderSidebar 綁 ——
      inline onclick 要在字串裡塞引號，寫錯一個整支 app.js 就掛（踩過）。 */
+  /* 桌機用按鈕排開；手機 375 寬塞不下四顆（會被擠出畫面右邊），
+     所以同時輸出一個下拉選單，用 CSS 切換顯示哪一個。 */
   return '<div class="switcher"><span class="lb">切換身分（示範用）</span>'
     + R.map((r) => '<button class="sw' + (me.name === r.n ? ' on' : '')
         + '" data-em="' + r.em + '">' + r.n + "</button>").join("")
-    + "</div>";
+    + '<select class="swsel" aria-label="切換身分">'
+    + R.map((r) => '<option value="' + r.em + '"' + (me.name === r.n ? " selected" : "")
+        + ">" + r.n + "</option>").join("")
+    + "</select></div>";
 }
 async function demoSwitch(email) {
   const j = await api("/api/demo-login", { email });
