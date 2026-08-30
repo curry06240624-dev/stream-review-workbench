@@ -81,6 +81,15 @@ CREATE TABLE IF NOT EXISTS assignment_log (
   by_user_id      INTEGER NOT NULL REFERENCES users(id),
   created_at      TEXT NOT NULL
 );
+/* 可設定的營運參數。SLA 目標放這裡而不是寫死在程式裡 ——
+   「多久要回」是老闆的生意決定，不是工程師的常數。 */
+CREATE TABLE IF NOT EXISTS settings (
+  key        TEXT PRIMARY KEY,
+  value      TEXT NOT NULL,
+  updated_at TEXT
+);
+INSERT OR IGNORE INTO settings (key, value) VALUES ('sla_minutes', '30');
+
 CREATE INDEX IF NOT EXISTS idx_conv_assigned ON conversations(assigned_to, last_message_at);
 CREATE INDEX IF NOT EXISTS idx_msg_conv      ON messages(conversation_id, id);
 CREATE INDEX IF NOT EXISTS idx_cc_contact    ON contact_channels(contact_id);

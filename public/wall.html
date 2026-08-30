@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>牆上大螢幕｜AI 指揮中心</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="wall.css">
+</head>
+<body class="wall">
+
+<!-- 斷線遮罩：電視上顯示過期數字而不自知，比不顯示更危險 -->
+<div class="stale" id="stale">
+  <div>
+    <b>連線中斷</b>
+    <span id="staletime"></span>
+  </div>
+</div>
+
+<header class="wtop">
+  <div class="wbrand"><span class="mk">◤</span> 現場狀況</div>
+  <div class="wsla" id="wsla"></div>
+  <div class="wclock" id="wclock"></div>
+</header>
+
+<div class="wverdict" id="wverdict">連線中…</div>
+
+<div class="wrow">
+  <div class="wbig" id="wbig"></div>
+  <div class="wagents">
+    <div class="wlabel">訊息手負載</div>
+    <div id="wload"></div>
+  </div>
+</div>
+
+<div class="wqueue">
+  <div class="wlabel">等最久的</div>
+  <div id="wq"></div>
+</div>
+
+<script src="app.js"></script>
+<script>
+/* 牆上大螢幕：沒有互動、字要大、三公尺外看得到。
+   兩件跟一般頁面不一樣的事：
+   ① 更新更頻繁（15 秒），因為它是給整間辦公室看的
+   ② 抓不到資料時整個畫面變灰並明說斷線 ——
+      電視上掛著過期數字而沒有人知道，比空白更糟 */
+let TH = { warn: 30, bad: 120 }, lastOk = null;
+
+const mmss = (m) => m == null ? "—"
+  : m < 60 ? m + " 分"
+  : m < 1440 ? Math.floor(m / 60) + " 小時 " + (m % 60) + " 分"
+  : Math.floor(m / 1440) + " 天";
+
+(async () => {
+  if (!await requireLogin()) return;
+  await load();
+  setInterval(load, 15000);
+  setInterval(tickClock, 1000);
+})();
+
+function tickClock() {
+  document.getElementById("wclock").textContent = new Date().toTimeString().slice(0, 8);
+}
+
+async function load() {
+  let j = null;
+  try { j = await api("/api/situation"); } catch (e) { j = null; }
+  if (!j || !j.ok) { markStale(); return; }
+
+  lastOk = new Date();
+  document.getElementById("stale").classList.remove("on");
+  document.body.classList.remove("isstale");
+
+  TH = j.thresholds;
+  const s = j.stats;
+  document.getElementById("wsla").textContent = "目標 " + j.sla.target_min + " 分鐘內回覆";
+
+  const v = document.getElementById("wverdict");
+  if (s.waiting === 0) {
+    v.className = "wverdict ok";
+    v.textContent = "沒有人在等回覆";
+  } else if (j.sla.breached > 0) {
+    v.className = "wverdict warn";
+    v.innerHTML = "<b>" + j.sla.breached + "</b> 通超過目標未回覆";
+  } else {
+    v.className = "wverdict ok";
+    v.innerHTML = "<b>" + s.waiting + "</b> 通在等，都還在目標內";
+  }
+
+  document.getElementById("wbig").innerHTML =
+    wbig(s.waiting, "等待回覆", s.waiting > 0 ? "hi" : "ok")
+    + wbig(s.unassigned, "未指派", s.unassigned > 0 ? "hi" : "")
+    + wbig(mmss(s.longest_min), "最久等待", s.longest_min >= TH.warn ? "hi" : "", 1);
+
+  document.getElementById("wload").innerHTML = (j.load || []).map((a) => {
+    const lv = a.longest_min >= TH.bad ? "bad" : a.longest_min >= TH.warn ? "warn" : "ok";
+    return '<div class="wa ' + lv + '"><span class="wan">' + esc(a.name) + "</span>"
+      + '<span class="wac">' + a.waiting + "</span>"
+      + '<span class="wat">' + (a.longest_min ? mmss(a.longest_min) : "—") + "</span></div>";
+  }).join("") || '<div class="wempty">沒有資料</div>';
+
+  document.getElementById("wq").innerHTML = (j.waiting || []).slice(0, 5).map((w) => {
+    const lv = w.wait_min >= TH.bad ? "bad" : w.wait_min >= TH.warn ? "warn" : "ok";
+    return '<div class="wqr ' + lv + '"><span class="wqn">' + esc(w.name) + "</span>"
+      + '<span class="wqw">' + (w.assigned_to ? esc(w.agent_name) : "未指派") + "</span>"
+      + '<span class="wqm">' + mmss(w.wait_min) + "</span></div>";
+  }).join("") || '<div class="wempty">佇列是空的</div>';
+}
+
+function markStale() {
+  document.body.classList.add("isstale");
+  const el = document.getElementById("stale");
+  el.classList.add("on");
+  document.getElementById("staletime").textContent =
+    lastOk ? "上次更新 " + lastOk.toTimeString().slice(0, 5) : "尚未取得資料";
+}
+
+function wbig(n, label, cls, small) {
+  return '<div class="wb"><span class="wbn ' + (cls || "") + (small ? " sm" : "") + '">'
+    + n + '</span><span class="wbl">' + label + "</span></div>";
+}
+</script>
+</body>
+</html>

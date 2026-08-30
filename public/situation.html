@@ -22,18 +22,35 @@
     </div>
     <span class="sp"></span>
     <span class="who" id="clock"></span>
+    <a class="btn ghost sm" href="wall.html" target="_blank" style="text-decoration:none">牆上大螢幕</a>
     <button class="btn ghost sm" id="refresh">重新整理</button>
   </header>
 
-  <!-- 這一條是整頁的結論：現在到底要不要有人動作 -->
+  <!-- 整頁的結論：現在到底要不要有人動作 -->
   <div id="verdict"></div>
-
   <div class="tiles" id="tiles"></div>
 
   <div class="card">
     <h2>等待回覆的對話</h2>
     <p class="hint" id="qhint"></p>
     <div id="queue"></div>
+  </div>
+
+  <!-- ③ 預測層：這一段回答「接下來會變好還是變壞」 -->
+  <div class="card">
+    <h2>積壓趨勢 ・ 過去 12 小時</h2>
+    <div id="trendverdict"></div>
+    <div class="chart" id="trend"></div>
+    <p class="foot" style="margin-top:12px;border:0;padding:0">
+      柱高＝該小時的訊息量，青＝客人進線、灰＝我方回覆。
+      這是用「進線減回覆」推估積壓的方向，不是重建歷史佇列長度 —— 看趨勢，別看絕對值。
+    </p>
+  </div>
+
+  <div class="card" id="peakcard" style="display:none">
+    <h2>尖峰時段 ・ <span id="peakdays"></span></h2>
+    <div class="chart hours" id="peak"></div>
+    <p class="foot" style="margin-top:12px;border:0;padding:0" id="peaktext"></p>
   </div>
 
   <div class="card" id="loadcard" style="display:none">
@@ -50,7 +67,7 @@
   </div>
 
   <p class="foot">
-    「等待中」的定義：這通對話的最後一則是客人講的，還沒有人回。<br>
+    「等待中」＝這通對話的最後一則是客人講的，還沒有人回。<span id="slafoot"></span><br>
     第一階段：全部使用假資料，不連接公司任何正式系統，不使用 LINE API。
   </p>
 </div>
@@ -58,13 +75,12 @@
 
 <script src="app.js"></script>
 <script>
-let ME = null, TH = { warn: 60, bad: 240 };
+let ME = null, TH = { warn: 30, bad: 120 };
 
 const mmss = (m) => m == null ? "—"
   : m < 60 ? m + " 分"
   : m < 1440 ? Math.floor(m / 60) + " 小時 " + (m % 60) + " 分"
   : Math.floor(m / 1440) + " 天";
-
 const level = (m) => m >= TH.bad ? "bad" : m >= TH.warn ? "warn" : "ok";
 
 (async () => {
@@ -72,8 +88,6 @@ const level = (m) => m >= TH.bad ? "bad" : m >= TH.warn ? "warn" : "ok";
   if (!ME) return;
   document.getElementById("refresh").addEventListener("click", load);
   await load();
-  // 指揮中心要是活的：每 30 秒自己更新一次，並把上次更新時間寫在畫面上，
-  // 否則看的人不知道自己在看多久以前的東西。
   setInterval(load, 30000);
 })();
 
@@ -85,30 +99,33 @@ async function load() {
   document.getElementById("clock").textContent =
     "更新於 " + new Date(j.now).toTimeString().slice(0, 8);
   if (!j.can_see_all) document.getElementById("sub").textContent = "只顯示指派給你的對話";
+  document.getElementById("slafoot").textContent =
+    "　目標：" + j.sla.target_min + " 分鐘內回覆。";
 
   const s = j.stats;
 
-  // 結論列：一句話講完現在的狀態，顏色跟著狀態走
+  /* ② 理解：一句話講完現在的狀態 */
   const v = document.getElementById("verdict");
   if (s.waiting === 0) {
     v.className = "verdict ok";
     v.textContent = "沒有人在等回覆。";
-  } else if (s.over_warn > 0) {
+  } else if (j.sla.breached > 0) {
     v.className = "verdict warn";
-    v.innerHTML = "<b>" + s.over_warn + "</b> 通已經超過 " + TH.warn
-      + " 分鐘沒有回覆，最久的等了 <b>" + mmss(s.longest_min) + "</b>。";
+    v.innerHTML = "<b>" + j.sla.breached + "</b> 通已經超過目標 "
+      + j.sla.target_min + " 分鐘沒回覆，最久的等了 <b>" + mmss(s.longest_min) + "</b>。";
   } else {
     v.className = "verdict ok";
-    v.innerHTML = s.waiting + " 通在等回覆，都還在 " + TH.warn + " 分鐘內。";
+    v.innerHTML = s.waiting + " 通在等回覆，都還在目標 " + j.sla.target_min + " 分鐘內。";
   }
 
   document.getElementById("tiles").innerHTML =
     tile(s.waiting, "等待回覆", s.waiting > 0 ? "hi" : "ok")
-    + tile(s.unassigned, "其中未指派", s.unassigned > 0 ? "hi" : "")
+    + tile(j.sla.breached, "超過目標 " + j.sla.target_min + " 分", j.sla.breached > 0 ? "hi" : "")
     + tile(mmss(s.longest_min), "最久等待", s.longest_min >= TH.warn ? "hi" : "")
-    + tile(s.incoming_24h + " / " + s.outgoing_24h, "24 小時 進 / 出");
+    + tile(j.burn.hours_to_clear == null ? "—" : j.burn.hours_to_clear + " 小時", "預估清完")
+    + tile(s.frt_median == null ? "—" : mmss(s.frt_median), "首覆中位數");
 
-  // 佇列：等待時間長條 —— 相對於最久的那通，一眼看出誰最急
+  /* ① 感知：佇列 */
   const worst = Math.max(s.longest_min, 1);
   document.getElementById("qhint").textContent =
     j.waiting.length ? "等最久的排最前面，直接點進去回覆。" : "";
@@ -127,6 +144,40 @@ async function load() {
       }).join("")
     : '<p class="empty">目前沒有對話在等回覆。</p>';
 
+  /* ③ 預測 A：積壓趨勢 */
+  const TV = {
+    worse: ["warn", "正在變壞", "進來的比回出去的多，積壓在增加。"],
+    better: ["ok", "正在變好", "回出去的比進來的多，積壓在消。"],
+    flat: ["ok", "持平", "進出大致打平。"],
+  }[j.trend];
+  document.getElementById("trendverdict").innerHTML =
+    '<div class="tverdict ' + TV[0] + '"><b>' + TV[1] + "</b>" + TV[2] + "</div>";
+  const hmax = Math.max(1, ...j.hourly.map((h) => Math.max(h.incoming, h.outgoing)));
+  document.getElementById("trend").innerHTML = j.hourly.map((h) =>
+    '<div class="col" title="' + h.hour + '時　進 ' + h.incoming + '／出 ' + h.outgoing + '">'
+    + '<span class="bars">'
+    + '<i class="bin"  style="height:' + (h.incoming / hmax * 100) + '%"></i>'
+    + '<i class="bout" style="height:' + (h.outgoing / hmax * 100) + '%"></i></span>'
+    + '<span class="xl">' + String(h.hour).padStart(2, "0") + "</span></div>").join("");
+
+  /* ③ 預測 B：尖峰時段 —— 資料不足時後端回 null，這裡整張卡片就不出現 */
+  if (j.peak) {
+    document.getElementById("peakcard").style.display = "";
+    document.getElementById("peakdays").textContent = "近 " + j.data_days + " 天";
+    const pmax = Math.max(1, ...j.peak.map((p) => p.n));
+    const top = [...j.peak].sort((a, b) => b.n - a.n).slice(0, 3);
+    document.getElementById("peak").innerHTML = j.peak.map((p) =>
+      '<div class="col' + (top.some((t) => t.hour === p.hour) ? " top" : "")
+      + '" title="' + p.hour + '時　' + p.n + ' 則">'
+      + '<span class="bars"><i class="bin" style="height:' + (p.n / pmax * 100) + '%"></i></span>'
+      + '<span class="xl">' + (p.hour % 3 === 0 ? String(p.hour).padStart(2, "0") : "")
+      + "</span></div>").join("");
+    document.getElementById("peaktext").textContent =
+      "最忙的是 " + top.map((t) => t.hour + " 點").join("、")
+      + "（台灣時間）。人力要排在這幾個時段，不是平均分配。";
+  }
+
+  /* 人員負載 */
   if (j.can_see_all && j.load.length) {
     document.getElementById("loadcard").style.display = "";
     document.getElementById("loadrows").innerHTML = j.load.map((a) => {

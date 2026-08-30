@@ -1,0 +1,104 @@
+/* ══════════════════════════════════════════════════════════════════
+   牆上大螢幕。跟一般頁面是不同的設計問題，所以獨立一個檔，不污染 app.css。
+
+   限制條件不一樣：
+   ‧ 三公尺外要看得懂 → 字級用 vw/vh 跟著螢幕縮放，不是固定 px
+   ‧ 沒有人會去點它 → 不需要 hover、不需要捲軸，一屏放完
+   ‧ 會整天掛在牆上 → 斷線時整片變灰並明說，不能默默顯示過期數字
+   ‧ 顏色只有一個工作：琥珀＝有人在等太久。其餘全灰階，
+     這樣遠遠一瞥就知道「現在是綠的還是黃的」（ISA-101 的原則）
+   ══════════════════════════════════════════════════════════════════ */
+
+body.wall{
+  height:100vh; height:100dvh; overflow:hidden; padding:2.2vh 2.4vw;
+  display:flex; flex-direction:column; gap:1.8vh;
+  background:var(--void); position:relative;
+}
+
+/* 斷線遮罩 */
+body.isstale > *:not(.stale){opacity:.28; filter:grayscale(1)}
+.stale{
+  display:none; position:absolute; inset:0; z-index:9; place-items:center;
+  background:rgba(6,9,13,.62);
+}
+.stale.on{display:grid}
+.stale > div{
+  border:1px solid var(--amber); background:var(--void); padding:2.4vh 3vw; text-align:center;
+}
+.stale b{display:block; color:var(--amber); font-size:3vw; letter-spacing:.1em}
+.stale span{display:block; color:var(--dim); font-family:var(--mono); font-size:1.3vw; margin-top:1vh}
+
+/* 頁首 */
+.wtop{display:flex; align-items:baseline; gap:2vw; flex:none;
+      border-bottom:1px solid var(--rule); padding-bottom:1.4vh}
+.wbrand{font-size:1.7vw; font-weight:700; letter-spacing:.04em}
+.wbrand .mk{color:var(--cyan); margin-right:.6vw}
+.wsla{font-family:var(--mono); font-size:1.1vw; color:var(--faint); letter-spacing:.08em}
+.wclock{margin-left:auto; font-family:var(--mono); font-size:1.9vw; color:var(--dim);
+        font-variant-numeric:tabular-nums}
+
+/* 結論句：整面牆最大的字，遠遠看就是看這一行 */
+.wverdict{
+  flex:none; font-size:3.4vw; font-weight:700; letter-spacing:.02em; line-height:1.2;
+  padding:2vh 2vw; border:1px solid var(--rule); border-left:.5vw solid var(--cyan-3);
+  background:var(--panel);
+}
+.wverdict b{font-family:var(--mono); font-size:4.6vw; margin-right:.6vw;
+            font-variant-numeric:tabular-nums}
+.wverdict.warn{border-left-color:var(--amber); background:var(--amber-soft); color:#f5dcb4}
+.wverdict.warn b{color:var(--amber)}
+.wverdict.ok{color:var(--dim)}
+.wverdict.ok b{color:var(--cyan)}
+
+.wrow{display:grid; grid-template-columns:1.35fr 1fr; gap:1.6vw; flex:1; min-height:0}
+.wlabel{font-family:var(--mono); font-size:1vw; color:var(--faint); letter-spacing:.2em;
+        margin-bottom:1vh}
+
+/* 三個大數字 */
+.wbig{display:grid; grid-template-columns:repeat(3,1fr); gap:1.2vw; align-content:start}
+.wb{border:1px solid var(--rule); background:var(--panel); padding:1.6vh 1.2vw}
+.wbn{display:block; font-family:var(--mono); font-size:5.4vw; font-weight:500; line-height:1.05;
+     font-variant-numeric:tabular-nums; color:var(--ink)}
+.wbn.sm{font-size:2vw; line-height:1.6; white-space:nowrap}   /* 「5 小時 26 分」不能換行 */
+.wbn.hi{color:var(--amber)}
+.wbn.ok{color:var(--cyan)}
+.wbl{display:block; font-size:1.1vw; color:var(--dim); margin-top:.6vh; letter-spacing:.08em}
+
+/* 訊息手負載 */
+.wagents{display:flex; flex-direction:column; min-height:0}
+.wa{display:flex; align-items:center; gap:1vw; padding:1.1vh 1vw;
+    border:1px solid var(--rule); border-left:.35vw solid var(--rule);
+    background:var(--panel); margin-bottom:.8vh}
+.wa.warn{border-left-color:var(--amber)}
+.wa.bad{border-left-color:var(--amber); background:var(--amber-soft)}
+.wan{flex:1; font-size:1.6vw; font-weight:500}
+.wac{font-family:var(--mono); font-size:2.2vw; font-variant-numeric:tabular-nums; color:var(--ink)}
+.wa.warn .wac,.wa.bad .wac{color:var(--amber)}
+.wat{font-family:var(--mono); font-size:1.1vw; color:var(--faint); width:8vw; text-align:right}
+
+/* 等最久的佇列 */
+.wqueue{flex:none}
+.wqr{display:flex; align-items:center; gap:1vw; padding:.9vh 1vw;
+     border-bottom:1px solid var(--rule-2); border-left:.35vw solid var(--rule)}
+.wqr.warn{border-left-color:var(--amber)}
+.wqr.bad{border-left-color:var(--amber); background:var(--amber-soft)}
+.wqn{font-size:1.5vw; font-weight:500; width:14vw}
+.wqw{flex:1; font-family:var(--mono); font-size:1.1vw; color:var(--faint)}
+.wqm{font-family:var(--mono); font-size:1.5vw; color:var(--dim);
+     font-variant-numeric:tabular-nums}
+.wqr.warn .wqm,.wqr.bad .wqm{color:var(--amber)}
+.wempty{color:var(--faint); font-size:1.3vw; padding:1.4vh 0}
+
+/* 直式或很窄的螢幕：收成單欄 */
+@media (max-aspect-ratio: 1/1){
+  .wrow{grid-template-columns:1fr}
+  .wverdict{font-size:5.5vw}
+  .wverdict b{font-size:7vw}
+  .wbn{font-size:9vw}
+  .wbn.sm{font-size:4.4vw}
+  .wbl,.wsla,.wlabel,.wat,.wqw{font-size:2vw}
+  .wan,.wqn{font-size:3vw}
+  .wac,.wqm{font-size:4vw}
+  .wbrand{font-size:3.4vw}
+  .wclock{font-size:3.4vw}
+}

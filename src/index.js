@@ -8,7 +8,7 @@ import { AppDB } from "./db.js";
 import { currentUser, createUser, issueSession, login, setCookie, cookieOf } from "./auth.js";
 import { listConversations, getConversation, assign, reply, inboxCounts, canSeeAll } from "./inbox.js";
 import { listContacts, getContact, updateContact } from "./contacts.js";
-import { situation } from "./situation.js";
+import { situation, getSla } from "./situation.js";
 
 export { AppDB };
 
@@ -108,9 +108,19 @@ async function route(request, env, db, url) {
        這是開發用的種子，不是給正式資料用的匯入端點。 ── */
   if (p === "/api/seed-inbox" && m === "POST") {
     if (me.role !== "admin") return J({ ok: false, error: "forbidden" }, 403);
-    const n = await db.first("SELECT COUNT(*) AS c FROM conversations");
-    if (n.c > 0) return J({ ok: false, error: "not_empty", message: `已經有 ${n.c} 個對話了，不重複寫入。` }, 409);
     const b = await request.json().catch(() => ({}));
+    const n = await db.first("SELECT COUNT(*) AS c FROM conversations");
+    if (n.c > 0 && !b.reset) {
+      return J({ ok: false, error: "not_empty",
+                 message: `已經有 ${n.c} 個對話了。要重灌請帶 reset:true。` }, 409);
+    }
+    if (b.reset) {
+      // 只清假資料相關的表 —— 使用者帳號與設定保留，不然重灌一次就要重建帳號
+      for (const t of ["assignment_log", "messages", "conversations",
+                       "contact_channels", "contacts"]) {
+        await db.run("DELETE FROM " + t);
+      }
+    }
     let nc = 0, nv = 0, nm = 0;
     for (const c of b.contacts || []) {
       const ct = await db.run(
@@ -248,6 +258,31 @@ async function route(request, env, db, url) {
       totals: { conversations: t.conversations || 0, unassigned: t.unassigned || 0,
                 unread: t.unread || 0, messages: msgs.n || 0 },
       grades: g, sources, agents, recent: recent.slice(0, 8), can_see_all: all });
+  }
+
+  /* ══ 營運設定 ══ 讀給所有登入者（畫面要顯示目標），只有 admin 能改 ══ */
+  if (p === "/api/settings" && m === "GET") {
+    const rows = await db.all("SELECT key, value FROM settings");
+    const out = {};
+    for (const r of rows) out[r.key] = r.value;
+    return J({ ok: true, settings: out, can_edit: me.role === "admin" });
+  }
+  if (p === "/api/settings" && m === "PATCH") {
+    if (me.role !== "admin") {
+      return J({ ok: false, error: "forbidden", message: "只有管理者可以改營運設定。" }, 403);
+    }
+    const b = await request.json().catch(() => ({}));
+    if (b.sla_minutes !== undefined) {
+      const n = Number(b.sla_minutes);
+      if (!Number.isFinite(n) || n < 1 || n > 1440) {
+        return J({ ok: false, error: "bad_sla", message: "SLA 目標要介於 1 到 1440 分鐘。" }, 400);
+      }
+      await db.run(
+        `INSERT INTO settings (key, value, updated_at) VALUES ('sla_minutes', ?, ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+        String(Math.round(n)), now());
+    }
+    return J({ ok: true, sla_minutes: await getSla(db) });
   }
 
   /* ══ 現場狀況 ══ 指揮中心主畫面，依等待時間排序 ══ */

@@ -499,3 +499,33 @@ textarea{resize:vertical; min-height:74px; line-height:1.7}
   .evw{display:none}
   .ev b{font-size:12px}
 }
+
+/* ══ 預測層的圖表（純 CSS，不引任何函式庫）══════════════════
+   兩張圖共用一套骨架：一根 column 一個時間單位，柱高＝相對最大值。
+   保留 ISA-101 的紀律 —— 圖表本身不加新顏色，青＝進線、灰＝回覆，
+   琥珀仍然只留給「有人等太久」這件事。 */
+.chart{display:flex; align-items:flex-end; gap:3px; height:104px; padding-top:4px}
+.chart .col{flex:1; min-width:0; display:flex; flex-direction:column;
+            justify-content:flex-end; height:100%}
+.chart .bars{display:flex; align-items:flex-end; gap:2px; height:100%;
+             border-bottom:1px solid var(--rule)}
+.chart .bars i{flex:1; display:block; min-height:1px}
+.chart .bin{background:var(--cyan-3)}
+.chart .bout{background:var(--rule)}
+.chart .col:hover .bin{background:var(--cyan)}
+.chart .xl{font-family:var(--mono); font-size:9.5px; color:var(--faint); text-align:center;
+           margin-top:5px; height:12px; font-variant-numeric:tabular-nums}
+.chart.hours{height:88px}
+.chart.hours .col.top .bin{background:var(--cyan)}
+
+/* 趨勢判定：一句話，跟結論列同一套語彙但小一號 */
+.tverdict{font-size:13.5px; color:var(--dim); margin-bottom:12px; padding:8px 12px;
+          border-left:2px solid var(--cyan-3); background:var(--panel-2)}
+.tverdict b{display:inline-block; margin-right:9px; font-weight:600; color:var(--cyan)}
+.tverdict.warn{border-left-color:var(--amber); background:var(--amber-soft); color:#e8cfa8}
+.tverdict.warn b{color:var(--amber)}
+
+@media (max-width: 900px){
+  .chart{height:78px}
+  .chart .xl{font-size:8.5px}
+}
