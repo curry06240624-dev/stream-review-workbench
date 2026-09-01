@@ -90,6 +90,29 @@ CREATE TABLE IF NOT EXISTS settings (
 );
 INSERT OR IGNORE INTO settings (key, value) VALUES ('sla_minutes', '30');
 
+/* ══ 自動回覆 ══════════════════════════════════════════════════
+   規則本身很笨（關鍵字子字串比對），這是刻意的 ——
+   運營要能自己看規則就預測得到機器人會說什麼，猜不到的規則沒人敢開。
+   autoreply_log 存的是「哪條規則在哪通對話回過」，用來擋重複，也用來稽核。 */
+CREATE TABLE IF NOT EXISTS autoreplies (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  name       TEXT NOT NULL,
+  keywords   TEXT NOT NULL,                  -- 逗號分隔
+  reply      TEXT NOT NULL,
+  enabled    INTEGER NOT NULL DEFAULT 1,
+  hits       INTEGER NOT NULL DEFAULT 0,     -- 命中次數：規則有沒有用，看這個
+  created_at TEXT NOT NULL,
+  updated_at TEXT
+);
+CREATE TABLE IF NOT EXISTS autoreply_log (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  conversation_id INTEGER NOT NULL REFERENCES conversations(id),
+  rule_id         INTEGER NOT NULL REFERENCES autoreplies(id),
+  matched_keyword TEXT NOT NULL DEFAULT '',
+  created_at      TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_arlog ON autoreply_log(conversation_id, rule_id, id);
+
 CREATE INDEX IF NOT EXISTS idx_conv_assigned ON conversations(assigned_to, last_message_at);
 CREATE INDEX IF NOT EXISTS idx_msg_conv      ON messages(conversation_id, id);
 CREATE INDEX IF NOT EXISTS idx_cc_contact    ON contact_channels(contact_id);

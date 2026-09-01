@@ -75,6 +75,7 @@ function renderSidebar(me, active, counts) {
     + nav("index.html", "總覽")
     + nav("inbox.html", "訊息中心", counts ? counts.all : "")
     + nav("customers.html", "客戶中心")
+    + nav("autoreply.html", "自動回覆")
     + "</nav>"
     + '<div class="foot2"><b>' + esc(me.name || "") + "</b>"
     + '<span class="roletxt">' + roleTxt + (canAll ? "" : "・只看得到指派給你的") + "</span>"

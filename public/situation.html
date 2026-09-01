@@ -37,6 +37,11 @@
   </div>
 
   <!-- ③ 預測層：這一段回答「接下來會變好還是變壞」 -->
+  <div class="card" id="covcard" style="display:none">
+    <h2>自動回覆能接住的</h2>
+    <div id="coverage"></div>
+  </div>
+
   <div class="card">
     <h2>積壓趨勢 ・ 過去 12 小時</h2>
     <div id="trendverdict"></div>
@@ -143,6 +148,22 @@ async function load() {
           + '<span class="qmin">' + mmss(w.wait_min) + "</span></a>";
       }).join("")
     : '<p class="empty">目前沒有對話在等回覆。</p>';
+
+  /* 自動回覆覆蓋率：把「要不要開自動回覆」從感覺之爭變成一個數字 */
+  if (j.coverage && j.coverage.covered > 0) {
+    document.getElementById("covcard").style.display = "";
+    document.getElementById("coverage").innerHTML =
+      '<div class="tverdict"><b>' + j.coverage.covered + " / " + s.waiting + " 通</b>"
+      + "現在等待中的對話，已有規則接得住 —— 這些不用佔用訊息手。</div>"
+      + j.coverage.samples.map((x) =>
+          '<div class="covrow"><b>' + esc(x.name) + "</b>"
+          + '<span class="arrow">→</span><span class="rule">' + esc(x.rule) + "</span></div>").join("")
+      + '<p class="foot" style="margin-top:12px;border:0;padding:0">'
+      + "規則只在真人 10 分鐘內沒回過、且同規則 24 小時內沒回過時才會出手 ——"
+      + "不插嘴、不重複，這兩條是自動回覆會不會惹禍的關鍵。</p>";
+  } else {
+    document.getElementById("covcard").style.display = "none";
+  }
 
   /* ③ 預測 A：積壓趨勢 */
   const TV = {

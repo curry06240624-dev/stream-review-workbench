@@ -9,6 +9,7 @@ import { currentUser, createUser, issueSession, login, setCookie, cookieOf } fro
 import { listConversations, getConversation, assign, reply, inboxCounts, canSeeAll } from "./inbox.js";
 import { listContacts, getContact, updateContact } from "./contacts.js";
 import { situation, getSla } from "./situation.js";
+import { listRules, matchRule, tryAutoReply, blockedReason } from "./autoreply.js";
 
 export { AppDB };
 
@@ -283,6 +284,75 @@ async function route(request, env, db, url) {
         String(Math.round(n)), now());
     }
     return J({ ok: true, sla_minutes: await getSla(db) });
+  }
+
+  /* ══ 自動回覆 ══ 規則由運營/管理者維護，訊息手唯讀 ══ */
+  if (p === "/api/autoreplies" && m === "GET") {
+    return J({ ok: true, rules: await listRules(db), can_edit: canSeeAll(me.role) });
+  }
+  if (p === "/api/autoreplies" && m === "POST") {
+    if (!canSeeAll(me.role)) return J({ ok: false, error: "forbidden", message: "只有運營或管理者可以改規則。" }, 403);
+    const b = await request.json().catch(() => ({}));
+    const name = String(b.name || "").trim().slice(0, 40);
+    const keywords = String(b.keywords || "").trim().slice(0, 300);
+    const reply = String(b.reply || "").trim().slice(0, 900);
+    if (!name || !keywords || !reply) {
+      return J({ ok: false, error: "incomplete", message: "名稱、關鍵字、回覆內容都要填。" }, 400);
+    }
+    const r = await db.run(
+      `INSERT INTO autoreplies (name, keywords, reply, enabled, created_at)
+       VALUES (?, ?, ?, 1, ?)`, name, keywords, reply, now());
+    return J({ ok: true, id: r.lastRowId });
+  }
+  const mAr = p.match(/^\/api\/autoreplies\/(\d+)$/);
+  if (mAr && (m === "PATCH" || m === "DELETE")) {
+    if (!canSeeAll(me.role)) return J({ ok: false, error: "forbidden", message: "只有運營或管理者可以改規則。" }, 403);
+    const id = Number(mAr[1]);
+    if (m === "DELETE") {
+      await db.run("DELETE FROM autoreply_log WHERE rule_id = ?", id);
+      await db.run("DELETE FROM autoreplies WHERE id = ?", id);
+      return J({ ok: true });
+    }
+    const b = await request.json().catch(() => ({}));
+    if (b.enabled !== undefined) {
+      await db.run("UPDATE autoreplies SET enabled = ?, updated_at = ? WHERE id = ?",
+        b.enabled ? 1 : 0, now(), id);
+    }
+    for (const f of ["name", "keywords", "reply"]) {
+      if (b[f] !== undefined) {
+        await db.run(`UPDATE autoreplies SET ${f} = ?, updated_at = ? WHERE id = ?`,
+          String(b[f]).slice(0, 900), now(), id);
+      }
+    }
+    return J({ ok: true });
+  }
+
+  /* 規則測試器：貼一句話，看會命中哪條、會回什麼。
+     沒有這個，運營只能把規則開下去然後祈禱 —— 那不是可維護的系統。 */
+  if (p === "/api/autoreplies/test" && m === "POST") {
+    const b = await request.json().catch(() => ({}));
+    const hit = matchRule(await listRules(db), String(b.text || ""));
+    return J({ ok: true, matched: hit ? { id: hit.rule.id, name: hit.rule.name,
+      keyword: hit.keyword, reply: hit.rule.reply } : null });
+  }
+
+  /* 模擬客人來訊：第一階段不接 LINE，這是唯一能端到端驗證自動回覆的方式。
+     只有 admin 能用，而且只能對已存在的假對話下手。 */
+  if (p === "/api/simulate-incoming" && m === "POST") {
+    if (me.role !== "admin") return J({ ok: false, error: "forbidden" }, 403);
+    const b = await request.json().catch(() => ({}));
+    const convId = Number(b.conversation_id);
+    const text = String(b.text || "").trim().slice(0, 900);
+    if (!convId || !text) return J({ ok: false, error: "bad_input", message: "要指定對話與內容。" }, 400);
+    const conv = await db.first("SELECT id FROM conversations WHERE id = ?", convId);
+    if (!conv) return J({ ok: false, error: "not_found" }, 404);
+    const at = now();
+    await db.run(
+      `INSERT INTO messages (conversation_id, direction, sender_user_id, text, created_at)
+       VALUES (?, 'in', NULL, ?, ?)`, convId, text, at);
+    await db.run("UPDATE conversations SET last_message_at = ?, unread = unread + 1 WHERE id = ?", at, convId);
+    const auto = await tryAutoReply(db, convId, text, new Date(Date.parse(at) + 1000).toISOString());
+    return J({ ok: true, auto });
   }
 
   /* ══ 現場狀況 ══ 指揮中心主畫面，依等待時間排序 ══ */

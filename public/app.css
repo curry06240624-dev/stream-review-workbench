@@ -529,3 +529,39 @@ textarea{resize:vertical; min-height:74px; line-height:1.7}
   .chart{height:78px}
   .chart .xl{font-size:8.5px}
 }
+
+/* ══ 自動回覆 ═══════════════════════════════════════════════ */
+.tester{display:flex; gap:9px}
+.tester input{flex:1}
+.tres{margin-top:12px; padding:11px 14px; border-left:2px solid var(--rule);
+      background:var(--panel-2); font-size:13.5px}
+.tres.hit{border-left-color:var(--cyan); }
+.tres.miss{color:var(--faint)}
+.tres .tl{font-size:12px; color:var(--dim); font-family:var(--mono); margin-bottom:7px}
+.tres .tl b{color:var(--cyan); font-family:var(--sans)}
+.tres .tr2{color:var(--ink); line-height:1.7}
+
+.rule{border:1px solid var(--rule); background:var(--panel-2); padding:12px 14px;
+      margin-bottom:10px; border-left:2px solid var(--cyan-3)}
+.rule.off{border-left-color:var(--rule); opacity:.55}
+.rule .rh{display:flex; align-items:center; gap:10px; margin-bottom:9px}
+.rule .rnum{font-family:var(--mono); font-size:10.5px; color:var(--faint);
+            border:1px solid var(--rule); width:18px; height:18px; line-height:16px;
+            text-align:center; flex:none}
+.rule .rh b{font-size:14px; font-weight:500}
+.rule .hits{margin-left:auto; font-family:var(--mono); font-size:10.5px; color:var(--faint)}
+.rule .rk{display:flex; flex-wrap:wrap; gap:5px; margin-bottom:8px}
+.rule .kw{font-family:var(--mono); font-size:11px; color:var(--cyan-2);
+          border:1px solid var(--cyan-3); padding:1px 7px}
+.rule.off .kw{color:var(--faint); border-color:var(--rule)}
+.rule .rr{font-size:13px; color:var(--dim); line-height:1.7; padding-left:10px;
+          border-left:1px solid var(--rule)}
+
+.guards{margin:0; padding-left:18px; font-size:13.5px; color:var(--dim); line-height:1.9}
+.guards b{color:var(--ink); font-weight:500}
+.covrow{display:flex; align-items:center; gap:10px; padding:7px 0;
+        border-bottom:1px solid var(--rule-2); font-size:13.5px}
+.covrow:last-of-type{border-bottom:0}
+.covrow b{font-weight:500; width:88px}
+.covrow .arrow{color:var(--faint); font-family:var(--mono)}
+.covrow .rule{all:unset; font-family:var(--mono); font-size:12px; color:var(--cyan-2)}

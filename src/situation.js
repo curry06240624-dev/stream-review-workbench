@@ -18,6 +18,7 @@
  */
 
 import { canSeeAll } from "./inbox.js";
+import { coverageOfWaiting } from "./autoreply.js";
 
 const MIN = 60000, HOUR = 3600000;
 export const DEFAULT_SLA = 30;
@@ -189,9 +190,14 @@ export async function situation(db, me, nowIso) {
     })),
   ].sort((x, y) => (x.at < y.at ? 1 : -1)).slice(0, 16);
 
+  /* 自動回覆能接住幾通 —— 把功能變成一個數字。
+     沒有這個數字，「要不要開自動回覆」永遠是感覺之爭。 */
+  const coverage = await coverageOfWaiting(db, waiting);
+
   return {
     now: nowIso,
     can_see_all: all,
+    coverage,
     sla: { target_min: sla, breached, at_risk: waiting.length - breached },
     thresholds: { warn: sla, bad },
     stats: {

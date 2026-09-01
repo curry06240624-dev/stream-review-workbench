@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>自動回覆｜AI 指揮中心</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="app.css">
+</head>
+<body class="app">
+<div class="side" id="side"></div>
+
+<div class="main">
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>自動回覆</h1>
+      <div class="sub">關鍵字命中就回，由上往下第一條贏</div>
+    </div>
+    <span class="sp"></span>
+    <button class="btn sm" id="add">新增規則</button>
+  </header>
+
+  <!-- 測試器擺在最前面：沒有這個，運營只能把規則開下去然後祈禱 -->
+  <div class="card">
+    <h2>先測試再開規則</h2>
+    <div class="tester">
+      <input id="tin" placeholder="貼一句客人可能會說的話…" autocomplete="off">
+      <button class="btn sm" id="trun">測試</button>
+    </div>
+    <div id="tout"></div>
+  </div>
+
+  <div class="card">
+    <h2>規則</h2>
+    <div id="rules"><p class="empty">載入中…</p></div>
+  </div>
+
+  <div class="card">
+    <h2>什麼時候機器人不會出手</h2>
+    <ul class="guards">
+      <li><b>真人 10 分鐘內回過</b>：不插嘴。訊息手正在談，機器人插一句罐頭話會毀掉那通生意。</li>
+      <li><b>同一條規則 24 小時內回過</b>：不重複。客人連問三次不該收到三次一樣的罐頭。</li>
+      <li><b>沒有規則命中</b>：什麼都不做，留給人處理。不猜、不亂接。</li>
+    </ul>
+    <p class="foot" style="margin-top:14px">
+      比對方式刻意做得笨：去掉空白標點後做子字串比對，不做模糊比對也不讓 AI 猜。
+      運營要能自己看規則就預測得到機器人會說什麼 —— 猜不到的規則沒人敢開。
+    </p>
+  </div>
+</div>
+</div>
+
+<script src="app.js"></script>
+<script>
+let ME = null, CAN = false;
+
+(async () => {
+  ME = await requireLogin();
+  if (!ME) return;
+  renderSidebar(ME, "autoreply.html");
+  document.getElementById("add").addEventListener("click", addRule);
+  document.getElementById("trun").addEventListener("click", runTest);
+  document.getElementById("tin").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") runTest();
+  });
+  load();
+})();
+
+async function load() {
+  const j = await api("/api/autoreplies");
+  if (!j.ok) return;
+  CAN = j.can_edit;
+  document.getElementById("add").style.display = CAN ? "" : "none";
+  document.getElementById("rules").innerHTML = j.rules.length
+    ? j.rules.map((r, i) =>
+        '<div class="rule' + (r.enabled ? "" : " off") + '" data-id="' + r.id + '">'
+        + '<div class="rh"><span class="rnum">' + (i + 1) + "</span>"
+        + "<b>" + esc(r.name) + "</b>"
+        + '<span class="hits">命中 ' + r.hits + " 次</span>"
+        + (CAN ? '<button class="btn ghost sm tog">' + (r.enabled ? "停用" : "啟用") + "</button>"
+               + '<button class="btn ghost sm del">刪除</button>' : "")
+        + "</div>"
+        + '<div class="rk">' + String(r.keywords).split(",").map((k) =>
+            '<span class="kw">' + esc(k.trim()) + "</span>").join("") + "</div>"
+        + '<div class="rr">' + esc(r.reply) + "</div></div>").join("")
+    : '<p class="empty">還沒有規則。按右上「新增規則」開第一條。</p>';
+
+  document.querySelectorAll(".rule .tog").forEach((b) =>
+    b.addEventListener("click", async () => {
+      const el = b.closest(".rule");
+      await api("/api/autoreplies/" + el.dataset.id,
+        { enabled: el.classList.contains("off") ? 1 : 0 }, "PATCH");
+      load();
+    }));
+  document.querySelectorAll(".rule .del").forEach((b) =>
+    b.addEventListener("click", async () => {
+      const el = b.closest(".rule");
+      if (!confirm("刪掉「" + el.querySelector("b").textContent + "」這條規則？")) return;
+      await api("/api/autoreplies/" + el.dataset.id, null, "DELETE");
+      load();
+    }));
+}
+
+async function runTest() {
+  const text = document.getElementById("tin").value.trim();
+  const out = document.getElementById("tout");
+  if (!text) { out.innerHTML = ""; return; }
+  const j = await api("/api/autoreplies/test", { text });
+  out.innerHTML = j.matched
+    ? '<div class="tres hit"><div class="tl">命中 <b>' + esc(j.matched.name)
+      + '</b>（關鍵字「' + esc(j.matched.keyword) + '」）</div>'
+      + '<div class="tr2">' + esc(j.matched.reply) + "</div></div>"
+    : '<div class="tres miss">沒有規則命中 —— 這句話會留給人處理。</div>';
+}
+
+async function addRule() {
+  const name = prompt("規則名稱（例如：營業時間）");
+  if (!name) return;
+  const keywords = prompt("關鍵字，用逗號分隔（例如：幾點,營業,打烊）");
+  if (!keywords) return;
+  const reply = prompt("要自動回覆的內容");
+  if (!reply) return;
+  const j = await api("/api/autoreplies", { name, keywords, reply });
+  if (!j.ok) { alert(j.message || "新增失敗"); return; }
+  load();
+}
+</script>
+</body>
+</html>
