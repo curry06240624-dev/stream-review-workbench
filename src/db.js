@@ -173,13 +173,9 @@ export class AppDB extends DurableObject {
     const a = await computeAnalytics(this, { to: opts.to, days: opts.days });
     const cands = deriveInsights(a);
     const { ids } = await persistInsights(this, cands, a, at);
-    /* 同一天、同一個期間長度再跑一次，舊的那批標成 dismissed=2（被取代），不然總覽會出現重複的卡。
-       1＝使用者駁回、2＝被新一輪取代；證據列不動，舊的 /insights/:id 還是打得開。 */
-    if (ids.length) {
-      const dayAgo = new Date(Date.parse(a.period.to) - 86_400_000).toISOString();
-      await this.run(`UPDATE insights SET dismissed = 2 WHERE dismissed = 0 AND id NOT IN (${ids.map(() => "?").join(",")})
-        AND period_to > ? AND period_to <= ? AND ABS((julianday(period_to) - julianday(period_from)) - ?) < 0.05`, ...ids, dayAgo, a.period.to, a.period.days);
-    }
+    /* 一次只有一組「現行」洞察：新一輪成立後，其他仍為 0 的舊洞察全部標 dismissed=2（被取代），
+       不然總覽會同時出現 7 天版與 14 天版的同一張卡。1＝使用者駁回、2＝被取代；證據列不動，舊的 /insights/:id 還是打得開。 */
+    if (ids.length) await this.run(`UPDATE insights SET dismissed = 2 WHERE dismissed = 0 AND id NOT IN (${ids.map(() => "?").join(",")})`, ...ids);
     return { analytics: a, candidates: cands.length, persisted: ids.length };
   }
 }
