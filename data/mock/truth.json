@@ -1,0 +1,2198 @@
+[
+ {
+  "lead_key": "L1",
+  "scenario": "01_price_then_disappear",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "PRICE_MENTIONED",
+   "FOLLOW_UP",
+   "PRICE_DROP_OFF",
+   "CUSTOMER_INACTIVE",
+   "LOST"
+  ],
+  "price_dropoff": true,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L2",
+  "scenario": "01_price_then_disappear",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "FOLLOW_UP",
+   "PRICE_DROP_OFF",
+   "CUSTOMER_INACTIVE",
+   "LOST"
+  ],
+  "price_dropoff": true,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L3",
+  "scenario": "01_price_then_disappear",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "FOLLOW_UP",
+   "PRICE_DROP_OFF",
+   "CUSTOMER_INACTIVE",
+   "LOST"
+  ],
+  "price_dropoff": true,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L4",
+  "scenario": "01_price_then_disappear",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "FOLLOW_UP",
+   "PRICE_DROP_OFF",
+   "CUSTOMER_INACTIVE",
+   "LOST"
+  ],
+  "price_dropoff": true,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L5",
+  "scenario": "01_price_then_disappear",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "PRICE_DROP_OFF",
+   "CUSTOMER_INACTIVE",
+   "LOST"
+  ],
+  "price_dropoff": true,
+  "weak_followup": true
+ },
+ {
+  "lead_key": "L6",
+  "scenario": "01_price_then_disappear",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "PRICE_OBJECTION",
+   "FOLLOW_UP",
+   "PRICE_DROP_OFF",
+   "CUSTOMER_INACTIVE",
+   "LOST"
+  ],
+  "price_dropoff": true,
+  "weak_followup": true
+ },
+ {
+  "lead_key": "L7",
+  "scenario": "01_price_then_disappear",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "FOLLOW_UP",
+   "PRICE_DROP_OFF",
+   "CUSTOMER_INACTIVE",
+   "LOST"
+  ],
+  "price_dropoff": true,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L8",
+  "scenario": "01_price_then_disappear",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "PRICE_OBJECTION",
+   "PRICE_DROP_OFF",
+   "CUSTOMER_INACTIVE",
+   "LOST"
+  ],
+  "price_dropoff": true,
+  "weak_followup": true
+ },
+ {
+  "lead_key": "L9",
+  "scenario": "01_price_then_disappear",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "PRICE_OBJECTION",
+   "PRICE_DROP_OFF",
+   "CUSTOMER_INACTIVE",
+   "LOST"
+  ],
+  "price_dropoff": true,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L10",
+  "scenario": "01_price_then_disappear",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "PRICE_OBJECTION",
+   "PRICE_DROP_OFF",
+   "CUSTOMER_INACTIVE",
+   "LOST"
+  ],
+  "price_dropoff": true,
+  "weak_followup": true
+ },
+ {
+  "lead_key": "L11",
+  "scenario": "01_price_then_disappear",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "PRICE_MENTIONED",
+   "PRICE_OBJECTION",
+   "FOLLOW_UP",
+   "PRICE_DROP_OFF",
+   "CUSTOMER_INACTIVE",
+   "LOST"
+  ],
+  "price_dropoff": true,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L12",
+  "scenario": "01_price_then_disappear",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "FOLLOW_UP",
+   "PRICE_DROP_OFF",
+   "CUSTOMER_INACTIVE",
+   "LOST"
+  ],
+  "price_dropoff": true,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L13",
+  "scenario": "01_price_then_disappear",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "FOLLOW_UP",
+   "PRICE_DROP_OFF",
+   "CUSTOMER_INACTIVE",
+   "LOST"
+  ],
+  "price_dropoff": true,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L14",
+  "scenario": "01_price_then_disappear",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "PRICE_MENTIONED",
+   "FOLLOW_UP",
+   "PRICE_DROP_OFF",
+   "CUSTOMER_INACTIVE",
+   "LOST"
+  ],
+  "price_dropoff": true,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L15",
+  "scenario": "02_price_then_continue",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "FOLLOW_UP"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L16",
+  "scenario": "02_price_then_continue",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "FOLLOW_UP"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L17",
+  "scenario": "02_price_then_continue",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "FOLLOW_UP"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L18",
+  "scenario": "02_price_then_continue",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L19",
+  "scenario": "02_price_then_continue",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "FOLLOW_UP"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L20",
+  "scenario": "02_price_then_continue",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "FOLLOW_UP"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L21",
+  "scenario": "02_price_then_continue",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L22",
+  "scenario": "02_price_then_continue",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L23",
+  "scenario": "02_price_then_continue",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L24",
+  "scenario": "02_price_then_continue",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "FOLLOW_UP"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L25",
+  "scenario": "03_negotiation",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "NEGOTIATION"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L26",
+  "scenario": "03_negotiation",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "PRICE_MENTIONED",
+   "NEGOTIATION",
+   "FOLLOW_UP"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L27",
+  "scenario": "03_negotiation",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "PRICE_MENTIONED",
+   "NEGOTIATION",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L28",
+  "scenario": "03_negotiation",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "NEGOTIATION",
+   "FOLLOW_UP"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L29",
+  "scenario": "03_negotiation",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "NEGOTIATION",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L30",
+  "scenario": "03_negotiation",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "NEGOTIATION",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L31",
+  "scenario": "03_negotiation",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "PRICE_MENTIONED",
+   "NEGOTIATION",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L32",
+  "scenario": "03_negotiation",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "NEGOTIATION",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L33",
+  "scenario": "04_financing_question",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "PRICE_MENTIONED",
+   "FINANCING_QUESTION",
+   "CUSTOMER_INACTIVE"
+  ],
+  "price_dropoff": false,
+  "weak_followup": true
+ },
+ {
+  "lead_key": "L34",
+  "scenario": "04_financing_question",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "FINANCING_QUESTION",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L35",
+  "scenario": "04_financing_question",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "FINANCING_QUESTION",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L36",
+  "scenario": "04_financing_question",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "FINANCING_QUESTION",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L37",
+  "scenario": "04_financing_question",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "FINANCING_QUESTION",
+   "CUSTOMER_INACTIVE"
+  ],
+  "price_dropoff": false,
+  "weak_followup": true
+ },
+ {
+  "lead_key": "L38",
+  "scenario": "04_financing_question",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "FINANCING_QUESTION",
+   "CUSTOMER_INACTIVE"
+  ],
+  "price_dropoff": false,
+  "weak_followup": true
+ },
+ {
+  "lead_key": "L39",
+  "scenario": "04_financing_question",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "PRICE_MENTIONED",
+   "FINANCING_QUESTION",
+   "APPOINTMENT_PROPOSED"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L40",
+  "scenario": "04_financing_question",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "FINANCING_QUESTION",
+   "CUSTOMER_INACTIVE"
+  ],
+  "price_dropoff": false,
+  "weak_followup": true
+ },
+ {
+  "lead_key": "L41",
+  "scenario": "05_books_appointment",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L42",
+  "scenario": "05_books_appointment",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L43",
+  "scenario": "05_books_appointment",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L44",
+  "scenario": "05_books_appointment",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L45",
+  "scenario": "05_books_appointment",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L46",
+  "scenario": "05_books_appointment",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L47",
+  "scenario": "06_books_then_no_show",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "NO_SHOW",
+   "CUSTOMER_INACTIVE",
+   "LOST"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L48",
+  "scenario": "06_books_then_no_show",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "NO_SHOW"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L49",
+  "scenario": "06_books_then_no_show",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "NO_SHOW",
+   "FOLLOW_UP"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L50",
+  "scenario": "06_books_then_no_show",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "NO_SHOW",
+   "CUSTOMER_INACTIVE",
+   "LOST"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L51",
+  "scenario": "06_books_then_no_show",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "NO_SHOW",
+   "CUSTOMER_INACTIVE",
+   "LOST"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L52",
+  "scenario": "06_books_then_no_show",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "NO_SHOW",
+   "CUSTOMER_INACTIVE",
+   "LOST"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L53",
+  "scenario": "06_books_then_no_show",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "NO_SHOW",
+   "FOLLOW_UP"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L54",
+  "scenario": "07_visit_no_buy",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "FOLLOW_UP",
+   "LOST"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L55",
+  "scenario": "07_visit_no_buy",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L56",
+  "scenario": "07_visit_no_buy",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "FOLLOW_UP"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L57",
+  "scenario": "07_visit_no_buy",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "FOLLOW_UP",
+   "LOST"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L58",
+  "scenario": "07_visit_no_buy",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L59",
+  "scenario": "07_visit_no_buy",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "LOST"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L60",
+  "scenario": "07_visit_no_buy",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "FOLLOW_UP",
+   "LOST"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L61",
+  "scenario": "07_visit_no_buy",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "FOLLOW_UP"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L62",
+  "scenario": "08_visit_and_buy",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L63",
+  "scenario": "08_visit_and_buy",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "NEGOTIATION",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L64",
+  "scenario": "08_visit_and_buy",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L65",
+  "scenario": "08_visit_and_buy",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L66",
+  "scenario": "08_visit_and_buy",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L67",
+  "scenario": "08_visit_and_buy",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L68",
+  "scenario": "08_visit_and_buy",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "NEGOTIATION",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L69",
+  "scenario": "08_visit_and_buy",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L70",
+  "scenario": "08_visit_and_buy",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "NEGOTIATION",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L71",
+  "scenario": "09_strong_lead_weak_followup",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "HIGH_INTENT",
+   "PRICE_MENTIONED",
+   "CUSTOMER_INACTIVE",
+   "LOST"
+  ],
+  "price_dropoff": false,
+  "weak_followup": true
+ },
+ {
+  "lead_key": "L72",
+  "scenario": "09_strong_lead_weak_followup",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "HIGH_INTENT",
+   "PRICE_MENTIONED",
+   "CUSTOMER_INACTIVE",
+   "LOST"
+  ],
+  "price_dropoff": false,
+  "weak_followup": true
+ },
+ {
+  "lead_key": "L73",
+  "scenario": "09_strong_lead_weak_followup",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "HIGH_INTENT",
+   "PRICE_MENTIONED",
+   "CUSTOMER_INACTIVE",
+   "LOST"
+  ],
+  "price_dropoff": false,
+  "weak_followup": true
+ },
+ {
+  "lead_key": "L74",
+  "scenario": "09_strong_lead_weak_followup",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "HIGH_INTENT",
+   "PRICE_MENTIONED",
+   "CUSTOMER_INACTIVE",
+   "LOST"
+  ],
+  "price_dropoff": false,
+  "weak_followup": true
+ },
+ {
+  "lead_key": "L75",
+  "scenario": "09_strong_lead_weak_followup",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "HIGH_INTENT",
+   "PRICE_MENTIONED",
+   "CUSTOMER_INACTIVE",
+   "LOST"
+  ],
+  "price_dropoff": false,
+  "weak_followup": true
+ },
+ {
+  "lead_key": "L76",
+  "scenario": "09_strong_lead_weak_followup",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "HIGH_INTENT",
+   "PRICE_MENTIONED",
+   "CUSTOMER_INACTIVE",
+   "LOST"
+  ],
+  "price_dropoff": false,
+  "weak_followup": true
+ },
+ {
+  "lead_key": "L77",
+  "scenario": "09_strong_lead_weak_followup",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "HIGH_INTENT",
+   "PRICE_MENTIONED",
+   "CUSTOMER_INACTIVE",
+   "LOST"
+  ],
+  "price_dropoff": false,
+  "weak_followup": true
+ },
+ {
+  "lead_key": "L78",
+  "scenario": "10_high_intent_good_followup",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "HIGH_INTENT",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L79",
+  "scenario": "10_high_intent_good_followup",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "HIGH_INTENT",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L80",
+  "scenario": "10_high_intent_good_followup",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "HIGH_INTENT",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L81",
+  "scenario": "10_high_intent_good_followup",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "HIGH_INTENT",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L82",
+  "scenario": "10_high_intent_good_followup",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "HIGH_INTENT",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L83",
+  "scenario": "11_goes_inactive",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "CUSTOMER_INACTIVE",
+   "FOLLOW_UP"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L84",
+  "scenario": "11_goes_inactive",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "CUSTOMER_INACTIVE",
+   "FOLLOW_UP"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L85",
+  "scenario": "11_goes_inactive",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "PRICE_MENTIONED",
+   "CUSTOMER_INACTIVE"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L86",
+  "scenario": "11_goes_inactive",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "CUSTOMER_INACTIVE",
+   "FOLLOW_UP"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L87",
+  "scenario": "11_goes_inactive",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "CUSTOMER_INACTIVE"
+  ],
+  "price_dropoff": false,
+  "weak_followup": true
+ },
+ {
+  "lead_key": "L88",
+  "scenario": "11_goes_inactive",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "CUSTOMER_INACTIVE",
+   "FOLLOW_UP"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L89",
+  "scenario": "11_goes_inactive",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "CUSTOMER_INACTIVE",
+   "FOLLOW_UP"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L90",
+  "scenario": "11_goes_inactive",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "CUSTOMER_INACTIVE",
+   "FOLLOW_UP"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L91",
+  "scenario": "11_goes_inactive",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "CUSTOMER_INACTIVE",
+   "FOLLOW_UP"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L92",
+  "scenario": "11_goes_inactive",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "CUSTOMER_INACTIVE",
+   "FOLLOW_UP"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L93",
+  "scenario": "12_re_engages",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "PRICE_MENTIONED",
+   "CUSTOMER_INACTIVE",
+   "RE_ENGAGED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L94",
+  "scenario": "12_re_engages",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "PRICE_MENTIONED",
+   "CUSTOMER_INACTIVE",
+   "RE_ENGAGED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L95",
+  "scenario": "12_re_engages",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "CUSTOMER_INACTIVE",
+   "RE_ENGAGED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L96",
+  "scenario": "12_re_engages",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "PRICE_MENTIONED",
+   "CUSTOMER_INACTIVE",
+   "RE_ENGAGED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L97",
+  "scenario": "12_re_engages",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "CUSTOMER_INACTIVE",
+   "RE_ENGAGED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L98",
+  "scenario": "13_staff_handoff",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "FOLLOW_UP"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L99",
+  "scenario": "13_staff_handoff",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L100",
+  "scenario": "13_staff_handoff",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "FOLLOW_UP"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L101",
+  "scenario": "13_staff_handoff",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L102",
+  "scenario": "14_long_cycle",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "FINANCING_QUESTION",
+   "FOLLOW_UP",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L103",
+  "scenario": "14_long_cycle",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "FINANCING_QUESTION",
+   "FOLLOW_UP",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L104",
+  "scenario": "14_long_cycle",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "PRICE_MENTIONED",
+   "FINANCING_QUESTION",
+   "FOLLOW_UP",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L105",
+  "scenario": "14_long_cycle",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "PRICE_MENTIONED",
+   "FINANCING_QUESTION",
+   "FOLLOW_UP",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L106",
+  "scenario": "15_fast_transaction",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L107",
+  "scenario": "15_fast_transaction",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L108",
+  "scenario": "15_fast_transaction",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L109",
+  "scenario": "15_fast_transaction",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L110",
+  "scenario": "16_discount_discussion",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "PRICE_MENTIONED",
+   "NEGOTIATION",
+   "FOLLOW_UP"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L111",
+  "scenario": "16_discount_discussion",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "NEGOTIATION"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L112",
+  "scenario": "16_discount_discussion",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "PRICE_MENTIONED",
+   "NEGOTIATION",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L113",
+  "scenario": "16_discount_discussion",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "PRICE_MENTIONED",
+   "NEGOTIATION",
+   "FOLLOW_UP"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L114",
+  "scenario": "16_discount_discussion",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "NEGOTIATION",
+   "FOLLOW_UP"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L115",
+  "scenario": "17_high_gross_profit",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L116",
+  "scenario": "17_high_gross_profit",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L117",
+  "scenario": "17_high_gross_profit",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L118",
+  "scenario": "18_low_gross_profit",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "NEGOTIATION",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L119",
+  "scenario": "18_low_gross_profit",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "NEGOTIATION",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L120",
+  "scenario": "18_low_gross_profit",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "PRICE_MENTIONED",
+   "NEGOTIATION",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L121",
+  "scenario": "19_hot_vehicle_low_conversion",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "PRICE_MENTIONED",
+   "PRICE_DROP_OFF",
+   "CUSTOMER_INACTIVE",
+   "LOST"
+  ],
+  "price_dropoff": true,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L122",
+  "scenario": "19_hot_vehicle_low_conversion",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "PRICE_OBJECTION",
+   "PRICE_DROP_OFF",
+   "CUSTOMER_INACTIVE",
+   "LOST"
+  ],
+  "price_dropoff": true,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L123",
+  "scenario": "19_hot_vehicle_low_conversion",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "PRICE_MENTIONED",
+   "PRICE_OBJECTION",
+   "FOLLOW_UP",
+   "PRICE_DROP_OFF",
+   "CUSTOMER_INACTIVE",
+   "LOST"
+  ],
+  "price_dropoff": true,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L124",
+  "scenario": "19_hot_vehicle_low_conversion",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "PRICE_MENTIONED",
+   "FOLLOW_UP",
+   "PRICE_DROP_OFF",
+   "CUSTOMER_INACTIVE",
+   "LOST"
+  ],
+  "price_dropoff": true,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L125",
+  "scenario": "19_hot_vehicle_low_conversion",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "PRICE_OBJECTION",
+   "FOLLOW_UP",
+   "PRICE_DROP_OFF",
+   "CUSTOMER_INACTIVE",
+   "LOST"
+  ],
+  "price_dropoff": true,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L126",
+  "scenario": "19_hot_vehicle_low_conversion",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "PRICE_OBJECTION",
+   "FOLLOW_UP",
+   "PRICE_DROP_OFF",
+   "CUSTOMER_INACTIVE",
+   "LOST"
+  ],
+  "price_dropoff": true,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L127",
+  "scenario": "20_quiet_vehicle_high_conversion",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L128",
+  "scenario": "20_quiet_vehicle_high_conversion",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L129",
+  "scenario": "20_quiet_vehicle_high_conversion",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L130",
+  "scenario": "20_quiet_vehicle_high_conversion",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L131",
+  "scenario": "21_price_sensitive",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "PRICE_OBJECTION",
+   "FOLLOW_UP",
+   "PRICE_DROP_OFF",
+   "CUSTOMER_INACTIVE"
+  ],
+  "price_dropoff": true,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L132",
+  "scenario": "21_price_sensitive",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "PRICE_MENTIONED",
+   "PRICE_OBJECTION",
+   "PRICE_DROP_OFF",
+   "CUSTOMER_INACTIVE"
+  ],
+  "price_dropoff": true,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L133",
+  "scenario": "21_price_sensitive",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "PRICE_OBJECTION",
+   "FOLLOW_UP",
+   "PRICE_DROP_OFF",
+   "CUSTOMER_INACTIVE"
+  ],
+  "price_dropoff": true,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L134",
+  "scenario": "21_price_sensitive",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "PRICE_OBJECTION",
+   "FOLLOW_UP",
+   "PRICE_DROP_OFF",
+   "CUSTOMER_INACTIVE"
+  ],
+  "price_dropoff": true,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L135",
+  "scenario": "22_financing_sensitive",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "PRICE_MENTIONED",
+   "FINANCING_QUESTION",
+   "CUSTOMER_INACTIVE",
+   "LOST"
+  ],
+  "price_dropoff": false,
+  "weak_followup": true
+ },
+ {
+  "lead_key": "L136",
+  "scenario": "22_financing_sensitive",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "FINANCING_QUESTION",
+   "CUSTOMER_INACTIVE",
+   "LOST"
+  ],
+  "price_dropoff": false,
+  "weak_followup": true
+ },
+ {
+  "lead_key": "L137",
+  "scenario": "22_financing_sensitive",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "FINANCING_QUESTION",
+   "CUSTOMER_INACTIVE",
+   "LOST"
+  ],
+  "price_dropoff": false,
+  "weak_followup": true
+ },
+ {
+  "lead_key": "L138",
+  "scenario": "22_financing_sensitive",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "FINANCING_QUESTION",
+   "CUSTOMER_INACTIVE",
+   "LOST"
+  ],
+  "price_dropoff": false,
+  "weak_followup": true
+ },
+ {
+  "lead_key": "L139",
+  "scenario": "23_repeat_customer",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "HIGH_INTENT",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L140",
+  "scenario": "23_repeat_customer",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "HIGH_INTENT",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L141",
+  "scenario": "23_repeat_customer",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "HIGH_INTENT",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L142",
+  "scenario": "24_multiple_conversations",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L143",
+  "scenario": "24_multiple_conversations",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ },
+ {
+  "lead_key": "L144",
+  "scenario": "24_multiple_conversations",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false
+ }
+]

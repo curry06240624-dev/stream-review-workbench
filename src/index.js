@@ -10,6 +10,7 @@ import { listConversations, getConversation, assign, reply, inboxCounts, canSeeA
 import { listContacts, getContact, updateContact } from "./contacts.js";
 import { situation, getSla } from "./situation.js";
 import { listRules, matchRule, tryAutoReply, blockedReason } from "./autoreply.js";
+import { importBundle } from "./adapters/import.ts";
 
 export { AppDB };
 
@@ -42,6 +43,20 @@ async function route(request, env, db, url) {
   const m = request.method;
 
   if (p === "/api/health") return J({ ok: true, at: now() });
+
+  /* ── 匯入 NormalizedBundle（模擬器／Super 8 擷取／瑋瑋的表都走這裡）── */
+  if (p === "/api/admin/import" && m === "POST") {
+    const me = await currentUser(request, db);
+    if (!me) return J({ ok: false, error: "not_logged_in", message: "請先登入。" }, 401);
+    if (me.role !== "admin") return J({ ok: false, message: "只有管理員可以匯入資料。" }, 403);
+    const b = await request.json().catch(() => null);
+    if (!b || !Array.isArray(b.conversations) || !b.source_system) {
+      return J({ ok: false, message: "bundle 格式不對：要有 source_system 與 conversations。" }, 400);
+    }
+    const reset = url.searchParams.get("reset") === "1" || b.reset === true;
+    const rep = await importBundle(db, b, { reset, now: now() });
+    return J({ ok: true, ...rep });
+  }
 
   /* ── 初始化：只在完全沒有使用者時可用，且要 SETUP_CODE ── */
   if (p === "/api/setup" && m === "POST") {

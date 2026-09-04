@@ -5,6 +5,7 @@
  * 把 SCHEMA 原封餵給 `wrangler d1 execute`，把本檔的 exec 換成 D1 prepare 即可。
  */
 import { DurableObject } from "cloudflare:workers";
+import { migrate } from "./model/schema.ts";
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS users (
@@ -126,6 +127,7 @@ export class AppDB extends DurableObject {
     super(ctx, env);
     this.sql = ctx.storage.sql;
     this.sql.exec(SCHEMA);
+    migrate(this.sql);            // 新表與新欄位（冪等），見 src/model/schema.ts
   }
 
   /** 全部列。參數用 ? 佔位。 */
