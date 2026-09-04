@@ -169,7 +169,8 @@
    "FOLLOW_UP",
    "PRICE_DROP_OFF",
    "CUSTOMER_INACTIVE",
-   "LOST"
+   "LOST",
+   "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": true,
   "weak_followup": false
@@ -247,7 +248,8 @@
    "APPOINTMENT_PROPOSED",
    "APPOINTMENT_BOOKED",
    "STORE_VISIT",
-   "FOLLOW_UP"
+   "FOLLOW_UP",
+   "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
   "weak_followup": false
@@ -342,7 +344,8 @@
    "APPOINTMENT_PROPOSED",
    "APPOINTMENT_BOOKED",
    "STORE_VISIT",
-   "SOLD"
+   "SOLD",
+   "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
   "weak_followup": false
@@ -399,7 +402,8 @@
    "VEHICLE_INTEREST",
    "PRICE_MENTIONED",
    "NEGOTIATION",
-   "FOLLOW_UP"
+   "FOLLOW_UP",
+   "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
   "weak_followup": false
@@ -412,7 +416,8 @@
    "VEHICLE_INTEREST",
    "PRICE_MENTIONED",
    "NEGOTIATION",
-   "SOLD"
+   "SOLD",
+   "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
   "weak_followup": false
@@ -467,7 +472,8 @@
    "VEHICLE_INTEREST",
    "PRICE_MENTIONED",
    "NEGOTIATION",
-   "SOLD"
+   "SOLD",
+   "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
   "weak_followup": false
@@ -494,7 +500,8 @@
    "VEHICLE_INTEREST",
    "PRICE_MENTIONED",
    "FINANCING_QUESTION",
-   "CUSTOMER_INACTIVE"
+   "CUSTOMER_INACTIVE",
+   "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
   "weak_followup": true
@@ -586,7 +593,8 @@
    "VEHICLE_INTEREST",
    "PRICE_MENTIONED",
    "FINANCING_QUESTION",
-   "APPOINTMENT_PROPOSED"
+   "APPOINTMENT_PROPOSED",
+   "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
   "weak_followup": false
@@ -613,7 +621,8 @@
    "VEHICLE_INTEREST",
    "PRICE_MENTIONED",
    "APPOINTMENT_PROPOSED",
-   "APPOINTMENT_BOOKED"
+   "APPOINTMENT_BOOKED",
+   "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
   "weak_followup": false
@@ -640,7 +649,8 @@
    "VEHICLE_INTEREST",
    "PRICE_MENTIONED",
    "APPOINTMENT_PROPOSED",
-   "APPOINTMENT_BOOKED"
+   "APPOINTMENT_BOOKED",
+   "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
   "weak_followup": false
@@ -729,7 +739,8 @@
    "APPOINTMENT_PROPOSED",
    "APPOINTMENT_BOOKED",
    "NO_SHOW",
-   "FOLLOW_UP"
+   "FOLLOW_UP",
+   "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
   "weak_followup": false
@@ -762,7 +773,8 @@
    "APPOINTMENT_BOOKED",
    "NO_SHOW",
    "CUSTOMER_INACTIVE",
-   "LOST"
+   "LOST",
+   "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
   "weak_followup": false
@@ -778,7 +790,8 @@
    "APPOINTMENT_BOOKED",
    "NO_SHOW",
    "CUSTOMER_INACTIVE",
-   "LOST"
+   "LOST",
+   "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
   "weak_followup": false
@@ -810,7 +823,8 @@
    "APPOINTMENT_BOOKED",
    "STORE_VISIT",
    "FOLLOW_UP",
-   "LOST"
+   "LOST",
+   "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
   "weak_followup": false
@@ -1018,7 +1032,8 @@
    "APPOINTMENT_PROPOSED",
    "APPOINTMENT_BOOKED",
    "STORE_VISIT",
-   "SOLD"
+   "SOLD",
+   "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
   "weak_followup": false
@@ -1034,7 +1049,8 @@
    "APPOINTMENT_BOOKED",
    "STORE_VISIT",
    "NEGOTIATION",
-   "SOLD"
+   "SOLD",
+   "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
   "weak_followup": false
@@ -1066,7 +1082,8 @@
    "APPOINTMENT_BOOKED",
    "STORE_VISIT",
    "NEGOTIATION",
-   "SOLD"
+   "SOLD",
+   "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
   "weak_followup": false
@@ -1095,7 +1112,8 @@
    "HIGH_INTENT",
    "PRICE_MENTIONED",
    "CUSTOMER_INACTIVE",
-   "LOST"
+   "LOST",
+   "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
   "weak_followup": true
@@ -1109,7 +1127,8 @@
    "HIGH_INTENT",
    "PRICE_MENTIONED",
    "CUSTOMER_INACTIVE",
-   "LOST"
+   "LOST",
+   "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
   "weak_followup": true
@@ -1219,7 +1238,8 @@
    "APPOINTMENT_PROPOSED",
    "APPOINTMENT_BOOKED",
    "STORE_VISIT",
-   "SOLD"
+   "SOLD",
+   "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
   "weak_followup": false
@@ -1267,9 +1287,10 @@
    "ACTIVE_DISCUSSION",
    "PRICE_MENTIONED",
    "CUSTOMER_INACTIVE",
-   "FOLLOW_UP"
+   "FOLLOW_UP",
+   "PRICE_DROP_OFF"
   ],
-  "price_dropoff": false,
+  "price_dropoff": true,
   "weak_followup": false
  },
  {
@@ -1280,9 +1301,10 @@
    "VEHICLE_INTEREST",
    "ACTIVE_DISCUSSION",
    "CUSTOMER_INACTIVE",
-   "FOLLOW_UP"
+   "FOLLOW_UP",
+   "PRICE_DROP_OFF"
   ],
-  "price_dropoff": false,
+  "price_dropoff": true,
   "weak_followup": false
  },
  {
@@ -1292,9 +1314,10 @@
    "NEW_LEAD",
    "VEHICLE_INTEREST",
    "PRICE_MENTIONED",
-   "CUSTOMER_INACTIVE"
+   "CUSTOMER_INACTIVE",
+   "PRICE_DROP_OFF"
   ],
-  "price_dropoff": false,
+  "price_dropoff": true,
   "weak_followup": false
  },
  {
@@ -1328,9 +1351,10 @@
    "VEHICLE_INTEREST",
    "ACTIVE_DISCUSSION",
    "CUSTOMER_INACTIVE",
-   "FOLLOW_UP"
+   "FOLLOW_UP",
+   "PRICE_DROP_OFF"
   ],
-  "price_dropoff": false,
+  "price_dropoff": true,
   "weak_followup": false
  },
  {
@@ -1342,9 +1366,10 @@
    "ACTIVE_DISCUSSION",
    "PRICE_MENTIONED",
    "CUSTOMER_INACTIVE",
-   "FOLLOW_UP"
+   "FOLLOW_UP",
+   "PRICE_DROP_OFF"
   ],
-  "price_dropoff": false,
+  "price_dropoff": true,
   "weak_followup": false
  },
  {
@@ -1356,9 +1381,10 @@
    "ACTIVE_DISCUSSION",
    "PRICE_MENTIONED",
    "CUSTOMER_INACTIVE",
-   "FOLLOW_UP"
+   "FOLLOW_UP",
+   "PRICE_DROP_OFF"
   ],
-  "price_dropoff": false,
+  "price_dropoff": true,
   "weak_followup": false
  },
  {
@@ -1580,7 +1606,8 @@
    "APPOINTMENT_PROPOSED",
    "APPOINTMENT_BOOKED",
    "STORE_VISIT",
-   "SOLD"
+   "SOLD",
+   "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
   "weak_followup": false
@@ -1597,7 +1624,8 @@
    "APPOINTMENT_PROPOSED",
    "APPOINTMENT_BOOKED",
    "STORE_VISIT",
-   "SOLD"
+   "SOLD",
+   "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
   "weak_followup": false
@@ -1674,7 +1702,8 @@
    "VEHICLE_INTEREST",
    "PRICE_MENTIONED",
    "NEGOTIATION",
-   "FOLLOW_UP"
+   "FOLLOW_UP",
+   "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
   "weak_followup": false
@@ -1700,7 +1729,8 @@
    "VEHICLE_INTEREST",
    "PRICE_MENTIONED",
    "NEGOTIATION",
-   "SOLD"
+   "SOLD",
+   "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
   "weak_followup": false
@@ -1713,7 +1743,8 @@
    "VEHICLE_INTEREST",
    "PRICE_MENTIONED",
    "NEGOTIATION",
-   "FOLLOW_UP"
+   "FOLLOW_UP",
+   "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
   "weak_followup": false
@@ -1816,7 +1847,8 @@
    "VEHICLE_INTEREST",
    "PRICE_MENTIONED",
    "NEGOTIATION",
-   "SOLD"
+   "SOLD",
+   "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
   "weak_followup": false
@@ -1862,7 +1894,8 @@
    "FOLLOW_UP",
    "PRICE_DROP_OFF",
    "CUSTOMER_INACTIVE",
-   "LOST"
+   "LOST",
+   "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": true,
   "weak_followup": false
@@ -1942,7 +1975,8 @@
    "APPOINTMENT_PROPOSED",
    "APPOINTMENT_BOOKED",
    "STORE_VISIT",
-   "SOLD"
+   "SOLD",
+   "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
   "weak_followup": false
@@ -1973,7 +2007,8 @@
    "APPOINTMENT_PROPOSED",
    "APPOINTMENT_BOOKED",
    "STORE_VISIT",
-   "SOLD"
+   "SOLD",
+   "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
   "weak_followup": false
@@ -2003,7 +2038,8 @@
    "PRICE_MENTIONED",
    "PRICE_OBJECTION",
    "PRICE_DROP_OFF",
-   "CUSTOMER_INACTIVE"
+   "CUSTOMER_INACTIVE",
+   "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": true,
   "weak_followup": false
@@ -2049,7 +2085,8 @@
    "PRICE_MENTIONED",
    "FINANCING_QUESTION",
    "CUSTOMER_INACTIVE",
-   "LOST"
+   "LOST",
+   "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
   "weak_followup": true
@@ -2110,7 +2147,8 @@
    "APPOINTMENT_PROPOSED",
    "APPOINTMENT_BOOKED",
    "STORE_VISIT",
-   "SOLD"
+   "SOLD",
+   "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
   "weak_followup": false
@@ -2126,7 +2164,8 @@
    "APPOINTMENT_PROPOSED",
    "APPOINTMENT_BOOKED",
    "STORE_VISIT",
-   "SOLD"
+   "SOLD",
+   "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
   "weak_followup": false
@@ -2142,7 +2181,8 @@
    "APPOINTMENT_PROPOSED",
    "APPOINTMENT_BOOKED",
    "STORE_VISIT",
-   "SOLD"
+   "SOLD",
+   "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
   "weak_followup": false

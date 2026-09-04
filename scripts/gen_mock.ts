@@ -321,6 +321,17 @@ for (const sc of SCENARIOS) {
     const scene: Scene = { t: start, agent, car, cust, msgs: [], appts: [], visits: [], leadKey, expect: new Set() };
     const r = sc.run(scene, deals);
     cust.grade = r.grade;
+    // 標準答案要描述「資料」而不是「劇本作者的意圖」：
+    // ACTIVE_DISCUSSION＝48 小時內客戶 ≥2 則且業務 ≥1 則，這是結構事實
+    const t0 = Date.parse(scene.msgs[0]!.at), w = t0 + 48 * H;
+    const c48 = scene.msgs.filter((m) => m.role === "customer" && Date.parse(m.at) <= w).length;
+    const s48 = scene.msgs.filter((m) => m.role === "staff" && Date.parse(m.at) <= w).length;
+    if (c48 >= 2 && s48 >= 1) scene.expect.add("ACTIVE_DISCUSSION"); else scene.expect.delete("ACTIVE_DISCUSSION");
+    // 報價之後客戶再也沒回＝價格後流失，不管劇本叫什麼名字
+    const pIdx = scene.msgs.findIndex((m) => m.role === "staff" && /(\d{2,3})\s*萬|報價|含過戶/.test(m.text));
+    if (pIdx >= 0 && !scene.msgs.slice(pIdx + 1).some((m) => m.role === "customer") && r.outcome !== "sold") {
+      r.price_dropoff = true; scene.expect.add("PRICE_DROP_OFF");
+    }
     // 公司習慣：成交的客戶在顯示名稱後面加「已購車」
     if (r.outcome === "sold") cust.display_name += "-已購車";
     if (r.outcome === "lost" && chance(0.15)) cust.blocked = 1;

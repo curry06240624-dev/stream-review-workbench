@@ -11,6 +11,7 @@ import { listContacts, getContact, updateContact } from "./contacts.js";
 import { situation, getSla } from "./situation.js";
 import { listRules, matchRule, tryAutoReply, blockedReason } from "./autoreply.js";
 import { importBundle } from "./adapters/import.ts";
+import { runFunnel } from "./engine/funnel.ts";
 
 export { AppDB };
 
@@ -56,6 +57,29 @@ async function route(request, env, db, url) {
     const reset = url.searchParams.get("reset") === "1" || b.reset === true;
     const rep = await importBundle(db, b, { reset, now: now() });
     return J({ ok: true, ...rep });
+  }
+
+  /* ── 漏斗引擎：重算事件（冪等）／讀事件（含證據）── */
+  if (p === "/api/admin/funnel/run" && m === "POST") {
+    const me = await currentUser(request, db);
+    if (!me) return J({ ok: false, error: "not_logged_in" }, 401);
+    if (me.role !== "admin") return J({ ok: false, error: "forbidden" }, 403);
+    const b = await request.json().catch(() => ({}));
+    const t0 = Date.now();
+    const r = await runFunnel(db, { now: b.now || now(), leadIds: Array.isArray(b.lead_ids) ? b.lead_ids.map(Number) : undefined });
+    return J({ ok: true, ...r, ms: Date.now() - t0 });
+  }
+  if (p === "/api/admin/funnel/events" && m === "GET") {
+    const me = await currentUser(request, db);
+    if (!me) return J({ ok: false, error: "not_logged_in" }, 401);
+    if (me.role !== "admin") return J({ ok: false, error: "forbidden" }, 403);
+    const rows = await db.all(
+      `SELECT e.id, e.lead_id, e.type, e.at, e.confidence, e.source, e.detail, cv.external_id AS conv_key,
+              (SELECT COUNT(*) FROM evidence x WHERE x.event_id = e.id) AS evidence_n
+         FROM funnel_events e LEFT JOIN conversations cv ON cv.id = e.conversation_id
+        ORDER BY e.lead_id, e.at`);
+    const stages = await db.all("SELECT stage, COUNT(*) AS n FROM leads GROUP BY stage");
+    return J({ ok: true, events: rows, stages });
   }
 
   /* ── 初始化：只在完全沒有使用者時可用，且要 SETUP_CODE ── */

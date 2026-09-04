@@ -1,0 +1,286 @@
+/**
+ * 漏斗事件引擎（決定性規則版）。
+ *
+ * 輸入：一個 lead 的對話、預約、到店、成交紀錄。
+ * 輸出：帶證據、帶信心等級的事件。規則見 docs/FUNNEL_MODEL.md，改規則要同步改文件。
+ *
+ * 兩個原則：
+ *   1. 結構化紀錄（預約表、成交表）優先，來源標 `ledger`；文字規則標 `rule`。
+ *      真實資料沒有預約/成交表，所以文字規則不是備援，是主力 —— 它們的準確率用
+ *      scripts/eval_funnel.mjs 對模擬器的標準答案量出來，沒過門檻不准上畫面。
+ *   2. 沒有證據的事件不寫入。每個事件至少指到一則訊息（ledger 事件指到最接近的訊息）。
+ */
+import type { Confidence, EventSource, FunnelEventType } from "../model/types.ts";
+import type { DbLike } from "../adapters/import.ts";
+
+type Row = Record<string, unknown>;
+interface Msg { id: number; role: string; text: string; at: number; }
+interface VehicleName { id: number; needles: string[]; }
+interface Ctx {
+  lead: Row; contact: Row; msgs: Msg[]; appts: Row[]; visits: Row[]; deals: Row[];
+}
+export interface Detected {
+  type: FunnelEventType; at: number; confidence: Confidence; source: EventSource;
+  detail: Record<string, unknown>; evidence: Array<{ message_id: number | null; note: string }>;
+}
+
+const H = 3_600_000, D = 24 * H;
+export const RULES = {
+  DROP_SILENCE_H: 72,      // 報價後沉默多久算流失
+  INACTIVE_D: 7,           // 客戶沉默多久算不活躍
+  FOLLOWUP_GAP_H: 24,      // 沉默多久後的業務主動訊息算「跟進」
+  DISCUSSION_WINDOW_H: 48, // 有來有往的觀察窗
+  LATENCY_MULT: 3,         // 報價後回覆變慢幾倍算 POSSIBLE 流失
+  LOST_SILENCE_D: 21,      // 沒成交且客戶沉默多久 → 推定流失（POSSIBLE）
+};
+
+/* ── 語言規則（繁中、台灣車商語氣；改了要重跑 eval）── */
+const RE = {
+  price:      /(\d{2,3})\s*萬|報價|含過戶|NT\$\s*\d/,
+  numWan:     /(\d{2,3})\s*萬/,
+  objection:  /太貴|貴了|超出預算|超出|便宜|沒那麼多|預算只有|有點高|不用這麼貴|以內的/,
+  counter:    /(\d{2,3})\s*萬?\s*(可以嗎|我就簽|成交|就訂|好嗎)|含過戶\s*\d{2,3}|再少一點.*(馬上|就)訂|好啦.*\d+.*成交/,
+  financing:  /全額貸|利率|頭期|月付|自備款|分期|信用|貸款.*(嗎|多少|怎麼|幾成)/,
+  finOk:      /%|頭期\s*\d|月付大概|試算|貸款專員|沒問題|可以喔/,
+  finWeak:    /再問|再確認|問一下|應該可以/,
+  apptProp:   /約個時間|方便嗎|有空嗎|來店|來看車|留車|哪天有空|來看實車/,
+  apptTime:   /週[一二三四五六日]|禮拜|明天|後天|下午|早上|晚上|\d+\s*點/,
+  apptConfirm:/見|留好|等您|收到|幫您留/,
+  cancel:     /取消|先不看/,
+  noShow:     /臨時有事|忘記|抱歉.*改天|改天/,
+  resched:    /改下週|改時間|改約.*(下週|時間)|改到|同一時間/,
+  noShowStaff:/沒關係.*(改約|什麼時候)|留到週末|有空跟我說|那改約/,
+  schedInText:/(\d{1,2})\/(\d{1,2})\s*(\d{1,2}):(\d{2})/,
+  visitStaff: /今天.*(看的|看車|賞車)|謝謝您來|今天看的/,
+  highIntent: /急|現車|就想決定|要交車|沒問題就訂|老客戶|這週就|這個月要/,
+  soldStaff:  /恭喜|過戶完成|交車/,
+  lostCust:   /跟朋友買|買了別家|先不換|預算不夠|不用了|之後再說|不好意思.*買了/,
+  laterPositiveCust: /成交|下訂|想看車|可以來看|我想看|過去看|考慮好了/,
+};
+
+const median = (xs: number[]) => { if (!xs.length) return 0; const s = [...xs].sort((a, b) => a - b); const m = Math.floor(s.length / 2); return s.length % 2 ? s[m]! : (s[m - 1]! + s[m]!) / 2; };
+const ev = (type: FunnelEventType, at: number, confidence: Confidence, source: EventSource, detail: Record<string, unknown>, evidence: Detected["evidence"]): Detected => ({ type, at, confidence, source, detail, evidence });
+const nearest = (msgs: Msg[], t: number): Msg | undefined => msgs.reduce<Msg | undefined>((best, m) => (!best || Math.abs(m.at - t) < Math.abs(best.at - t) ? m : best), undefined);
+
+/** 純函式：一個 lead 的事件 */
+export function detectEvents(ctx: Ctx, vehicles: VehicleName[], now: number): Detected[] {
+  const out: Detected[] = [];
+  const msgs = ctx.msgs;
+  if (!msgs.length) return out;
+  const cust = msgs.filter((m) => m.role === "customer");
+  const staff = msgs.filter((m) => m.role === "staff");
+  const first = msgs[0]!, last = msgs[msgs.length - 1]!;
+  const outcome = String(ctx.lead["outcome"] ?? "");
+
+  // NEW_LEAD
+  const firstCust = cust[0] ?? first;
+  out.push(ev("NEW_LEAD", firstCust.at, "CONFIRMED", "rule", {}, [{ message_id: firstCust.id, note: "第一則客戶訊息" }]));
+
+  // VEHICLE_INTEREST
+  const vhit = msgs.find((m) => vehicles.some((v) => v.needles.some((n) => m.text.toLowerCase().includes(n))));
+  if (vhit) {
+    const v = vehicles.find((v) => v.needles.some((n) => vhit.text.toLowerCase().includes(n)))!;
+    out.push(ev("VEHICLE_INTEREST", vhit.at, "CONFIRMED", "rule", { vehicle_id: v.id }, [{ message_id: vhit.id, note: "訊息提到車輛主檔裡的車款" }]));
+  } else if (ctx.lead["vehicle_id"]) {
+    out.push(ev("VEHICLE_INTEREST", first.at, "POSSIBLE", "rule", { vehicle_id: ctx.lead["vehicle_id"] }, [{ message_id: first.id, note: "只有 lead 綁了車，對話裡沒提到" }]));
+  }
+
+  // ACTIVE_DISCUSSION
+  const win = first.at + RULES.DISCUSSION_WINDOW_H * H;
+  const c2 = cust.filter((m) => m.at <= win), s1 = staff.filter((m) => m.at <= win);
+  if (c2.length >= 2 && s1.length >= 1) out.push(ev("ACTIVE_DISCUSSION", c2[1]!.at, "CONFIRMED", "rule", { customer_msgs_48h: c2.length }, [{ message_id: c2[1]!.id, note: "48 小時內客戶至少兩則、業務至少一則" }]));
+
+  // HIGH_INTENT（前五則客戶訊息）
+  const hi = cust.slice(0, 2).find((m) => RE.highIntent.test(m.text));
+  if (hi) out.push(ev("HIGH_INTENT", hi.at, "STRONGLY_SUGGESTED", "rule", { phrase: hi.text.match(RE.highIntent)?.[0] }, [{ message_id: hi.id, note: "客戶早期出現急迫用語" }]));
+
+  // PRICE_MENTIONED
+  const priceMsg = staff.find((m) => RE.price.test(m.text));
+  let objectionMsg: Msg | undefined, negMsg: Msg | undefined;
+  if (priceMsg) {
+    out.push(ev("PRICE_MENTIONED", priceMsg.at, "CONFIRMED", "rule", { price_wan: Number(priceMsg.text.match(RE.numWan)?.[1] ?? 0) || null }, [{ message_id: priceMsg.id, note: "業務報價" }]));
+    const custAfter = cust.filter((m) => m.at > priceMsg.at);
+    objectionMsg = custAfter.find((m) => RE.objection.test(m.text) && !RE.counter.test(m.text));
+    if (objectionMsg) out.push(ev("PRICE_OBJECTION", objectionMsg.at, "CONFIRMED", "rule", {}, [{ message_id: priceMsg.id, note: "報價" }, { message_id: objectionMsg.id, note: "客戶對價格表達異議、沒有出價" }]));
+    negMsg = custAfter.find((m) => RE.counter.test(m.text));
+    if (negMsg) out.push(ev("NEGOTIATION", negMsg.at, "CONFIRMED", "rule", { counter_wan: Number(negMsg.text.match(RE.numWan)?.[1] ?? 0) || null }, [{ message_id: negMsg.id, note: "客戶出價" }]));
+  }
+
+  // FINANCING_QUESTION（第一次）
+  const fin = cust.find((m) => RE.financing.test(m.text));
+  if (fin) {
+    const reply = staff.find((m) => m.at > fin.at && m.at <= fin.at + 24 * H);
+    const resolved = !!reply && RE.finOk.test(reply.text) && !(RE.finWeak.test(reply.text) && !RE.finOk.test(reply.text));
+    out.push(ev("FINANCING_QUESTION", fin.at, "CONFIRMED", "rule", { resolved, reply_message_id: reply?.id ?? null }, [{ message_id: fin.id, note: "客戶問貸款/頭期/利率" }, ...(reply ? [{ message_id: reply.id, note: resolved ? "業務給了具體數字或轉專員" : "業務沒有給具體答案" }] : [])]));
+  }
+
+  // 預約：結構化紀錄優先
+  let bookedAt: number | null = null;
+  if (ctx.appts.length) {
+    for (const a of ctx.appts) {
+      const pAt = Date.parse(String(a["proposed_at"])), sAt = Date.parse(String(a["status_at"]));
+      const near = nearest(msgs, pAt);
+      out.push(ev("APPOINTMENT_PROPOSED", pAt, "CONFIRMED", "ledger", { appointment_id: a["id"] }, [{ message_id: near?.id ?? null, note: "預約紀錄" }]));
+      const st = String(a["status"]);
+      const nearS = nearest(msgs, sAt);
+      if (st === "booked" || st === "completed") { out.push(ev("APPOINTMENT_BOOKED", sAt, "CONFIRMED", "ledger", { scheduled_for: a["scheduled_for"] }, [{ message_id: nearS?.id ?? null, note: "預約成立" }])); bookedAt = bookedAt ?? sAt; }
+      if (st === "rescheduled") out.push(ev("APPOINTMENT_CHANGED", sAt, "CONFIRMED", "ledger", {}, [{ message_id: nearS?.id ?? null, note: "改期" }]));
+      if (st === "cancelled") out.push(ev("APPOINTMENT_CANCELLED", sAt, "CONFIRMED", "ledger", {}, [{ message_id: nearS?.id ?? null, note: "取消" }]));
+      if (st === "no_show") out.push(ev("NO_SHOW", sAt, "CONFIRMED", "ledger", {}, [{ message_id: nearS?.id ?? null, note: "爽約" }]));
+    }
+  } else {
+    // 文字備援（真資料走這條）
+    const prop = staff.find((m) => RE.apptProp.test(m.text));
+    if (prop) {
+      out.push(ev("APPOINTMENT_PROPOSED", prop.at, "CONFIRMED", "rule", {}, [{ message_id: prop.id, note: "業務提議看車時間" }]));
+      const timeMsg = cust.filter((m) => m.at > prop.at).slice(0, 3).find((m) => RE.apptTime.test(m.text));
+      const confirm = timeMsg && staff.find((m) => m.at > timeMsg.at && RE.apptConfirm.test(m.text));
+      if (timeMsg && confirm) {
+        bookedAt = confirm.at;
+        out.push(ev("APPOINTMENT_BOOKED", confirm.at, "STRONGLY_SUGGESTED", "rule", {}, [{ message_id: timeMsg.id, note: "客戶給了時間" }, { message_id: confirm.id, note: "業務確認" }]));
+        const after = cust.filter((m) => m.at > confirm.at);
+        const cxl = after.find((m) => RE.cancel.test(m.text)); const ns = after.find((m) => RE.noShow.test(m.text)); const rs = after.find((m) => RE.resched.test(m.text));
+        // 從確認訊息解出預約時間（「7/21 09:00 見」），台灣時間
+        const sm = confirm.text.match(RE.schedInText);
+        let sched: number | null = null;
+        if (sm) { const y = new Date(confirm.at).getUTCFullYear(); sched = Date.parse(`${y}-${sm[1]!.padStart(2, "0")}-${sm[2]!.padStart(2, "0")}T${sm[3]!.padStart(2, "0")}:${sm[4]}:00+08:00`); if (sched < confirm.at) sched += 365 * D; }
+        const visitSignal = staff.some((m) => m.at > confirm.at && RE.visitStaff.test(m.text));
+        const staffAfterSched = sched ? staff.find((m) => m.at > sched! && RE.noShowStaff.test(m.text)) : undefined;
+        if (cxl) out.push(ev("APPOINTMENT_CANCELLED", cxl.at, "STRONGLY_SUGGESTED", "rule", {}, [{ message_id: cxl.id, note: "客戶取消" }]));
+        else if (rs) out.push(ev("APPOINTMENT_CHANGED", rs.at, "STRONGLY_SUGGESTED", "rule", {}, [{ message_id: rs.id, note: "客戶改期" }]));
+        else if (ns) out.push(ev("NO_SHOW", ns.at, "STRONGLY_SUGGESTED", "rule", {}, [{ message_id: ns.id, note: "客戶事後說臨時有事/忘記" }]));
+        else if (sched && !visitSignal && staffAfterSched) out.push(ev("NO_SHOW", staffAfterSched.at, "STRONGLY_SUGGESTED", "rule", { scheduled_for: new Date(sched).toISOString() }, [{ message_id: confirm.id, note: "預約時間" }, { message_id: staffAfterSched.id, note: "時間過了沒有到店訊號，業務改約" }]));
+      }
+    }
+  }
+
+  // 到店
+  if (ctx.visits.length) {
+    for (const v of ctx.visits) { const vAt = Date.parse(String(v["visited_at"])); out.push(ev("STORE_VISIT", vAt, "CONFIRMED", "ledger", { outcome: v["outcome"] }, [{ message_id: nearest(msgs, vAt)?.id ?? null, note: "到店紀錄" }])); }
+  } else if (bookedAt !== null) {
+    const vs = staff.find((m) => m.at > bookedAt! && RE.visitStaff.test(m.text));
+    if (vs) out.push(ev("STORE_VISIT", vs.at, "STRONGLY_SUGGESTED", "rule", {}, [{ message_id: vs.id, note: "預約後業務提到今天看車" }]));
+  }
+
+  // FOLLOW_UP：沉默 ≥24h 後業務主動
+  for (let i = 1; i < msgs.length; i++) {
+    const m = msgs[i]!, prev = msgs[i - 1]!;
+    if (m.role !== "staff") continue;
+    const lastCust = [...cust].reverse().find((c) => c.at < m.at);
+    const gap = m.at - prev.at;
+    if (gap >= RULES.FOLLOWUP_GAP_H * H && (!lastCust || m.at - lastCust.at >= RULES.FOLLOWUP_GAP_H * H)) {
+      out.push(ev("FOLLOW_UP", m.at, "CONFIRMED", "rule", { gap_hours: Math.round(gap / H) }, [{ message_id: m.id, note: `客戶沉默 ${Math.round(gap / H)} 小時後業務主動聯絡` }]));
+    }
+  }
+
+  // 不活躍 / 回流
+  for (let i = 1; i < cust.length; i++) {
+    const gap = cust[i]!.at - cust[i - 1]!.at;
+    if (gap >= RULES.INACTIVE_D * D) {
+      out.push(ev("CUSTOMER_INACTIVE", cust[i - 1]!.at + RULES.INACTIVE_D * D, "CONFIRMED", "rule", { silent_days: Math.round(gap / D) }, [{ message_id: cust[i - 1]!.id, note: "此則之後客戶沉默超過 7 天" }]));
+      out.push(ev("RE_ENGAGED", cust[i]!.at, "CONFIRMED", "rule", { after_days: Math.round(gap / D) }, [{ message_id: cust[i]!.id, note: "沉默後客戶再度發訊" }]));
+    }
+  }
+  const lastCust = cust[cust.length - 1];
+  const saidLost = cust.some((m) => RE.lostCust.test(m.text));
+  if (lastCust && now - lastCust.at >= RULES.INACTIVE_D * D && outcome !== "sold" && !saidLost) {
+    out.push(ev("CUSTOMER_INACTIVE", lastCust.at + RULES.INACTIVE_D * D, "CONFIRMED", "rule", { silent_days: Math.round((now - lastCust.at) / D) }, [{ message_id: lastCust.id, note: "最後一則客戶訊息，之後沉默超過 7 天" }]));
+  }
+
+  // 成交/流失：帳本優先
+  const soldDeal = ctx.deals.find((d) => d["status"] === "sold"), lostDeal = ctx.deals.find((d) => d["status"] === "lost");
+  const soldTxt = staff.find((m) => RE.soldStaff.test(m.text)), lostTxt = cust.find((m) => RE.lostCust.test(m.text));
+  if (soldDeal) out.push(ev("SOLD", Date.parse(String(soldDeal["closed_at"])), "CONFIRMED", "ledger", { deal_id: soldDeal["id"], gross_profit: soldDeal["gross_profit"] }, [{ message_id: (soldTxt ?? last).id, note: "成交帳本" }]));
+  else if (soldTxt) out.push(ev("SOLD", soldTxt.at, "STRONGLY_SUGGESTED", "rule", {}, [{ message_id: soldTxt.id, note: "業務說恭喜/過戶/交車" }]));
+  else if (String(ctx.contact["display_name"] ?? "").includes("已購車")) out.push(ev("SOLD", last.at, "POSSIBLE", "rule", { via: "display_name" }, [{ message_id: last.id, note: "顯示名稱標了「已購車」" }]));
+  if (lostDeal) out.push(ev("LOST", Date.parse(String(lostDeal["closed_at"])), "CONFIRMED", "ledger", { deal_id: lostDeal["id"], reason: lostDeal["lost_reason"] }, [{ message_id: (lostTxt ?? last).id, note: "流失帳本" }]));
+  else if (lostTxt) out.push(ev("LOST", lostTxt.at, "STRONGLY_SUGGESTED", "rule", {}, [{ message_id: lostTxt.id, note: "客戶明說不買了" }]));
+  else if (!soldDeal && !soldTxt && lastCust && now - lastCust.at >= RULES.LOST_SILENCE_D * D && !String(ctx.contact["display_name"] ?? "").includes("已購車")) {
+    out.push(ev("LOST", lastCust.at + RULES.LOST_SILENCE_D * D, "POSSIBLE", "rule", { silent_days: Math.round((now - lastCust.at) / D), inferred: true }, [{ message_id: lastCust.id, note: `最後一則客戶訊息後沉默 ${Math.round((now - lastCust.at) / D)} 天且未成交，推定流失` }]));
+  }
+
+  // PRICE_DROP_OFF（最後算，因為要知道之後有沒有正向事件）
+  if (priceMsg) {
+    const laterPositive = out.some((e) => ["APPOINTMENT_BOOKED", "STORE_VISIT", "SOLD", "NEGOTIATION"].includes(e.type) && e.at > priceMsg.at)
+      || cust.some((m) => m.at > priceMsg.at && RE.laterPositiveCust.test(m.text));
+    if (!laterPositive) {
+      const custAfter = cust.filter((m) => m.at > priceMsg.at);
+      const evid: Detected["evidence"] = [{ message_id: priceMsg.id, note: "報價" }];
+      let conf: Confidence | null = null; const detail: Record<string, unknown> = {};
+      if (!custAfter.length) {
+        const silentH = (now - priceMsg.at) / H; detail["silent_hours"] = Math.round(silentH); detail["pattern"] = "silent";
+        conf = silentH >= RULES.DROP_SILENCE_H ? "CONFIRMED" : "UNCLEAR";
+      } else if (objectionMsg) {
+        const lastC = custAfter[custAfter.length - 1]!; const silentH = (now - lastC.at) / H;
+        detail["pattern"] = "objection_then_silent"; detail["silent_hours"] = Math.round(silentH);
+        evid.push({ message_id: objectionMsg.id, note: "異議" });
+        conf = silentH >= RULES.DROP_SILENCE_H ? "STRONGLY_SUGGESTED" : "UNCLEAR";
+      } else {
+        // 回覆變慢？
+        const before = cust.filter((m) => m.at < priceMsg.at);
+        const lat: number[] = [];
+        for (const c of before) { const s = [...staff].reverse().find((x) => x.at < c.at); if (s) lat.push(c.at - s.at); }
+        const firstAfter = custAfter[0]!; const afterLat = firstAfter.at - priceMsg.at;
+        if (lat.length >= 2 && afterLat >= RULES.LATENCY_MULT * median(lat)) {
+          detail["pattern"] = "slower_reply"; detail["latency_mult"] = Math.round(afterLat / median(lat));
+          evid.push({ message_id: firstAfter.id, note: `報價後回覆延遲是先前的 ${Math.round(afterLat / median(lat))} 倍` });
+          conf = "POSSIBLE";
+        }
+      }
+      if (conf) out.push(ev("PRICE_DROP_OFF", priceMsg.at, conf, "rule", detail, evid));
+    }
+  }
+  return out;
+}
+
+/** 從事件推目前階段（衍生值） */
+const STAGE_ORDER: Array<[FunnelEventType, string]> = [
+  ["NEW_LEAD", "new"], ["VEHICLE_INTEREST", "interest"], ["ACTIVE_DISCUSSION", "discussion"], ["PRICE_MENTIONED", "price"],
+  ["APPOINTMENT_BOOKED", "appointment"], ["STORE_VISIT", "visit"], ["NEGOTIATION", "negotiation"], ["SOLD", "closed"], ["LOST", "closed"],
+];
+export function stageOf(events: Detected[]): string {
+  let stage = "new";
+  for (const [t, s] of STAGE_ORDER) if (events.some((e) => e.type === t && e.confidence !== "UNCLEAR")) stage = s;
+  return stage;
+}
+
+/* ── 跑引擎並落庫（冪等：先清掉 rule/ledger 事件再重算；ai 事件保留）── */
+export async function runFunnel(db: DbLike, opts: { now: string; leadIds?: number[] }): Promise<{ leads: number; events: number }> {
+  const now = Date.parse(opts.now);
+  const vehicles: VehicleName[] = (await db.all("SELECT id, brand, model FROM vehicles")).map((v) => ({
+    id: Number(v["id"]), needles: [String(v["model"]).toLowerCase(), `${String(v["brand"])} ${String(v["model"])}`.toLowerCase()],
+  }));
+  const leadRows = opts.leadIds?.length
+    ? await db.all(`SELECT l.*, c.display_name FROM leads l JOIN contacts c ON c.id = l.contact_id WHERE l.id IN (${opts.leadIds.map(() => "?").join(",")})`, ...opts.leadIds)
+    : await db.all("SELECT l.*, c.display_name FROM leads l JOIN contacts c ON c.id = l.contact_id");
+  let total = 0;
+  for (const lead of leadRows) {
+    const lid = Number(lead["id"]);
+    const msgs: Msg[] = (await db.all(
+      `SELECT m.id, m.sender_role, m.text, m.created_at FROM messages m JOIN conversations cv ON cv.id = m.conversation_id
+        WHERE cv.lead_id = ? ORDER BY m.created_at, m.id`, lid))
+      .map((m) => ({ id: Number(m["id"]), role: String(m["sender_role"]), text: String(m["text"]), at: Date.parse(String(m["created_at"])) }));
+    const ctx: Ctx = {
+      lead, contact: { display_name: lead["display_name"] }, msgs,
+      appts: await db.all("SELECT * FROM appointments WHERE lead_id = ? ORDER BY proposed_at", lid),
+      visits: await db.all("SELECT * FROM visits WHERE lead_id = ? ORDER BY visited_at", lid),
+      deals: await db.all("SELECT * FROM deals WHERE lead_id = ?", lid),
+    };
+    const events = detectEvents(ctx, vehicles, now);
+    await db.run("DELETE FROM evidence WHERE event_id IN (SELECT id FROM funnel_events WHERE lead_id = ? AND source IN ('rule','ledger'))", lid);
+    await db.run("DELETE FROM funnel_events WHERE lead_id = ? AND source IN ('rule','ledger')", lid);
+    const convRow = await db.first("SELECT id FROM conversations WHERE lead_id = ? ORDER BY id LIMIT 1", lid);
+    for (const e of events) {
+      const r = await db.run(
+        `INSERT OR IGNORE INTO funnel_events (lead_id, conversation_id, contact_id, staff_id, vehicle_id, type, at, confidence, source, detail)
+         VALUES (?,?,?,?,?,?,?,?,?,?)`,
+        lid, convRow ? Number(convRow["id"]) : null, Number(lead["contact_id"]), lead["staff_id"] ?? null,
+        (e.detail["vehicle_id"] as number | undefined) ?? lead["vehicle_id"] ?? null,
+        e.type, new Date(e.at).toISOString(), e.confidence, e.source, JSON.stringify(e.detail));
+      if (r.lastRowId) for (const x of e.evidence) await db.run("INSERT INTO evidence (event_id, message_id, lead_id, note) VALUES (?,?,?,?)", r.lastRowId, x.message_id, lid, x.note);
+      total++;
+    }
+    await db.run("UPDATE leads SET stage = ? WHERE id = ?", stageOf(events), lid);
+  }
+  return { leads: leadRows.length, events: total };
+}
