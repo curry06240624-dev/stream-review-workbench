@@ -12,6 +12,7 @@ import { situation, getSla } from "./situation.js";
 import { listRules, matchRule, tryAutoReply, blockedReason } from "./autoreply.js";
 import { importBundle } from "./adapters/import.ts";
 import { runFunnel } from "./engine/funnel.ts";
+import { computeAnalytics } from "./engine/analytics.ts";
 
 export { AppDB };
 
@@ -80,6 +81,18 @@ async function route(request, env, db, url) {
         ORDER BY e.lead_id, e.at`);
     const stages = await db.all("SELECT stage, COUNT(*) AS n FROM leads GROUP BY stage");
     return J({ ok: true, events: rows, stages });
+  }
+
+  /* ── 分析：決定性數字（本期 vs 前期）。管理職才看全公司；訊息手之後給個人版。── */
+  if (p === "/api/analytics" && m === "GET") {
+    const me = await currentUser(request, db);
+    if (!me) return J({ ok: false, error: "not_logged_in" }, 401);
+    if (!canSeeAll(me.role)) return J({ ok: false, error: "forbidden" }, 403);
+    const days = Math.min(90, Math.max(1, Number(url.searchParams.get("days") || 7)));
+    const to = url.searchParams.get("to") || undefined;
+    const t0 = Date.now();
+    const a = await computeAnalytics(db, { to, days });
+    return J({ ok: true, ms: Date.now() - t0, ...a });
   }
 
   /* ── 初始化：只在完全沒有使用者時可用，且要 SETUP_CODE ── */
