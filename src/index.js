@@ -13,6 +13,8 @@ import { listRules, matchRule, tryAutoReply, blockedReason } from "./autoreply.j
 import { importBundle } from "./adapters/import.ts";
 import { runFunnel } from "./engine/funnel.ts";
 import { computeAnalytics } from "./engine/analytics.ts";
+import { deriveInsights, persistInsights } from "./engine/insights.ts";
+import { narrateInsights, generateBrief } from "./engine/ai.ts";
 
 export { AppDB };
 
@@ -93,6 +95,94 @@ async function route(request, env, db, url) {
     const t0 = Date.now();
     const a = await computeAnalytics(db, { to, days });
     return J({ ok: true, ms: Date.now() - t0, ...a });
+  }
+
+  /* ── 洞察：分析 → 規則推導 → 落庫（含證據）→ AI 敘事 → CEO 簡報 ── */
+  if (p === "/api/insights/run" && m === "POST") {
+    const me = await currentUser(request, db);
+    if (!me) return J({ ok: false, error: "not_logged_in" }, 401);
+    if (!canSeeAll(me.role)) return J({ ok: false, error: "forbidden" }, 403);
+    const b = await request.json().catch(() => ({}));
+    const t0 = Date.now(), at = now();
+    const a = await computeAnalytics(db, { to: b.to, days: Math.min(90, Math.max(1, Number(b.days || 7))) });
+    const cands = deriveInsights(a);
+    const { ids } = await persistInsights(db, cands, a, at);
+    const nar = b.narrate === false ? { narrated: 0, mode: "skipped" } : await narrateInsights(db, env, a, at);
+    const date = (b.to || at).slice(0, 10);
+    const brief = b.brief === false ? null : await generateBrief(db, env, a, date, at);
+    return J({ ok: true, ms: Date.now() - t0, candidates: cands.length, persisted: ids.length, narrate: nar, brief: brief ? { mode: brief.mode, model: brief.model, date } : null });
+  }
+  if (p === "/api/insights" && m === "GET") {
+    const me = await currentUser(request, db);
+    if (!me) return J({ ok: false, error: "not_logged_in" }, 401);
+    if (!canSeeAll(me.role)) return J({ ok: false, error: "forbidden" }, 403);
+    const rows = await db.all(
+      `SELECT i.*, (SELECT COUNT(*) FROM evidence x WHERE x.insight_id = i.id) AS evidence_n,
+              (SELECT COUNT(DISTINCT x.lead_id) FROM evidence x WHERE x.insight_id = i.id) AS leads_n
+         FROM insights i WHERE i.dismissed = 0
+        ORDER BY CASE i.severity WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END, i.created_at DESC, i.id LIMIT 40`);
+    const ids = rows.map((r) => r.id);
+    const acts = ids.length ? await db.all(`SELECT * FROM actions WHERE insight_id IN (${ids.map(() => "?").join(",")}) ORDER BY id`, ...ids) : [];
+    return J({ ok: true, insights: rows.map((r) => ({ ...r, metric: JSON.parse(r.metric || "{}"), actions: acts.filter((x) => x.insight_id === r.id) })) });
+  }
+  const mIns = p.match(/^\/api\/insights\/(\d+)\/evidence$/);
+  if (mIns && m === "GET") {
+    const me = await currentUser(request, db);
+    if (!me) return J({ ok: false, error: "not_logged_in" }, 401);
+    if (!canSeeAll(me.role)) return J({ ok: false, error: "forbidden" }, 403);
+    const id = Number(mIns[1]);
+    const ins = await db.first("SELECT * FROM insights WHERE id = ?", id);
+    if (!ins) return J({ ok: false, message: "找不到這條洞察。" }, 404);
+    // 每個 lead 一組：客戶、業務、車、階段、結果、證據訊息＋前後各 2 則脈絡
+    const ev = await db.all(`SELECT x.message_id, x.note, x.lead_id FROM evidence x WHERE x.insight_id = ? ORDER BY x.lead_id, x.id`, id);
+    const byLead = new Map();
+    for (const e of ev) { if (!byLead.has(e.lead_id)) byLead.set(e.lead_id, []); byLead.get(e.lead_id).push(e); }
+    const groups = [];
+    for (const [leadId, items] of byLead) {
+      const lead = await db.first(
+        `SELECT l.id, l.stage, l.outcome, l.opened_at, c.display_name AS contact, c.grade, COALESCE(u.name,'未指派') AS staff,
+                COALESCE(v.brand || ' ' || v.model, '') AS vehicle, (SELECT id FROM conversations WHERE lead_id = l.id LIMIT 1) AS conversation_id
+           FROM leads l JOIN contacts c ON c.id = l.contact_id LEFT JOIN users u ON u.id = l.staff_id LEFT JOIN vehicles v ON v.id = l.vehicle_id WHERE l.id = ?`, leadId);
+      const msgIds = items.map((x) => x.message_id).filter(Boolean);
+      const qs = msgIds.map(() => "?").join(",");
+      const msgs = msgIds.length ? await db.all(
+        `SELECT m.id, m.sender_role, m.text, m.created_at, m.conversation_id FROM messages m
+          WHERE m.conversation_id = ? AND m.id BETWEEN (SELECT MIN(id) FROM messages WHERE id IN (${qs})) - 2
+                                        AND (SELECT MAX(id) FROM messages WHERE id IN (${qs})) + 2
+          ORDER BY m.created_at, m.id`, lead ? lead.conversation_id : 0, ...msgIds, ...msgIds) : [];
+      const notes = Object.fromEntries(items.map((x) => [x.message_id, x.note]));
+      groups.push({ lead, messages: msgs.map((mm) => ({ ...mm, is_evidence: msgIds.includes(mm.id), note: notes[mm.id] || "" })) });
+    }
+    return J({ ok: true, insight: { ...ins, metric: JSON.parse(ins.metric || "{}") }, groups });
+  }
+  if (p === "/api/brief" && m === "GET") {
+    const me = await currentUser(request, db);
+    if (!me) return J({ ok: false, error: "not_logged_in" }, 401);
+    if (!canSeeAll(me.role)) return J({ ok: false, error: "forbidden" }, 403);
+    const date = url.searchParams.get("date");
+    const row = date ? await db.first("SELECT * FROM briefs WHERE brief_date = ?", date) : await db.first("SELECT * FROM briefs ORDER BY brief_date DESC LIMIT 1");
+    if (!row) return J({ ok: true, brief: null });
+    return J({ ok: true, brief: { ...row, content: JSON.parse(row.content) } });
+  }
+  const mAct = p.match(/^\/api\/actions\/(\d+)$/);
+  if (mAct && m === "PATCH") {
+    const me = await currentUser(request, db);
+    if (!me) return J({ ok: false, error: "not_logged_in" }, 401);
+    if (!canSeeAll(me.role)) return J({ ok: false, error: "forbidden" }, 403);
+    const b = await request.json().catch(() => ({}));
+    if (!["approved", "dismissed", "done", "proposed"].includes(b.status)) return J({ ok: false, message: "狀態不對。" }, 400);
+    await db.run("UPDATE actions SET status = ?, decided_at = ?, decided_by = ?, result_note = COALESCE(?, result_note) WHERE id = ?",
+      b.status, now(), me.id, typeof b.result_note === "string" ? b.result_note.slice(0, 500) : null, Number(mAct[1]));
+    return J({ ok: true });
+  }
+  const mDis = p.match(/^\/api\/insights\/(\d+)$/);
+  if (mDis && m === "PATCH") {
+    const me = await currentUser(request, db);
+    if (!me) return J({ ok: false, error: "not_logged_in" }, 401);
+    if (!canSeeAll(me.role)) return J({ ok: false, error: "forbidden" }, 403);
+    const b = await request.json().catch(() => ({}));
+    await db.run("UPDATE insights SET dismissed = ? WHERE id = ?", b.dismissed ? 1 : 0, Number(mDis[1]));
+    return J({ ok: true });
   }
 
   /* ── 初始化：只在完全沒有使用者時可用，且要 SETUP_CODE ── */
