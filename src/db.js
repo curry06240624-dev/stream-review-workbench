@@ -6,6 +6,11 @@
  */
 import { DurableObject } from "cloudflare:workers";
 import { migrate } from "./model/schema.ts";
+import { importBundle } from "./adapters/import.ts";
+import { runFunnel } from "./engine/funnel.ts";
+import { computeAnalytics } from "./engine/analytics.ts";
+import { deriveInsights, persistInsights } from "./engine/insights.ts";
+import { gemini } from "./engine/ai.ts";
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS users (
@@ -147,5 +152,34 @@ export class AppDB extends DurableObject {
     cur.toArray();                     // 讓語句真的執行完
     const row = this.sql.exec("SELECT last_insert_rowid() AS id").toArray()[0];
     return { lastRowId: row ? row.id : null };
+  }
+
+  /* ── 重活在 DO 裡面跑 ──
+     Worker→DO 每一次查詢都算一次 subrequest（免費方案一次呼叫上限 1000）；
+     匯入 1,344 則訊息、或跑 144 個 lead 的漏斗，在 Worker 端會直接爆
+     「Too many API requests by single Worker invocation」。搬進 DO 就是本地呼叫，沒有這個上限。 */
+  async importLocal(bundle, opts) { return importBundle(this, bundle, opts); }
+  async funnelLocal(opts) { return runFunnel(this, opts); }
+  /** AI 連線測試：從 DO 端打一次 Gemini（診斷用；正式的 AI 呼叫不走這裡） */
+  async aiProbe(ai) {
+    const t0 = Date.now();
+    try { await gemini(ai || this.env, '只回傳 JSON {"ok":true}'); return { ok: true, ms: Date.now() - t0, has_key: !!(ai || this.env).GEMINI_API_KEY }; }
+    catch (e) { return { ok: false, ms: Date.now() - t0, has_key: !!(ai || this.env).GEMINI_API_KEY, error: String(e && e.message || e) }; }
+  }
+  /** 洞察的決定性部分（分析 → 規則推導 → 落庫含證據）。AI 敘事留在 Worker 端做：
+      DO 被釘在某個機房，從那裡打 Gemini 會被拒「User location is not supported」（2026-09-04 實測），Worker 端從台灣打就正常。 */
+  async insightsLocal(opts) {
+    const at = opts.now;
+    const a = await computeAnalytics(this, { to: opts.to, days: opts.days });
+    const cands = deriveInsights(a);
+    const { ids } = await persistInsights(this, cands, a, at);
+    /* 同一天、同一個期間長度再跑一次，舊的那批標成 dismissed=2（被取代），不然總覽會出現重複的卡。
+       1＝使用者駁回、2＝被新一輪取代；證據列不動，舊的 /insights/:id 還是打得開。 */
+    if (ids.length) {
+      const dayAgo = new Date(Date.parse(a.period.to) - 86_400_000).toISOString();
+      await this.run(`UPDATE insights SET dismissed = 2 WHERE dismissed = 0 AND id NOT IN (${ids.map(() => "?").join(",")})
+        AND period_to > ? AND period_to <= ? AND ABS((julianday(period_to) - julianday(period_from)) - ?) < 0.05`, ...ids, dayAgo, a.period.to, a.period.days);
+    }
+    return { analytics: a, candidates: cands.length, persisted: ids.length };
   }
 }

@@ -10,11 +10,8 @@ import { listConversations, getConversation, assign, reply, inboxCounts, canSeeA
 import { listContacts, getContact, updateContact } from "./contacts.js";
 import { situation, getSla } from "./situation.js";
 import { listRules, matchRule, tryAutoReply, blockedReason } from "./autoreply.js";
-import { importBundle } from "./adapters/import.ts";
-import { runFunnel } from "./engine/funnel.ts";
-import { computeAnalytics } from "./engine/analytics.ts";
-import { deriveInsights, persistInsights } from "./engine/insights.ts";
-import { narrateInsights, generateBrief } from "./engine/ai.ts";
+import { computeAnalytics } from "./engine/analytics.ts";   // 匯入／漏斗／洞察的重活改在 DO 裡跑（見 db.js importLocal/funnelLocal/insightsLocal）
+import { narrateInsights, generateBrief, gemini } from "./engine/ai.ts";   // AI 一律從 Worker 端打（DO 機房會被 Gemini 拒絕）
 import { handleViews } from "./routes/views.ts";
 import { answer as askAnswer } from "./engine/ask.ts";
 
@@ -65,7 +62,7 @@ async function route(request, env, db, url) {
       return J({ ok: false, message: "bundle 格式不對：要有 source_system 與 conversations。" }, 400);
     }
     const reset = url.searchParams.get("reset") === "1" || b.reset === true;
-    const rep = await importBundle(db, b, { reset, now: now() });
+    const rep = await db.importLocal(b, { reset, now: now() });
     return J({ ok: true, ...rep });
   }
 
@@ -76,7 +73,7 @@ async function route(request, env, db, url) {
     if (me.role !== "admin") return J({ ok: false, error: "forbidden" }, 403);
     const b = await request.json().catch(() => ({}));
     const t0 = Date.now();
-    const r = await runFunnel(db, { now: b.now || now(), leadIds: Array.isArray(b.lead_ids) ? b.lead_ids.map(Number) : undefined });
+    const r = await db.funnelLocal({ now: b.now || now(), leadIds: Array.isArray(b.lead_ids) ? b.lead_ids.map(Number) : undefined });
     return J({ ok: true, ...r, ms: Date.now() - t0 });
   }
   if (p === "/api/admin/funnel/events" && m === "GET") {
@@ -104,6 +101,17 @@ async function route(request, env, db, url) {
     return J({ ok: true, ms: Date.now() - t0, ...a });
   }
 
+  /* ── AI 連線測試（管理員）：Worker 有沒有金鑰、DO 端打 Gemini 的結果 ── */
+  if (p === "/api/admin/ai-probe" && m === "GET") {
+    const me = await currentUser(request, db);
+    if (!me || me.role !== "admin") return J({ ok: false, error: "forbidden" }, 403);
+    const t0 = Date.now(); let worker;
+    try { await gemini(env, '只回傳 JSON {"ok":true}'); worker = { ok: true, ms: Date.now() - t0 }; }
+    catch (e) { worker = { ok: false, ms: Date.now() - t0, error: String(e && e.message || e).slice(0, 200) }; }
+    const fromDo = await db.aiProbe({ GEMINI_API_KEY: env.GEMINI_API_KEY, GEMINI_MODEL: env.GEMINI_MODEL });
+    return J({ ok: true, worker_has_key: !!env.GEMINI_API_KEY, model: env.GEMINI_MODEL || "gemini-3.7-flash", worker, durable_object: fromDo });
+  }
+
   /* ── 問 AI：規則判斷意圖 → 決定性分析 → AI 只講人話（事實包閘門），見 engine/ask.ts ── */
   if (p === "/api/ask" && m === "POST") {
     const me = await currentUser(request, db);
@@ -124,13 +132,11 @@ async function route(request, env, db, url) {
     if (!canSeeAll(me.role)) return J({ ok: false, error: "forbidden" }, 403);
     const b = await request.json().catch(() => ({}));
     const t0 = Date.now(), at = now();
-    const a = await computeAnalytics(db, { to: b.to, days: Math.min(90, Math.max(1, Number(b.days || 7))) });
-    const cands = deriveInsights(a);
-    const { ids } = await persistInsights(db, cands, a, at);
-    const nar = b.narrate === false ? { narrated: 0, mode: "skipped" } : await narrateInsights(db, env, a, at);
+    const r = await db.insightsLocal({ to: b.to, days: Math.min(90, Math.max(1, Number(b.days || 7))), now: at });
+    const nar = b.narrate === false ? { narrated: 0, mode: "skipped" } : await narrateInsights(db, env, r.analytics, at);
     const date = (b.to || at).slice(0, 10);
-    const brief = b.brief === false ? null : await generateBrief(db, env, a, date, at);
-    return J({ ok: true, ms: Date.now() - t0, candidates: cands.length, persisted: ids.length, narrate: nar, brief: brief ? { mode: brief.mode, model: brief.model, date } : null });
+    const brief = b.brief === false ? null : await generateBrief(db, env, r.analytics, date, at);
+    return J({ ok: true, ms: Date.now() - t0, candidates: r.candidates, persisted: r.persisted, narrate: nar, brief: brief ? { mode: brief.mode, model: brief.model, date } : null });
   }
   if (p === "/api/insights" && m === "GET") {
     const me = await currentUser(request, db);

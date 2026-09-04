@@ -23,7 +23,7 @@ export async function gemini(env: Env, prompt: string): Promise<unknown> {
     method: "POST", headers: { "content-type": "application/json" },
     body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.2, responseMimeType: "application/json" } }),
   });
-  if (!r.ok) throw new Error(`gemini_${r.status}`);
+  if (!r.ok) throw new Error(`gemini_${r.status}: ${(await r.text().catch(() => "")).slice(0, 300)}`);
   const data = await r.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
   return JSON.parse(text.replace(/^```json\s*/i, "").replace(/```\s*$/, ""));

@@ -37,3 +37,14 @@ Super 8 瀏覽器擷取     ├─→ NormalizedBundle ─→ import.ts ─→ c
 
 ## 排程（待做）
 每日台灣 06:00：funnel/run → insights/run（含簡報）。簡報預先產好，開頁不等 AI。
+
+## 正式環境兩個坑（2026-09-04 部署實測）
+
+1. **Worker→DO 每次查詢都是一次 subrequest**，免費方案一次呼叫上限 1000。匯入 1,344 則訊息、或跑 144 個 lead 的漏斗，
+   在 Worker 端直接爆「Too many API requests by single Worker invocation」。解法：重活搬進 DO 本地跑
+   （`db.js` 的 `importLocal / funnelLocal / insightsLocal`），Worker 只呼叫一次。
+2. **從 DO 打 Gemini 會被拒** `400 User location is not supported for the API use.`（DO 被釘在某個機房），
+   Worker 端從台灣打就正常。所以 AI 敘事（narrate / brief / ask）一律留在 Worker 端；`GET /api/admin/ai-probe`
+   會同時回 Worker 與 DO 兩邊的結果，之後換機房或換模型先打這支。
+3. 同一天重跑洞察會產生重複卡：`insightsLocal` 把同期間長度、同一天的舊洞察標成 `dismissed=2`（被取代），
+   1 仍然代表使用者駁回。
