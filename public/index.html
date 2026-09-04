@@ -4,126 +4,44 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>總覽｜AI 指揮中心</title>
+<title>AI 指揮中心</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="/cc.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 </head>
-<body class="app">
-<div class="side" id="side"></div>
+<body>
+
+<aside class="side">
+  <div class="brand"><span class="dot"></span><div>AI 指揮中心<small>訊息到成交 · v0.1</small></div></div>
+  <nav class="nav" id="nav">
+    <a href="/overview" data-link data-key="overview"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>CEO 總覽</a>
+    <a href="/funnel" data-link data-key="funnel"><svg viewBox="0 0 24 24"><path d="M3 5h18l-7 8v6l-4 2v-8L3 5z"/></svg>漏斗與價格流失</a>
+    <a href="/attention" data-link data-key="attention"><svg viewBox="0 0 24 24"><path d="M12 3l10 18H2L12 3z"/><path d="M12 10v5M12 18v.5"/></svg>需要注意</a>
+    <a href="/conversations" data-link data-key="conversations"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4V5z"/></svg>對話與證據</a>
+    <a href="/appointments" data-link data-key="appointments"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>預約與到店</a>
+    <a href="/deals" data-link data-key="deals"><svg viewBox="0 0 24 24"><path d="M3 17l5-6 4 3 5-8 4 5"/><path d="M3 21h18"/></svg>成交與毛利</a>
+    <a href="/ask" data-link data-key="ask"><svg viewBox="0 0 24 24"><path d="M12 3l1.8 4.7L18 9.5l-4.2 1.8L12 16l-1.8-4.7L6 9.5l4.2-1.8L12 3z"/><path d="M5 18l.8 2 2 .8-2 .8L5 23l-.8-1.4-2-.8 2-.8L5 18z"/></svg>問 AI</a>
+  </nav>
+  <nav class="nav bottom">
+    <a href="/data" data-link data-key="data"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>資料與設定</a>
+    <div class="who" id="who"></div>
+  </nav>
+</aside>
 
 <div class="main">
-<div class="wrap">
-  <header class="top">
-    <div><h1>總覽</h1><div class="sub" id="sub">數字全部即時計算</div></div>
-    <span class="sp"></span>
-    <a class="btn sm" href="inbox.html" style="text-decoration:none">前往訊息中心</a>
+  <header class="topbar">
+    <div class="cmd" id="cmd">
+      <svg class="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <input id="cmdIn" placeholder="搜尋客戶、業務、車款，或直接問 AI…" autocomplete="off">
+      <span class="hint">Enter</span>
+      <div class="drop" id="cmdDrop"></div>
+    </div>
   </header>
-
-  <div class="tiles" id="tiles"></div>
-
-  <div class="card">
-    <h2>客戶分級</h2>
-    <div id="gradewrap"><p class="empty">尚無資料</p></div>
-  </div>
-
-  <div class="card" id="agentcard" style="display:none">
-    <h2>訊息手戰況</h2>
-    <table class="list">
-      <thead><tr><th>成員</th><th>職務</th><th class="num">負責對話</th><th class="num">待回</th><th class="num">累計回覆</th></tr></thead>
-      <tbody id="agrows"></tbody>
-    </table>
-  </div>
-
-  <div class="card">
-    <h2>獲客渠道</h2>
-    <table class="list">
-      <thead><tr><th>來源</th><th class="num">客戶數</th><th>占比</th></tr></thead>
-      <tbody id="srows"></tbody>
-    </table>
-  </div>
-
-  <div class="card">
-    <h2>最近對話</h2>
-    <table class="list">
-      <thead><tr><th>客戶</th><th>分級</th><th>負責人</th><th>最後訊息</th><th></th></tr></thead>
-      <tbody id="rrows"></tbody>
-    </table>
-  </div>
-
-  <p class="foot">
-    第一階段：全部使用假資料，不連接公司任何正式系統，不使用 LINE API。
-  </p>
-</div>
+  <main class="view" id="view"><div class="loading">載入中…</div></main>
 </div>
 
-<script src="app.js"></script>
-<script>
-(async () => {
-  const u = await requireLogin();
-  if (!u) return;
-  const j = await api("/api/dashboard");
-  if (!j.ok) return;
-  renderSidebar(u, "index.html", { all: j.totals.conversations });
-
-  if (!j.can_see_all) document.getElementById("sub").textContent = "你的範圍：只計算指派給你的對話";
-
-  const t = j.totals;
-  document.getElementById("tiles").innerHTML =
-    tile(t.conversations, "進行中的對話")
-    + tile(t.unassigned, "未指派", t.unassigned > 0 ? "hi" : "")
-    + tile(t.unread, "待回覆", t.unread > 0 ? "hi" : "ok")
-    + tile(t.messages, "累計訊息");
-
-  const g = j.grades, gt = g.S + g.A + g.B + g.C;
-  if (gt > 0) {
-    const w = (n) => Math.round(n / gt * 100);
-    document.getElementById("gradewrap").innerHTML =
-      '<div class="sevbar">'
-      + '<i class="s-hi"  style="width:' + w(g.S) + '%"></i>'
-      + '<i class="s-mid" style="width:' + w(g.A) + '%"></i>'
-      + '<i class="s-b" style="width:' + w(g.B) + '%"></i>'
-      + '<i class="s-low" style="width:' + w(g.C) + '%"></i></div>'
-      + '<div class="sevkey"><span class="k-hi">■ S <b>' + g.S + "</b></span>"
-      + '<span class="k-mid">■ A <b>' + g.A + "</b></span>"
-      + '<span class="k-b">■ B <b>' + g.B + "</b></span>"
-      + '<span class="k-low">■ C <b>' + g.C + "</b></span></div>"
-      + '<p style="font-size:12px;color:var(--faint);margin:10px 0 0">'
-      + "S／A 是有持續互動的客戶，C 是還沒指派、也還沒往來的。</p>";
-  }
-
-  if (j.can_see_all && j.agents.length) {
-    document.getElementById("agentcard").style.display = "";
-    document.getElementById("agrows").innerHTML = j.agents.map((a) =>
-      "<tr><td><b>" + esc(a.name) + "</b></td>"
-      + "<td>" + (a.role === "operator" ? "運營" : "訊息手") + "</td>"
-      + '<td class="num">' + a.assigned + "</td>"
-      + '<td class="num' + (a.unread > 0 ? " hi" : "") + '">' + a.unread + "</td>"
-      + '<td class="num">' + a.replies + "</td></tr>").join("");
-  }
-
-  const stot = j.sources.reduce((n, s) => n + s.n, 0) || 1;
-  const NAME = { meta: "Facebook 廣告", ig: "Instagram", line_search: "LINE 搜尋" };
-  document.getElementById("srows").innerHTML = j.sources.length ? j.sources.map((s) =>
-    "<tr><td>" + esc(NAME[s.source] || s.source) + '</td><td class="num">' + s.n + "</td>"
-    + '<td style="width:44%"><div class="sevbar" style="margin:0"><i style="width:'
-    + Math.round(s.n / stot * 100) + '%;background:var(--accent)"></i></div></td></tr>'
-  ).join("") : '<tr><td colspan="3" class="empty">尚無資料</td></tr>';
-
-  document.getElementById("rrows").innerHTML = j.recent.length ? j.recent.map((c) =>
-    "<tr><td><b>" + esc(c.display_name) + "</b></td>"
-    + '<td><span class="gr g-' + esc(c.grade) + '">' + esc(c.grade) + "</span></td>"
-    + "<td>" + (c.assigned_to ? esc(c.agent_name) : '<span style="color:var(--mid)">未指派</span>') + "</td>"
-    + '<td class="trunc">'
-    + (c.last_dir === "out" ? "↩ " : "") + esc(c.last_text || "") + "</td>"
-    + '<td><a href="inbox.html">開啟 →</a></td></tr>'
-  ).join("") : '<tr><td colspan="5" class="empty">還沒有對話。</td></tr>';
-
-  function tile(n, label, cls) {
-    return '<div class="tile"><span class="n ' + (cls || "") + '">' + n + '</span><span class="l">' + label + "</span></div>";
-  }
-})();
-</script>
+<script type="module" src="/app/router.js"></script>
 </body>
 </html>

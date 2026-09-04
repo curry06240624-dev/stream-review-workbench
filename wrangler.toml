@@ -15,6 +15,7 @@ compatibility_date = "2026-06-24"   # 這版 wrangler 的 workerd 最高支援�
 
 [assets]
 directory = "public"
+binding = "ASSETS"        # Worker 用 env.ASSETS.fetch() 把非 /api 的導覽路徑導到 index.html（SPA）
 
 [[durable_objects.bindings]]
 name = "APPDB"

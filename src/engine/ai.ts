@@ -16,7 +16,7 @@ type Row = Record<string, unknown>;
 interface Env { GEMINI_API_KEY?: string; GEMINI_MODEL?: string; }
 
 /* ── Gemini 呼叫（JSON 模式）── */
-async function gemini(env: Env, prompt: string): Promise<unknown> {
+export async function gemini(env: Env, prompt: string): Promise<unknown> {
   if (!env.GEMINI_API_KEY) throw new Error("no_key");
   const model = env.GEMINI_MODEL || "gemini-3.7-flash";
   const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.GEMINI_API_KEY}`, {
@@ -30,8 +30,8 @@ async function gemini(env: Env, prompt: string): Promise<unknown> {
 }
 
 /* ── 閘門 1：數字白名單 ── */
-const numbersIn = (s: string) => new Set((s.match(/\d+(?:\.\d+)?/g) ?? []).map((x) => x.replace(/^0+(?=\d)/, "")));
-function factsPack(a: Analytics, insights: Row[]): { text: string; allowed: Set<string> } {
+export const numbersIn = (s: string) => new Set((s.match(/\d+(?:\.\d+)?/g) ?? []).map((x) => x.replace(/^0+(?=\d)/, "")));
+export function factsPack(a: Analytics, insights: Row[]): { text: string; allowed: Set<string> } {
   const pct = (x: number | null | undefined) => (x == null ? "—" : `${Math.round(x * 100)}%`);
   const lines = [
     `期間：最近 ${a.period.days} 天（${a.period.from.slice(0, 10)} ～ ${a.period.to.slice(0, 10)}），對照前 ${a.period.days} 天`,
@@ -49,7 +49,7 @@ function factsPack(a: Analytics, insights: Row[]): { text: string; allowed: Set<
   const text = lines.join("\n");
   return { text, allowed: numbersIn(text) };
 }
-const violates = (s: string, allowed: Set<string>) => [...numbersIn(s)].some((n) => !allowed.has(n) && !/^\d{1,2}$/.test(n)); // 1–2 位小數字（例如「3 位」）放行
+export const violates = (s: string, allowed: Set<string>) => [...numbersIn(s)].some((n) => !allowed.has(n) && !/^\d{1,2}$/.test(n)); // 1–2 位小數字（例如「3 位」）放行
 
 /* ── 敘事：每條洞察補「為什麼（假設）」與建議 ── */
 export async function narrateInsights(db: DbLike, env: Env, a: Analytics, now: string): Promise<{ narrated: number; mode: "ai" | "template" }> {

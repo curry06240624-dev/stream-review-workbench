@@ -1,0 +1,225 @@
+/* ══ 指揮中心設計系統（依 9/4 核准的六張參考畫面）══════════════════════
+   顏色紀律：青＝可互動與系統狀態；琥珀＝偏離常態；紅＝只給 critical；其餘灰階。
+   正向數字保持中性（灰綠），不用亮綠。發光只出現在「目前選中」的一個元素上。 */
+:root{
+  --bg:#0B0E13; --layer:#10182A; --surface:#141A24; --surface-2:#1A2230;
+  --line:#223042; --line-2:#2B3A4F;
+  --text:#E8ECF1; --muted:#9AA6B4; --faint:#6B7684;
+  --cyan:#4FD1E5; --cyan-dim:rgba(79,209,229,.14); --cyan-line:rgba(79,209,229,.45);
+  --amber:#E9A445; --amber-dim:rgba(233,164,69,.14);
+  --red:#E5484D; --red-dim:rgba(229,72,77,.14);
+  --ok:#8FB8A8;
+  --sans:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  --r:8px; --r-sm:5px;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0; background:var(--bg); color:var(--text); font:14px/1.55 var(--sans);
+     -webkit-font-smoothing:antialiased; display:grid; grid-template-columns:220px 1fr; height:100dvh; overflow:hidden}
+a{color:var(--cyan); text-decoration:none}
+button{font:inherit; color:inherit; cursor:pointer}
+input,select,textarea{font:inherit; color:var(--text); background:var(--surface); border:1px solid var(--line); border-radius:var(--r-sm); padding:7px 10px; outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--cyan-line); box-shadow:0 0 0 3px var(--cyan-dim)}
+.num,.tbl td.num,.kpi b,.stat b{font-variant-numeric:tabular-nums}
+.mono{font-family:var(--mono)}
+.muted{color:var(--muted)} .faint{color:var(--faint)}
+.sp{flex:1}
+
+/* ── 側邊欄 ── */
+.side{background:var(--layer); border-right:1px solid var(--line); display:flex; flex-direction:column; padding:14px 10px; min-height:0}
+.side .brand{display:flex; align-items:center; gap:10px; padding:6px 10px 16px; color:var(--text); font-weight:500; letter-spacing:.04em}
+.side .brand .dot{width:9px; height:9px; border-radius:50%; background:var(--cyan); box-shadow:0 0 10px var(--cyan)}
+.side .brand small{display:block; font-size:11px; color:var(--faint); letter-spacing:.06em; font-weight:400}
+.nav a{display:flex; align-items:center; gap:10px; padding:9px 12px; margin:2px 0; border-radius:var(--r-sm); color:var(--muted);
+       border:1px solid transparent; font-size:14px}
+.nav a svg{width:16px; height:16px; flex:none; stroke:currentColor; fill:none; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round}
+.nav a:hover{color:var(--text); background:var(--surface)}
+.nav a.on{color:var(--cyan); background:var(--cyan-dim); border-color:var(--cyan-line); box-shadow:0 0 0 1px rgba(79,209,229,.12), 0 0 18px rgba(79,209,229,.10)}
+.nav.bottom{margin-top:auto; border-top:1px solid var(--line); padding-top:10px}
+.side .who{padding:10px 12px 2px; font-size:12px; color:var(--faint)}
+.side .who b{color:var(--muted); font-weight:500}
+.side .who select{width:100%; margin-top:6px; padding:5px 8px; font-size:12px}
+
+/* ── 主區 ── */
+.main{display:flex; flex-direction:column; min-height:0}
+.topbar{display:flex; align-items:center; gap:14px; padding:10px 22px; border-bottom:1px solid var(--line); background:var(--bg)}
+.cmd{flex:1; max-width:720px; margin:0 auto; position:relative}
+.cmd input{width:100%; padding:9px 38px 9px 36px; background:var(--layer); border-color:var(--line)}
+.cmd .ico{position:absolute; left:11px; top:50%; transform:translateY(-50%); width:15px; height:15px; stroke:var(--faint); fill:none; stroke-width:1.8}
+.cmd .hint{position:absolute; right:10px; top:50%; transform:translateY(-50%); font-size:11px; color:var(--faint); font-family:var(--mono)}
+.cmd .drop{position:absolute; left:0; right:0; top:calc(100% + 6px); background:var(--layer); border:1px solid var(--line-2); border-radius:var(--r);
+           box-shadow:0 12px 32px rgba(0,0,0,.45); z-index:20; overflow:hidden; display:none}
+.cmd .drop.on{display:block}
+.cmd .drop a{display:flex; gap:10px; align-items:center; padding:8px 12px; color:var(--text); border-bottom:1px solid var(--line)}
+.cmd .drop a:last-child{border-bottom:0}
+.cmd .drop a:hover,.cmd .drop a.sel{background:var(--surface)}
+.cmd .drop .t{font-size:11px; color:var(--faint); width:44px; flex:none}
+.cmd .drop .ask{color:var(--cyan)}
+.view{flex:1; min-height:0; overflow:auto; padding:22px 24px 60px}
+.wrap{max-width:1360px; margin:0 auto}
+
+/* ── 頁首 ── */
+.ph{display:flex; align-items:flex-end; gap:16px; margin-bottom:16px}
+.ph h1{margin:0; font-size:20px; font-weight:500; letter-spacing:.02em}
+.ph .ai{font-size:15px; color:var(--text)}
+.ph .ai::before{content:"AI"; font-family:var(--mono); font-size:11px; color:var(--cyan); border:1px solid var(--cyan-line); border-radius:4px; padding:1px 5px; margin-right:9px; vertical-align:2px}
+.seg{display:inline-flex; border:1px solid var(--line); border-radius:999px; padding:2px}
+.seg button{border:0; background:transparent; color:var(--muted); padding:4px 12px; border-radius:999px; font-size:12.5px}
+.seg button.on{background:var(--surface-2); color:var(--text)}
+
+/* ── 面板與格線 ── */
+.panel{background:var(--layer); border:1px solid var(--line); border-radius:var(--r); padding:14px 16px}
+.panel h3{margin:0 0 10px; font-size:13px; font-weight:500; color:var(--muted); letter-spacing:.06em; display:flex; align-items:center; gap:10px}
+.panel h3 .sp{flex:1}
+.grid{display:grid; gap:14px}
+.g2{grid-template-columns:1fr 1fr} .g3{grid-template-columns:repeat(3,1fr)} .g4{grid-template-columns:repeat(4,1fr)} .g6{grid-template-columns:repeat(6,1fr)}
+.stack>*+*{margin-top:14px}
+.brief{padding:16px 18px}
+.brief h3{color:var(--cyan); letter-spacing:.08em}
+.brief p{margin:0; line-height:1.9; font-size:14.5px}
+.brief p b{color:var(--muted); font-weight:500; margin-right:8px}
+.brief p a{color:var(--cyan); font-family:var(--mono); font-size:12px; margin-left:6px}
+
+/* ── 洞察卡：嚴重度只靠左緣、圓點與 chip，卡片本體不變色 ── */
+.cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:12px}
+.card{background:var(--layer); border:1px solid var(--line); border-left:3px solid var(--line-2); border-radius:var(--r); padding:13px 14px 12px;
+      display:flex; flex-direction:column; gap:9px; min-height:118px; position:relative}
+.card.critical{border-left-color:var(--red)} .card.high{border-left-color:var(--amber)} .card.medium{border-left-color:var(--cyan)} .card.low{border-left-color:var(--line-2)}
+.card .t{display:flex; gap:9px; align-items:flex-start; font-size:14.5px; line-height:1.45}
+.card .t .dot{width:8px; height:8px; border-radius:50%; margin-top:7px; flex:none; background:var(--line-2)}
+.card.critical .dot{background:var(--red); box-shadow:0 0 8px var(--red)} .card.high .dot{background:var(--amber)} .card.medium .dot{background:var(--cyan)}
+.card .meta{display:flex; gap:8px; align-items:center; flex-wrap:wrap; font-size:12px; color:var(--faint)}
+.card .go{margin-top:auto; display:flex; justify-content:flex-end}
+.card .go a{font-size:13px}
+.card.sel{box-shadow:0 0 0 1px var(--cyan-line), 0 0 22px rgba(79,209,229,.14)}
+
+/* ── chip ── */
+.chip{display:inline-flex; align-items:center; gap:5px; font-size:11.5px; padding:2px 8px; border-radius:4px; border:1px solid var(--line-2); color:var(--muted); background:transparent; white-space:nowrap}
+.chip.conf-CONFIRMED{color:var(--text); border-color:var(--line-2)}
+.chip.conf-STRONGLY_SUGGESTED{color:var(--amber); border-color:rgba(233,164,69,.5)}
+.chip.conf-POSSIBLE{color:var(--muted)} .chip.conf-UNCLEAR{color:var(--faint); border-style:dashed}
+.chip.claim-fact{color:var(--text)} .chip.claim-correlation{color:var(--muted)} .chip.claim-hypothesis{color:var(--amber); border-color:rgba(233,164,69,.5)}
+.chip.cyan{color:var(--cyan); border-color:var(--cyan-line)} .chip.amber{color:var(--amber); border-color:rgba(233,164,69,.5)} .chip.red{color:var(--red); border-color:rgba(229,72,77,.5)}
+.chip.stage{font-family:var(--mono); letter-spacing:.02em}
+
+/* ── 漏斗條 ── */
+.funnel{display:flex; align-items:stretch; gap:6px}
+.funnel .st{flex:1; background:var(--layer); border:1px solid var(--line); border-radius:var(--r-sm); padding:10px 12px; position:relative; min-width:0}
+.funnel .st.bottleneck{border-color:rgba(233,164,69,.6); background:var(--amber-dim)}
+.funnel .st .n{font-size:22px; font-weight:500; line-height:1.1}
+.funnel .st .l{font-size:12px; color:var(--muted); margin-bottom:6px; display:flex; justify-content:space-between}
+.funnel .st .r{font-size:12px; color:var(--faint); display:flex; gap:8px; margin-top:5px}
+.funnel .st a{position:absolute; inset:0}
+.funnel .arrow{align-self:center; color:var(--faint); font-size:12px}
+.funnel.slim .st{padding:8px 12px} .funnel.slim .st .n{font-size:18px}
+
+/* ── KPI ── */
+.kpi{background:var(--layer); border:1px solid var(--line); border-radius:var(--r); padding:12px 14px 10px; display:grid; grid-template-columns:1fr auto; gap:4px 12px; align-items:end}
+.kpi .l{font-size:12px; color:var(--muted); grid-column:1}
+.kpi b{font-size:22px; font-weight:500; line-height:1.1; grid-column:1}
+.kpi .d{font-size:12px; color:var(--muted); grid-column:1; margin-top:2px}
+.kpi canvas{grid-column:2; grid-row:1/4; width:96px; height:34px}
+.delta.up{color:var(--ok)} .delta.down{color:var(--muted)} .delta.bad{color:var(--amber)}
+
+/* ── 表格 ── */
+.tbl{width:100%; border-collapse:collapse; font-size:13px}
+.tbl th{font-size:11.5px; color:var(--faint); font-weight:500; text-align:left; padding:6px 10px; border-bottom:1px solid var(--line); letter-spacing:.04em; white-space:nowrap}
+.tbl td{padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:middle}
+.tbl tr:last-child td{border-bottom:0}
+.tbl tr.row:hover td{background:var(--surface)}
+.tbl tr.row{cursor:pointer}
+.tbl td.num,.tbl th.num{text-align:right}
+.tbl td.red{color:var(--red)} .tbl td.amber{color:var(--amber)}
+.tbl .sub{display:block; font-size:11.5px; color:var(--faint)}
+.tbl.dense td{padding:6px 10px}
+.empty{color:var(--faint); padding:18px 6px; font-size:13px}
+
+/* ── 狀態數字列（預約頁）── */
+.stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:8px}
+.stat{background:var(--layer); border:1px solid var(--line); border-radius:var(--r-sm); padding:10px 12px}
+.stat .l{font-size:12px; color:var(--muted)} .stat b{font-size:20px; font-weight:500; display:block; margin-top:2px}
+.stat.warn b{color:var(--amber)} .stat.hot{border-color:var(--cyan-line)}
+
+/* ── 對話（三欄）── */
+.conv{display:grid; grid-template-columns:300px 1fr 330px; gap:14px; height:calc(100dvh - 120px); min-height:520px}
+.conv>.panel{min-height:0; overflow:auto}
+.clist a{display:block; padding:10px 12px; border:1px solid var(--line); border-radius:var(--r-sm); margin-bottom:8px; color:var(--text); border-left-width:3px}
+.clist a:hover{background:var(--surface)} .clist a.on{border-color:var(--cyan-line); background:var(--cyan-dim)}
+.clist .n{display:flex; justify-content:space-between; gap:8px; font-size:13.5px}
+.clist .s{font-size:12px; color:var(--faint); margin-top:3px; display:flex; gap:8px; flex-wrap:wrap}
+.clist a.pd{border-left-color:var(--amber)} .clist a.hi{border-left-color:var(--cyan)}
+.filters{display:flex; gap:6px; flex-wrap:wrap; margin:8px 0 12px}
+.filters select,.filters input{padding:4px 8px; font-size:12px; background:var(--surface)}
+.thread{display:flex; flex-direction:column; gap:10px; padding:4px 2px}
+.msg{max-width:78%; display:flex; flex-direction:column; gap:3px}
+.msg.customer{align-self:flex-start} .msg.staff{align-self:flex-end; align-items:flex-end}
+.msg .who{font-size:11px; color:var(--faint); font-family:var(--mono)}
+.msg .b{background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:8px 12px; line-height:1.55; font-size:13.5px}
+.msg.staff .b{background:var(--surface-2)}
+.msg.ev .b{border-color:var(--cyan-line); box-shadow:0 0 0 1px rgba(79,209,229,.18), 0 0 16px rgba(79,209,229,.10)}
+.msg .note{font-size:11.5px; color:var(--cyan); background:var(--cyan-dim); border:1px solid var(--cyan-line); border-radius:4px; padding:2px 8px; display:inline-block}
+.evmark{display:flex; align-items:center; gap:10px; color:var(--muted); font-size:12px; margin:4px 0}
+.evmark::before,.evmark::after{content:""; flex:1; height:1px; background:var(--line-2)}
+.evmark.amber{color:var(--amber)} .evmark.amber::before,.evmark.amber::after{background:rgba(233,164,69,.45)}
+.evmark.red{color:var(--red)}
+.evmark .tag{font-family:var(--mono); font-size:11px; letter-spacing:.04em}
+.kv{display:grid; grid-template-columns:auto 1fr; gap:4px 12px; font-size:13px}
+.kv div:nth-child(odd){color:var(--faint)}
+.aibox{border:1px solid var(--line); border-radius:var(--r-sm); padding:10px 12px; margin-top:10px; position:relative}
+.aibox h4{margin:0 0 6px; font-size:12px; font-weight:500; color:var(--muted); display:flex; align-items:center; gap:8px}
+.aibox p{margin:0; font-size:13px; line-height:1.6}
+.aibox.linked{border-left:2px solid var(--cyan-line)}
+.aibox ul{margin:0; padding-left:16px; font-size:13px}
+
+/* ── 時間軸（預約頁）── */
+.tl{display:grid; grid-template-columns:76px 1fr; gap:0 12px}
+.tl .t{font-size:12px; color:var(--faint); padding:12px 0; border-right:1px solid var(--line); text-align:right; padding-right:12px; font-family:var(--mono)}
+.tl .t small{display:block; color:var(--faint)}
+.tl .e{padding:8px 0; border-bottom:1px solid var(--line)}
+.tl .e .row{display:flex; align-items:center; gap:10px; background:var(--layer); border:1px solid var(--line); border-radius:var(--r-sm); padding:8px 12px}
+.tl .e .row.overdue{border-color:rgba(233,164,69,.6); background:var(--amber-dim)}
+.tl .e .row.now{border-color:var(--cyan-line)}
+
+/* ── 問 AI ── */
+.ask{max-width:860px; margin:0 auto}
+.ask .big{width:100%; font-size:18px; padding:14px 18px; background:var(--layer); border-color:var(--line-2)}
+.ask .big:focus{box-shadow:0 0 0 3px var(--cyan-dim), 0 0 30px rgba(79,209,229,.14)}
+.ask .ex{display:flex; gap:8px; flex-wrap:wrap; margin:10px 0 22px}
+.ask .ex button{background:transparent; border:1px solid var(--line); border-radius:999px; padding:5px 12px; font-size:12.5px; color:var(--muted)}
+.ask .ex button:hover{color:var(--text); border-color:var(--line-2)}
+.ans{background:var(--layer); border:1px solid var(--cyan-line); border-radius:var(--r); padding:18px 20px; box-shadow:0 0 0 1px rgba(79,209,229,.08), 0 0 28px rgba(79,209,229,.08)}
+.ans section{padding:10px 0; border-top:1px solid var(--line)}
+.ans section:first-child{border-top:0; padding-top:0}
+.ans h4{margin:0 0 6px; font-size:12px; font-weight:500; color:var(--muted); letter-spacing:.06em}
+.ans p{margin:0; font-size:14.5px; line-height:1.7}
+.ans .chips{display:flex; gap:8px; flex-wrap:wrap}
+.ans .chips a{border:1px solid var(--cyan-line); background:var(--cyan-dim); color:var(--cyan); border-radius:4px; padding:3px 10px; font-size:12.5px; font-variant-numeric:tabular-nums}
+.ans details summary{cursor:pointer; color:var(--cyan); font-size:13px}
+.ans .lbl{font-family:var(--mono); font-size:11px; padding:1px 6px; border:1px solid var(--line-2); border-radius:4px; color:var(--muted); margin-right:8px; vertical-align:2px}
+.ans .lbl.h{color:var(--amber); border-color:rgba(233,164,69,.5)}
+
+/* ── 通用 ── */
+.btn{background:var(--surface); border:1px solid var(--line-2); border-radius:var(--r-sm); padding:6px 12px; font-size:13px; color:var(--text)}
+.btn:hover{border-color:var(--cyan-line); color:var(--cyan)}
+.btn.primary{background:var(--cyan-dim); border-color:var(--cyan-line); color:var(--cyan)}
+.btn.sm{padding:3px 9px; font-size:12px}
+.row-actions{display:flex; gap:6px}
+.toast{position:fixed; right:22px; bottom:22px; background:var(--layer); border:1px solid var(--line-2); border-radius:var(--r); padding:10px 14px; font-size:13px; box-shadow:0 12px 30px rgba(0,0,0,.4); z-index:50}
+.spark{display:inline-block; vertical-align:middle}
+.loading{color:var(--faint); padding:40px; text-align:center}
+.sev-critical{color:var(--red)} .sev-high{color:var(--amber)} .sev-medium{color:var(--cyan)} .sev-low{color:var(--muted)}
+
+@media (max-width:1100px){ .conv{grid-template-columns:260px 1fr} .conv>.panel:last-child{grid-column:1/-1; height:auto} .g4,.g6{grid-template-columns:repeat(2,1fr)} }
+@media (max-width:820px){ body{grid-template-columns:1fr} .side{display:none} .g2,.g3{grid-template-columns:1fr} .funnel{flex-wrap:wrap} .funnel .st{flex:1 1 30%} }
+
+/* ── 漏斗／需要注意／問 AI 補充 ── */
+.sub{margin:0 0 6px; font-size:12px; font-weight:500; color:var(--muted); letter-spacing:.06em}
+.stat .d{margin-top:2px; font-size:12px}
+a.stat{display:block; color:var(--text)} a.stat:hover{border-color:var(--line-2)}
+.tbl td.warn{color:var(--amber)}
+.acts{list-style:none; margin:0; padding:0}
+.acts .act{display:flex; gap:10px; align-items:center; padding:8px 0; border-bottom:1px solid var(--line); font-size:13px; flex-wrap:wrap}
+.acts .act:last-child{border-bottom:0}
+.acts .act .txt{flex:1; min-width:200px}
+.acts .act a b{color:var(--text)}

@@ -15,6 +15,8 @@ import { runFunnel } from "./engine/funnel.ts";
 import { computeAnalytics } from "./engine/analytics.ts";
 import { deriveInsights, persistInsights } from "./engine/insights.ts";
 import { narrateInsights, generateBrief } from "./engine/ai.ts";
+import { handleViews } from "./routes/views.ts";
+import { answer as askAnswer } from "./engine/ask.ts";
 
 export { AppDB };
 
@@ -28,7 +30,12 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (!url.pathname.startsWith("/api/")) {
-      return new Response("Not found", { status: 404 });   // 靜態檔已由 assets 先接走
+      // 靜態檔已由 assets 先接走；走到這裡的是 SPA 路徑（/overview、/conversations/12 …）→ 回 index.html
+      const wantsHtml = (request.headers.get("accept") || "").includes("text/html");
+      if (request.method === "GET" && wantsHtml && env.ASSETS) {
+        return env.ASSETS.fetch(new Request(new URL("/", request.url), request));   // 要 "/" 不要 "/index.html"：assets 會把後者 307 轉去 "/"
+      }
+      return new Response("Not found", { status: 404 });
     }
     const db = env.APPDB.get(env.APPDB.idFromName("main"));
 
@@ -95,6 +102,19 @@ async function route(request, env, db, url) {
     const t0 = Date.now();
     const a = await computeAnalytics(db, { to, days });
     return J({ ok: true, ms: Date.now() - t0, ...a });
+  }
+
+  /* ── 問 AI：規則判斷意圖 → 決定性分析 → AI 只講人話（事實包閘門），見 engine/ask.ts ── */
+  if (p === "/api/ask" && m === "POST") {
+    const me = await currentUser(request, db);
+    if (!me) return J({ ok: false, error: "not_logged_in" }, 401);
+    if (!canSeeAll(me.role)) return J({ ok: false, message: "問 AI 目前只開放給老闆與主管。" }, 403);
+    const b = await request.json().catch(() => ({}));
+    const q = String(b.q || "").trim().slice(0, 200);
+    if (!q) return J({ ok: false, message: "請輸入問題。" }, 400);
+    const t0 = Date.now();
+    const answer = await askAnswer(db, env, q);
+    return J({ ok: true, ms: Date.now() - t0, answer });
   }
 
   /* ── 洞察：分析 → 規則推導 → 落庫（含證據）→ AI 敘事 → CEO 簡報 ── */
@@ -218,6 +238,8 @@ async function route(request, env, db, url) {
        正式環境不要設這個變數，這個端點就會直接消失（回 404，跟沒寫過一樣）。
        注意：它繞過的是「證明你是誰」，不是「你能看到什麼」——
        登入後的權限一律照 role 走，跟正常登入完全同一條路。 ── */
+  /* 前端探測有沒有示範模式：GET 永遠 200，不再用 403 當訊號（會在 console 留紅字） */
+  if (p === "/api/demo-login" && m === "GET") return J({ ok: true, demo: env.DEMO_MODE === "on" });
   if (p === "/api/demo-login" && m === "POST") {
     if (env.DEMO_MODE !== "on") return J({ ok: false, error: "not_found" }, 404);
     const b = await request.json().catch(() => ({}));
@@ -321,6 +343,14 @@ async function route(request, env, db, url) {
   }
 
   /* ══ 訊息中心 ══ 權限全部在伺服器端算，見 inbox.js 的說明 ══ */
+  /* ── 畫面用的讀取 API（搜尋／leads／需要注意／預約／成交明細／週序列）── */
+  if (p.startsWith("/api/search") || p.startsWith("/api/leads") || p === "/api/attention" || p === "/api/appointments" || p === "/api/deals/list" || p === "/api/series") {
+    const me = await currentUser(request, db);
+    if (!me) return J({ ok: false, error: "not_logged_in" }, 401);
+    const r = await handleViews(url, m, db, me);
+    if (r) return r;
+  }
+
   if (p === "/api/inbox" && m === "GET") {
     const box = url.searchParams.get("box") || "all";
     const [conversations, counts] = await Promise.all([

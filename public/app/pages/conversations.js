@@ -1,0 +1,113 @@
+/* 對話與證據：左清單／中時間軸（事件插在訊息之間、證據高亮）／右 AI 分析（事實與假設分開）。 */
+import { api } from "../api.js";
+import { h, raw, esc, fmtDT, fmtD, ago, chipStage, chip, chipClaim, chipConf, bubble, eventMark, EVENT, CONF, STAGE, wan, toast } from "../ui.js";
+
+const FLAG = { price_dropoff: "價格後流失", high_intent: "高意圖", financing: "貸款未回", insights: "有洞察的" };
+
+export async function render(el, ctx) {
+  const q = ctx.query, cur = ctx.params.id ? Number(ctx.params.id) : null;
+  const qs = new URLSearchParams(); for (const k of ["q", "stage", "staff", "vehicle", "outcome", "flag", "insight", "event"]) if (q[k]) qs.set(k, q[k]);
+  const [list, detail] = await Promise.all([api(`/api/leads?${qs}&limit=80`), cur ? api(`/api/leads/${cur}`) : Promise.resolve(null)]);
+  const leads = list.leads || [];
+  const staffs = [...new Set(leads.map((l) => l.staff).filter(Boolean))], vehicles = [...new Set(leads.map((l) => l.vehicle).filter(Boolean))];
+  const opt = (arr, sel, label) => `<option value="">${label}</option>` + arr.map((v) => `<option value="${esc(v)}" ${v === sel ? "selected" : ""}>${esc(v)}</option>`).join("");
+
+  const listHtml = leads.length ? leads.map((l) => h`<a href="/conversations/${l.id}${qs.toString() ? "?" + qs : ""}" data-link class="${l.id === cur ? "on" : ""} ${l.flags.price_dropoff ? "pd" : l.flags.high_intent ? "hi" : ""}">
+      <div class="n"><span>${l.pseudonym} <span class="faint">${l.staff ? "· " + l.staff : ""}</span></span><span class="faint">${ago(l.last_at)}</span></div>
+      <div class="s">${l.vehicle}${raw(chipStage(l.stage))}${l.flags.price_dropoff ? raw(chip("價格後流失", "amber")) : ""}${l.flags.financing_unresolved ? raw(chip("貸款未回")) : ""}</div>
+    </a>`).join("") : '<div class="empty">沒有符合的對話。</div>';
+
+  el.innerHTML = h`<div class="conv">
+    <section class="panel clist">
+      <h3>對話 <span class="faint" style="letter-spacing:0;font-weight:400">${list.n ?? 0} 則</span>${q.insight ? raw(h`<a href="/insights/${q.insight}" data-link style="font-weight:400;letter-spacing:0">‹ 回洞察</a>`) : ""}</h3>
+      <input id="fq" placeholder="搜尋客戶或車款…" value="${q.q || ""}">
+      <div class="filters">
+        <select id="fstage">${raw(opt(Object.keys(STAGE), q.stage, "階段"))}</select>
+        <select id="fstaff">${raw(opt(staffs, q.staff, "業務"))}</select>
+        <select id="fveh">${raw(opt(vehicles, q.vehicle, "車款"))}</select>
+        <select id="fout"><option value="">結果</option><option value="open" ${q.outcome === "open" ? "selected" : ""}>進行中</option><option value="sold" ${q.outcome === "sold" ? "selected" : ""}>成交</option><option value="lost" ${q.outcome === "lost" ? "selected" : ""}>流失</option></select>
+        <select id="fflag">${raw(opt(Object.keys(FLAG), q.flag, "只看…"))}</select>
+      </div>
+      ${raw(listHtml)}
+    </section>
+    <section class="panel" id="thread">${cur ? raw(threadHtml(detail)) : '<div class="empty" style="text-align:center;padding:80px 0">從左邊選一位客戶，看完整對話與系統偵測到的事件。</div>'}</section>
+    <section class="panel" id="side">${cur && detail?.ok ? raw(sideHtml(detail)) : ""}</section>
+  </div>`;
+
+  // 篩選：改任何一個就重新載入（保留目前的對話）
+  const go = () => { const p = new URLSearchParams(); const v = (id) => document.getElementById(id).value; if (v("fq")) p.set("q", v("fq")); if (v("fstage")) p.set("stage", v("fstage")); if (v("fstaff")) p.set("staff", v("fstaff")); if (v("fveh")) p.set("vehicle", v("fveh")); if (v("fout")) p.set("outcome", v("fout")); if (v("fflag")) p.set("flag", v("fflag")); if (q.insight) p.set("insight", q.insight); ctx.nav(`/conversations${cur ? "/" + cur : ""}${p.toString() ? "?" + p : ""}`); };
+  ["fstage", "fstaff", "fveh", "fout", "fflag"].forEach((id) => document.getElementById(id).onchange = go);
+  document.getElementById("fq").addEventListener("keydown", (e) => { if (e.key === "Enter") go(); });
+  document.getElementById("fflag").innerHTML = `<option value="">只看…</option>` + Object.entries(FLAG).map(([k, v]) => `<option value="${k}" ${q.flag === k ? "selected" : ""}>${v}</option>`).join("");
+  el.querySelectorAll("[data-act]").forEach((b) => b.onclick = async () => { const r = await api(`/api/actions/${b.dataset.act}`, { status: b.dataset.st }, "PATCH"); toast(r.ok ? "已更新" : "失敗"); render(el, ctx); });
+  // 捲到指定訊息（從證據頁跳過來）
+  if (location.hash) setTimeout(() => document.querySelector(location.hash)?.scrollIntoView({ block: "center" }), 60);
+  else if (cur) { const t = document.getElementById("thread"); t.scrollTop = t.scrollHeight; }
+}
+
+function threadHtml(d) {
+  if (!d?.ok) return `<div class="empty">${esc(d?.message || "讀不到這筆對話。")}</div>`;
+  const notes = new Map();   // message_id → note（事件證據＋洞察證據）
+  for (const e of d.events) for (const x of e.evidence) if (x.message_id && !notes.has(x.message_id)) notes.set(x.message_id, x.note || EVENT[e.type]);
+  for (const i of d.insights) for (const x of i.evidence) if (x.message_id && !notes.has(x.message_id)) notes.set(x.message_id, x.note || i.title);
+  // 事件與訊息合併成一條時間軸；同一時間事件排在訊息後面
+  const items = [...d.messages.map((m) => ({ t: Date.parse(m.created_at), k: 0, m })), ...d.events.filter((e) => !["NEW_LEAD", "VEHICLE_INTEREST", "ACTIVE_DISCUSSION"].includes(e.type)).map((e) => ({ t: Date.parse(e.at), k: 1, e }))]
+    .sort((a, b) => a.t - b.t || a.k - b.k);
+  const L = d.lead;
+  return `<h3>${esc(L.pseudonym)} <span class="faint" style="letter-spacing:0;font-weight:400">${esc(L.display_name)} · ${esc(L.vehicle)} · 業務 ${esc(L.staff)}</span></h3>
+    <div class="thread">${items.map((x) => x.m ? bubble(x.m, { evidence: notes.get(x.m.id) || null }) : eventMark(x.e)).join("")}</div>`;
+}
+
+function sideHtml(d) {
+  const L = d.lead, ev = d.events;
+  const find = (t) => ev.find((e) => e.type === t && e.confidence !== "UNCLEAR");
+  const price = find("PRICE_MENTIONED"), drop = find("PRICE_DROP_OFF"), obj = find("PRICE_OBJECTION"), neg = find("NEGOTIATION"), fin = find("FINANCING_QUESTION");
+  const booked = find("APPOINTMENT_BOOKED"), noshow = find("NO_SHOW"), visit = find("STORE_VISIT"), sold = find("SOLD"), lost = find("LOST"), hi = find("HIGH_INTENT"), inactive = [...ev].reverse().find((e) => e.type === "CUSTOMER_INACTIVE");
+  const fus = ev.filter((e) => e.type === "FOLLOW_UP").length;
+
+  /* 事實：從事件直接組句子，沒有任何推測 */
+  const facts = [];
+  facts.push(`${fmtD(L.opened_at)} 進線${L.vehicle ? `，問 ${L.vehicle}` : ""}。`);
+  if (price) facts.push(`${fmtD(price.at)} 業務報價${price.detail?.price_wan ? ` ${price.detail.price_wan} 萬` : ""}。`);
+  if (obj) facts.push(`客戶對價格表達異議。`);
+  if (neg) facts.push(`客戶出價${neg.detail?.counter_wan ? ` ${neg.detail.counter_wan} 萬` : ""}，進入議價。`);
+  if (fin) facts.push(`客戶問了貸款，業務${fin.detail?.resolved ? "有" : "沒有"}給具體答案。`);
+  if (booked) facts.push(`${fmtD(booked.at)} 預約成立。`);
+  if (noshow) facts.push(`預約時間過了沒有到店。`);
+  if (visit) facts.push(`${fmtD(visit.at)} 到店。`);
+  if (drop) facts.push(`報價後客戶${drop.detail?.pattern === "silent" ? "沒有再回覆" : drop.detail?.pattern === "objection_then_silent" ? "先異議、之後沉默" : "回覆明顯變慢"}（價格後流失 · ${CONF[drop.confidence]}）。`);
+  if (fus) facts.push(`業務主動跟進 ${fus} 次。`);
+  if (sold) facts.push(`${fmtD(sold.at)} 成交${sold.detail?.gross_profit != null ? `，毛利 ${wan(sold.detail.gross_profit)}` : ""}。`);
+  else if (lost) facts.push(`${lost.detail?.inferred ? `沉默 ${lost.detail.silent_days} 天，推定流失` : `${fmtD(lost.at)} 流失${lost.detail?.reason ? `（${lost.detail.reason}）` : ""}`}。`);
+  else if (inactive) facts.push(`客戶已沉默 ${inactive.detail?.silent_days ?? "7+"} 天。`);
+
+  /* 假設：解讀，標明 */
+  const hypo = [];
+  if (hi) hypo.push(`客戶早期說「${esc(hi.detail?.phrase || "")}」，購買意圖可能偏高。`);
+  if (drop?.detail?.pattern === "silent") hypo.push("報價後完全沒回，可能是價格超出預期，或去比價了。");
+  if (drop?.detail?.pattern === "objection_then_silent") hypo.push("先講貴再消失，價格是主要障礙的可能性高。");
+  if (drop?.detail?.pattern === "slower_reply") hypo.push("報價後回覆變慢，可能在猶豫或比較其他車。");
+  if (fin && !fin.detail?.resolved) hypo.push("貸款沒有得到具體數字，客戶可能還在算得不得起。");
+  if (noshow) hypo.push("爽約但沒有明說原因，可能不是不想買而是時間安排。");
+  if (!hypo.length) hypo.push("目前沒有足夠的訊號做進一步解讀。");
+
+  /* 建議下一步：先用洞察的動作，沒有就用規則 */
+  const proposed = d.actions.filter((a) => a.status !== "dismissed");
+  const next = proposed.length ? proposed.map((a) => a.text)
+    : drop && !sold && !lost ? ["補一則詢問疑慮的訊息，或提供預算內的替代車款。"]
+    : fin && !fin.detail?.resolved ? ["直接給頭期／月付數字，或 24 小時內轉貸款專員。"]
+    : noshow ? ["確認狀況並提供兩個新時段。"]
+    : booked && !visit && !sold ? ["預約前一天發確認訊息。"]
+    : sold ? ["交車後 7 天關懷一次，順便問轉介。"] : ["維持跟進節奏，48 小時內至少一則主動訊息。"];
+
+  return `<div class="kv"><div>客戶</div><div><b>${esc(L.pseudonym)}</b> <span class="faint">${esc(L.display_name)}</span></div>
+      <div>分級</div><div>${esc(L.grade)}</div><div>首次進線</div><div>${fmtD(L.first_contact_at || L.opened_at)}</div>
+      <div>車款</div><div>${esc(L.vehicle || "—")}${L.list_price ? ` <span class="faint">${wan(L.list_price)}</span>` : ""}</div>
+      <div>業務</div><div>${esc(L.staff || "未指派")}</div><div>階段</div><div>${chipStage(L.stage)} ${L.outcome ? chip({ sold: "已成交", lost: "已流失" }[L.outcome], L.outcome === "sold" ? "cyan" : "") : ""}</div></div>
+    <div class="aibox linked"><h4>${chipClaim("fact")} 摘要</h4><p>${facts.join("")}</p></div>
+    <div class="aibox"><h4>${chipClaim("hypothesis")} 異議與意圖</h4><p>${hypo.join("")}</p></div>
+    <div class="aibox"><h4>建議下一步</h4><ul>${next.map((t) => `<li>${esc(t)}</li>`).join("")}</ul>
+      ${proposed.filter((a) => a.status === "proposed").map((a) => `<div class="row-actions" style="margin-top:6px"><button class="btn sm primary" data-act="${a.id}" data-st="approved">核准</button><button class="btn sm" data-act="${a.id}" data-st="dismissed">駁回</button></div>`).join("")}</div>
+    <div class="aibox"><h4>出現在哪些洞察</h4>${d.insights.length ? `<ul>${d.insights.map((i) => `<li><a href="/insights/${i.id}" data-link>#${i.id} ${esc(i.title)}</a></li>`).join("")}</ul>` : '<p class="faint">沒有。</p>'}</div>
+    <div class="aibox"><h4>偵測到的事件</h4><ul>${ev.map((e) => `<li><a href="#e${e.id}"><span class="mono" style="font-size:11px">${fmtD(e.at)}</span> ${EVENT[e.type] || e.type} <span class="faint">${CONF[e.confidence]}</span></a></li>`).join("")}</ul></div>`;
+}
