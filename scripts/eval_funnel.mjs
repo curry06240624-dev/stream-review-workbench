@@ -26,8 +26,15 @@ console.log("階段分布：", Object.fromEntries(stages.map((s) => [s.stage, s.
 
 const truth = JSON.parse(readFileSync("data/mock/truth.json", "utf8"));
 // conv_key CV{n} ↔ lead_key L{n}
-const detected = new Map();
-for (const e of events) { const k = String(e.conv_key || "").replace(/^CV/, "L"); if (!detected.has(k)) detected.set(k, new Set()); if (e.confidence !== "UNCLEAR") detected.get(k).add(e.type); }
+const detected = new Map(), inferred = new Map();
+for (const e of events) {
+  const k = String(e.conv_key || "").replace(/^CV/, "L");
+  let d = {}; try { d = JSON.parse(e.detail || "{}"); } catch {}
+  if (!detected.has(k)) detected.set(k, new Set());
+  // 推定事件（例如沉默 21 天→推定流失）是預測不是事實，分開評，不計入 precision/recall
+  if (d.inferred) { if (!inferred.has(k)) inferred.set(k, new Set()); inferred.get(k).add(e.type); continue; }
+  if (e.confidence !== "UNCLEAR") detected.get(k).add(e.type);
+}
 
 const types = [...new Set(truth.flatMap((t) => t.expect_events))].sort();
 const rows = []; let failed = 0;
@@ -48,5 +55,9 @@ console.table(rows);
 const pd = truth.filter((t) => t.price_dropoff), got = truth.filter((t) => detected.get(t.lead_key)?.has("PRICE_DROP_OFF"));
 const tp = pd.filter((t) => detected.get(t.lead_key)?.has("PRICE_DROP_OFF")).length;
 console.log(`\n價格後流失：標準答案 ${pd.length}、偵測 ${got.length}、命中 ${tp} → precision ${(tp / (got.length || 1)).toFixed(2)} recall ${(tp / (pd.length || 1)).toFixed(2)}`);
+// 推定流失：沉默 21 天以上的 lead，最後真的流失的比例（這個數字本身就是 CEO 簡報的素材）
+const infLost = truth.filter((t) => inferred.get(t.lead_key)?.has("LOST"));
+const infHit = infLost.filter((t) => t.expect_events.includes("LOST")).length;
+if (infLost.length) console.log(`推定流失（沉默 ≥21 天）：${infLost.length} 個 lead，標準答案為流失 ${infHit}、仍開放 ${infLost.length - infHit} → 推定命中率 ${(infHit / infLost.length).toFixed(2)}`);
 console.log(failed ? `\n✗ ${failed} 種事件沒過門檻` : "\n✓ 全部過門檻");
 process.exit(failed ? 1 : 0);
