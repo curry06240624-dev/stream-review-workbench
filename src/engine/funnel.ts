@@ -240,7 +240,11 @@ const STAGE_ORDER: Array<[FunnelEventType, string]> = [
 ];
 export function stageOf(events: Detected[]): string {
   let stage = "new";
-  for (const [t, s] of STAGE_ORDER) if (events.some((e) => e.type === t && e.confidence !== "UNCLEAR")) stage = s;
+  for (const [t, s] of STAGE_ORDER) {
+    // 「結案」只認確定或強烈建議的成交/流失；推定流失（沉默 21 天）的 lead 仍是開放的，不然會從待辦清單消失
+    const closing = t === "SOLD" || t === "LOST";
+    if (events.some((e) => e.type === t && e.confidence !== "UNCLEAR" && !(closing && (e.confidence === "POSSIBLE" || e.detail["inferred"])))) stage = s;
+  }
   return stage;
 }
 
