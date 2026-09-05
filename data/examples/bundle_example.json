@@ -1,0 +1,46 @@
+{
+  "source_system": "super8_export",
+  "generated_at": "2026-09-05T10:00:00.000Z",
+  "teams": ["管理", "業務一組", "訊息組"],
+  "staff": [
+    { "name": "老闆", "role": "admin", "team": "管理", "email": "boss@example.com", "job": "manager" },
+    { "name": "小婷", "role": "agent", "team": "業務一組", "email": "ting@example.com", "job": "both", "aliases": ["婷婷", "LL"] },
+    { "name": "小雅", "role": "agent", "team": "訊息組", "email": "ya@example.com", "job": "chat", "seat_shared": 0, "aliases": ["雅雅", "YY"] }
+  ],
+  "vehicles": [
+    { "key": "sheet:row:12", "brand": "Toyota", "model": "RAV4", "year": 2021, "body_type": "suv", "list_price": 920000, "cost": 828000, "stock_status": "in_stock",
+      "plate": "ABC-1234", "color": "珍珠白", "trim": "旗艦", "mileage_km": 43000, "stock_in_at": "2026-07-02T00:00:00.000Z", "cert": "SAVE", "trade_price": 850000, "source": "stock", "status_text": "在庫" }
+  ],
+  "customers": [
+    { "key": "U30ffc4example", "display_name": "客戶#001", "pseudonym": "客戶#001", "phone": "", "grade": "C", "external_key": "U30ffc4example", "first_contact_at": "2026-08-29T11:02:00.000Z", "blocked": 0 }
+  ],
+  "leads": [
+    { "key": "cf886f0dexample", "customer_key": "U30ffc4example", "staff_name": null, "vehicle_key": "sheet:row:12", "source": "line_search", "opened_at": "2026-08-29T11:02:00.000Z", "closed_at": null, "outcome": "" }
+  ],
+  "conversations": [
+    { "key": "cf886f0dexample", "customer_key": "U30ffc4example", "lead_key": "cf886f0dexample", "channel": "line", "assigned_staff": "小雅",
+      "messages": [
+        { "at": "2026-08-29T11:02:00.000Z", "role": "customer", "text": "你好 想問 2021 RAV4 還在嗎", "type": "text", "via": "super8" },
+        { "at": "2026-08-29T11:09:00.000Z", "role": "staff", "staff_name": "小雅", "text": "在的！方便問一下預算大概抓多少嗎？", "type": "text", "via": "super8" },
+        { "at": "2026-08-29T11:40:00.000Z", "role": "customer", "text": "預算 85 上下 可以貸款", "type": "text", "via": "super8" },
+        { "at": "2026-08-29T12:05:00.000Z", "role": "staff", "staff_name": "小雅", "text": "這台 92 萬含過戶，週六方便來看車嗎？", "type": "text", "via": "line_oa" }
+      ] }
+  ],
+  "assignments": [
+    { "conversation_key": "cf886f0dexample", "from_staff": null, "to_staff": "小雅", "by_staff": "老闆", "at": "2026-08-29T11:05:00.000Z" }
+  ],
+  "appointments": [],
+  "visits": [
+    { "lead_key": "cf886f0dexample", "staff_name": "小婷", "visited_at": "2026-08-31T07:00:00.000Z", "outcome": "", "note": "", "after_appointment": false,
+      "source": "reception", "customer_ref": "客戶#001", "model_text": "RAV4", "assigned_by": "黎", "raw_text": "客戶名：客戶#001\n車款：RAV4\n到店時間：下午3點\n誰指派：小婷" }
+  ],
+  "deals": [],
+  "deal_reports": [
+    { "key": "post:2026-09-02T09:48:00Z:婷婷", "reported_at": "2026-09-02T09:48:00.000Z", "reported_by": "婷婷",
+      "raw_text": "送貨囉❤️🔥\n\n年份：2021\n車型：RAV4\n顏色：珍珠白\n車號：ABC-1234\n訂金（現金or匯款）：匯款\n售價：905000\n同行/庫存：庫存\n送貨單位：阿富\n備註：過件了\n客戶：客戶#001\n業務：小婷" }
+  ],
+  "appraisals": [
+    { "key": "post:2026-08-30T05:21:00Z:梨子", "reported_at": "2026-08-30T05:21:00.000Z", "reported_by": "梨子",
+      "raw_text": "估車\n\n車型：馬三\n年份：2017\n版本：低階\n顏色：白\n里程：9.1萬\n權威：23\n天書：31\n\n車換車or純賣：車換車\n客人理想價格：\n客戶：客戶#001" }
+  ]
+}
