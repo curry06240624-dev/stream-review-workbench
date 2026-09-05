@@ -94,7 +94,11 @@ export async function handleViews(url: URL, method: string, db: DbLike, me: Me):
     const appointments = await db.all("SELECT * FROM appointments WHERE lead_id = ? ORDER BY proposed_at", id);
     const visits = await db.all("SELECT * FROM visits WHERE lead_id = ? ORDER BY visited_at", id);
     const deals = await db.all("SELECT * FROM deals WHERE lead_id = ?", id);
-    return J({ ok: true, lead, messages, events, insights: insights.map((i) => ({ ...i, evidence: insEvidence.filter((x) => x["insight_id"] === i["id"]) })), actions, appointments, visits, deals });
+    const roles = await db.all(`SELECT r.role, r.confidence, r.at, r.evidence_message_id, r.note, u.name AS staff FROM lead_roles r JOIN users u ON u.id = r.user_id WHERE r.lead_id = ? ORDER BY r.id`, id);
+    const lossRow = await db.first("SELECT * FROM loss_analyses WHERE lead_id = ?", id);
+    const lossEv = lossRow ? await db.all("SELECT message_id, note FROM evidence WHERE loss_id = ?", lossRow["id"]) : [];
+    return J({ ok: true, lead, messages, events, insights: insights.map((i) => ({ ...i, evidence: insEvidence.filter((x) => x["insight_id"] === i["id"]) })), actions, appointments, visits, deals,
+      roles, loss: lossRow ? { ...lossRow, evidence: lossEv } : null });
   }
 
   /* ── 需要注意 ── */

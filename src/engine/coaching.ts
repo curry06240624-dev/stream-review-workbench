@@ -79,6 +79,8 @@ export async function buildCoachingPlan(db: DbLike, report: StaffReport, staffId
   for (const c of compared.filter((x) => x.worse).sort((a, b) => Math.abs(b.gap ?? 0) - Math.abs(a.gap ?? 0))) {
     if (changes.length >= 5) break;
     const adv = ADVICE[c.feature]; if (!adv || changes.some((x) => x.key === c.feature)) continue;
+    const SAME: Record<string, string> = { first_response_min: "response", followup_24h_rate: "followup" };   // 同一件事不講兩次
+    if (SAME[c.feature] && changes.some((x) => x.key === SAME[c.feature])) continue;
     const assoc = report.associations.find((a) => a.feature === c.feature);
     const assocTxt = assoc && assoc.with.ok && assoc.without.ok ? `全團隊有做到的客戶成交率 ${pct(assoc.with.rate)}（n=${assoc.with.n}），沒做到 ${pct(assoc.without.rate)}（n=${assoc.without.n}）—— 這是關聯，不是因果` : "樣本還不足以看出與成交的關聯";
     changes.push({ key: c.feature, text: adv.text, why: `你 ${fmtF(c.feature, c.mine)}（n=${c.n}），${peersLabel} ${fmtF(c.feature, c.peers)}（n=${c.peers_n}），團隊 ${fmtF(c.feature, c.team)}`, evidence: assocTxt, pattern: adv.pattern, confidence: confOf(c.n) });

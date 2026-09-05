@@ -161,7 +161,7 @@ export async function computeAnalytics(db: DbLike, opts: { to?: string; days?: n
 
   /* ── 需要注意（現在）── */
   const attention: Analytics["attention"] = [];
-  const base = `SELECT l.id AS lead_id, c.display_name AS contact, COALESCE(u.name,'未指派') AS staff, COALESCE(v.brand || ' ' || v.model,'') AS vehicle
+  const base = `SELECT l.id AS lead_id, COALESCE(NULLIF(c.pseudonym,''), c.display_name) AS contact, COALESCE(u.name,'未指派') AS staff, COALESCE(v.brand || ' ' || v.model,'') AS vehicle
                   FROM leads l JOIN contacts c ON c.id = l.contact_id LEFT JOIN users u ON u.id = l.staff_id LEFT JOIN vehicles v ON v.id = l.vehicle_id`;
   const openOnly = `l.outcome = '' AND NOT EXISTS (SELECT 1 FROM funnel_events z WHERE z.lead_id = l.id AND z.type IN ('SOLD','LOST') AND z.confidence <> 'POSSIBLE')`;
   const push = (kind: string, rows: Row[], reason: (r: Row) => string) => { for (const r of rows) attention.push({ kind, lead_id: num(r["lead_id"]), contact: String(r["contact"]), staff: String(r["staff"]), vehicle: String(r["vehicle"]), since: String(r["since"] ?? ""), reason: reason(r) }); };

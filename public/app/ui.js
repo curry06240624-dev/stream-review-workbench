@@ -136,3 +136,40 @@ export function drawChart(cv, chart) {
   });
   return new Chart(cv, { type: chart.type || "bar", data: { labels: chart.labels, datasets }, options: chartOpts() });
 }
+
+/* ── 員工效能／決策中心／流失原因 共用 ── */
+export const FEAT = {
+  first_response_min: { label: "首次回覆時間", unit: "min", goodIsUp: false }, median_response_min: { label: "回覆中位數", unit: "min", goodIsUp: false },
+  followup_24h_rate: { label: "沉默後 24 小時內跟進", unit: "rate", goodIsUp: true }, asked_after_price: { label: "報價後接一個問題", unit: "rate", goodIsUp: true },
+  objection_clarified: { label: "價格異議後先釐清", unit: "rate", goodIsUp: true }, proposed_after_intent: { label: "高意圖後主動約看車", unit: "rate", goodIsUp: true },
+  fin_answered: { label: "貸款問題給具體答案", unit: "rate", goodIsUp: true }, postvisit_24h: { label: "到店後 24 小時內跟進", unit: "rate", goodIsUp: true },
+  budget_clarified: { label: "開場就問預算", unit: "rate", goodIsUp: true }, opening_question: { label: "開場第一句就問問題", unit: "rate", goodIsUp: true },
+  reactivated_by_staff: { label: "沉默客戶被叫回來", unit: "rate", goodIsUp: true }, escalated: { label: "找主管或同事協助", unit: "rate", goodIsUp: true },
+  questions_per_msg: { label: "每則訊息的提問率", unit: "rate", goodIsUp: true }, discount_pct: { label: "成交折讓（佔定價）", unit: "pct", goodIsUp: false },
+};
+export const fmtMin = (v) => (v == null ? "—" : v >= 120 ? `${Math.round(v / 60)} 小時` : `${Math.round(v)} 分鐘`);
+export const fmtFeat = (key, v) => { const u = FEAT[key]?.unit || "rate"; return v == null ? "—" : u === "min" ? fmtMin(v) : pct(v); };
+/** 指標（比例或數值）帶樣本；沒達門檻顯示「資料不足」但仍附 k/n */
+export function mval(m, fmt) {
+  if (!m) return "—";
+  const isRate = "rate" in m, v = isRate ? m.rate : m.value;
+  const val = fmt ? fmt(v) : isRate ? pct(v) : (v == null ? "—" : num(v));
+  const n = isRate ? `${m.k}/${m.n}` : `n=${m.n}`;
+  return m.ok ? `${val} <span class="ins">${n}</span>` : `<span class="faint">資料不足</span> <span class="ins">${n}</span>`;
+}
+export const PRIO = { high: "緊急", medium: "中等", low: "低" };
+export const prioChip = (p) => chip(PRIO[p] || p, p === "high" ? "amber" : "");
+/** 一群員工的同一指標池化（比例 k/n 相加；數值取中位數） */
+export function poolGroup(list, key) {
+  const ms = list.map((s) => s.behaviors?.[key]).filter(Boolean);
+  if (!ms.length) return { value: null, n: 0 };
+  if ("rate" in ms[0]) { const k = ms.reduce((a, m) => a + m.k, 0), n = ms.reduce((a, m) => a + m.n, 0); return { value: n ? k / n : null, n }; }
+  const vals = ms.map((m) => m.value).filter((v) => v != null).sort((a, b) => a - b); const mid = Math.floor(vals.length / 2);
+  return { value: vals.length ? (vals.length % 2 ? vals[mid] : (vals[mid - 1] + vals[mid]) / 2) : null, n: ms.reduce((a, m) => a + m.n, 0) };
+}
+export const heatStyle = (rate, flag) => { if (rate == null) return ""; const a = Math.min(0.55, 0.08 + rate * 0.6); return flag ? `background:rgba(233,164,69,${a.toFixed(2)})` : `background:rgba(154,166,180,${(a * 0.45).toFixed(2)})`; };
+export const roleLabel = (r) => ({ primary: "主要業務", supporting: "支援", manager: "主管介入", handoff_from: "交出", handoff_to: "接手", reactivation: "回流貢獻" }[r] || r);
+export const LOSS = { price_resistance: "價格抗拒", financing: "貸款問題", vehicle_mismatch: "車款不符", vehicle_condition: "車況疑慮", trade_in: "舊車折抵談不攏", timing: "時機未到", family: "家人決定", bought_elsewhere: "別家買了", no_stock: "無車可賣", slow_response: "業務回覆太慢", weak_followup: "跟進不足", no_show: "預約爽約", stopped_replying: "客戶停止回覆", browsing: "隨便看看", negotiation_failed: "議價破局", other: "其他", unclear: "不明／證據不足" };
+export const lossLabel = (k) => LOSS[k] || k || "—";
+export const DRIVER = { customer: "客戶面", process: "流程面", unclear: "不明" };
+export const STAGE_TXT = { new: "新進線", interest: "車款興趣", discussion: "有來有往", price: "報價", appointment: "預約", visit: "到店", negotiation: "議價" };

@@ -175,7 +175,7 @@ export async function computeStaffReport(db: DbLike, opts: { days?: number; to?:
     const prevF = funnelOf(leadsPrev);
     staff.push({
       id: uid, name: String(u["name"]), team: String(u["team"]),
-      context: { leads: leadsP.length, open: open.length, closed: leadsP.filter((l) => !!l["outcome"]).length, median_list_price: median(prices), band: BAND(median(prices)), bands, first_seen: firstSeenBy.get(uid) ?? null, peer_note: "" },
+      context: { leads: leadsP.length, open: leadsP.filter((l) => !l["outcome"]).length, closed: leadsP.filter((l) => !!l["outcome"]).length, median_list_price: median(prices), band: BAND(median(prices)), bands, first_seen: firstSeenBy.get(uid) ?? null, peer_note: "" },
       activity: { first_response: NM(fr, MIN_N.response), response: NM(rp, MIN_N.response), followup_24h: beh["followup_24h_rate"] as Metric, stale, handoffs_out: roleLeads("handoff_from").length, handoffs_in: roleLeads("handoff_to").length,
         reactivations: reactLeads.length, reactivation_rate: M(reactLeads.length, inactiveLeads.length, MIN_N.reactivation), supported: supportedLeads.length, manager_interventions: managerOn, cross_team_support: crossTeam, active_conversations: activeConv },
       funnel: funnelOf(leadsP),

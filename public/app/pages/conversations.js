@@ -1,6 +1,6 @@
 /* 對話與證據：左清單／中時間軸（事件插在訊息之間、證據高亮）／右 AI 分析（事實與假設分開）。 */
 import { api } from "../api.js";
-import { h, raw, esc, fmtDT, fmtD, ago, chipStage, chip, chipClaim, chipConf, bubble, eventMark, EVENT, CONF, STAGE, wan, toast } from "../ui.js";
+import { h, raw, esc, fmtDT, fmtD, ago, chipStage, chip, chipClaim, chipConf, bubble, eventMark, EVENT, CONF, STAGE, wan, toast, lossLabel, DRIVER, roleLabel, lostReason } from "../ui.js";
 
 const FLAG = { price_dropoff: "價格後流失", high_intent: "高意圖", financing: "貸款未回", insights: "有洞察的" };
 
@@ -50,6 +50,7 @@ function threadHtml(d) {
   const notes = new Map();   // message_id → note（事件證據＋洞察證據）
   for (const e of d.events) for (const x of e.evidence) if (x.message_id && !notes.has(x.message_id)) notes.set(x.message_id, x.note || EVENT[e.type]);
   for (const i of d.insights) for (const x of i.evidence) if (x.message_id && !notes.has(x.message_id)) notes.set(x.message_id, x.note || i.title);
+  if (d.loss) for (const x of d.loss.evidence || []) if (x.message_id && !notes.has(x.message_id)) notes.set(x.message_id, `流失證據：${x.note}`);
   // 事件與訊息合併成一條時間軸；同一時間事件排在訊息後面
   const items = [...d.messages.map((m) => ({ t: Date.parse(m.created_at), k: 0, m })), ...d.events.filter((e) => !["NEW_LEAD", "VEHICLE_INTEREST", "ACTIVE_DISCUSSION"].includes(e.type)).map((e) => ({ t: Date.parse(e.at), k: 1, e }))]
     .sort((a, b) => a.t - b.t || a.k - b.k);
@@ -78,7 +79,7 @@ function sideHtml(d) {
   if (drop) facts.push(`報價後客戶${drop.detail?.pattern === "silent" ? "沒有再回覆" : drop.detail?.pattern === "objection_then_silent" ? "先異議、之後沉默" : "回覆明顯變慢"}（價格後流失 · ${CONF[drop.confidence]}）。`);
   if (fus) facts.push(`業務主動跟進 ${fus} 次。`);
   if (sold) facts.push(`${fmtD(sold.at)} 成交${sold.detail?.gross_profit != null ? `，毛利 ${wan(sold.detail.gross_profit)}` : ""}。`);
-  else if (lost) facts.push(`${lost.detail?.inferred ? `沉默 ${lost.detail.silent_days} 天，推定流失` : `${fmtD(lost.at)} 流失${lost.detail?.reason ? `（${lost.detail.reason}）` : ""}`}。`);
+  else if (lost) facts.push(`${lost.detail?.inferred ? `沉默 ${lost.detail.silent_days} 天，推定流失` : `${fmtD(lost.at)} 流失${lost.detail?.reason ? `（${lostReason(lost.detail.reason)}）` : ""}`}。`);
   else if (inactive) facts.push(`客戶已沉默 ${inactive.detail?.silent_days ?? "7+"} 天。`);
 
   /* 假設：解讀，標明 */
@@ -103,9 +104,12 @@ function sideHtml(d) {
   return `<div class="kv"><div>客戶</div><div><b>${esc(L.pseudonym)}</b> <span class="faint">${esc(L.display_name)}</span></div>
       <div>分級</div><div>${esc(L.grade)}</div><div>首次進線</div><div>${fmtD(L.first_contact_at || L.opened_at)}</div>
       <div>車款</div><div>${esc(L.vehicle || "—")}${L.list_price ? ` <span class="faint">${wan(L.list_price)}</span>` : ""}</div>
-      <div>業務</div><div>${esc(L.staff || "未指派")}</div><div>階段</div><div>${chipStage(L.stage)} ${L.outcome ? chip({ sold: "已成交", lost: "已流失" }[L.outcome], L.outcome === "sold" ? "cyan" : "") : ""}</div></div>
+      <div>業務</div><div>${esc(L.staff || "未指派")}${(d.roles || []).filter((r) => r.role !== "primary").map((r) => ` ${chip(`${roleLabel(r.role)} ${r.staff}`)}`).join("")}</div><div>階段</div><div>${chipStage(L.stage)} ${L.outcome ? chip({ sold: "已成交", lost: "已流失" }[L.outcome], L.outcome === "sold" ? "cyan" : "") : ""}</div></div>
     <div class="aibox linked"><h4>${chipClaim("fact")} 摘要</h4><p>${facts.join("")}</p></div>
     <div class="aibox"><h4>${chipClaim("hypothesis")} 異議與意圖</h4><p>${hypo.join("")}</p></div>
+    ${d.loss ? `<div class="aibox ${d.loss.driver === "process" ? "linked" : ""}"><h4>流失原因 ${d.loss.status === "suspected" ? chip("推定") : ""} ${chipConf(d.loss.confidence)} ${chip(DRIVER[d.loss.driver] || d.loss.driver)}</h4>
+      <p><b>${esc(lossLabel(d.loss.primary_reason))}</b>${d.loss.secondary_reason ? ` · 副因 ${esc(lossLabel(d.loss.secondary_reason))}` : ""}${d.loss.alt_reason ? ` · 替代可能 ${esc(lossLabel(d.loss.alt_reason))}` : ""}</p>
+      <p class="faint" style="margin-top:4px">${esc(d.loss.summary || "")}</p></div>` : ""}
     <div class="aibox"><h4>建議下一步</h4><ul>${next.map((t) => `<li>${esc(t)}</li>`).join("")}</ul>
       ${proposed.filter((a) => a.status === "proposed").map((a) => `<div class="row-actions" style="margin-top:6px"><button class="btn sm primary" data-act="${a.id}" data-st="approved">核准</button><button class="btn sm" data-act="${a.id}" data-st="dismissed">駁回</button></div>`).join("")}</div>
     <div class="aibox"><h4>出現在哪些洞察</h4>${d.insights.length ? `<ul>${d.insights.map((i) => `<li><a href="/insights/${i.id}" data-link>#${i.id} ${esc(i.title)}</a></li>`).join("")}</ul>` : '<p class="faint">沒有。</p>'}</div>

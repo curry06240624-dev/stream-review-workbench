@@ -1,14 +1,15 @@
 /* CEO 總覽：30 秒內回答「現在最需要我處理什麼」。極簡：簡報 → 洞察卡 → 漏斗快照 → 四格 → 需要注意前 5。 */
 import { api } from "../api.js";
-import { h, raw, esc, pct, nt, num, delta, insightCard, kpi, funnelStrip, periodSeg, ago, chip, toast } from "../ui.js";
+import { h, raw, esc, pct, nt, num, delta, insightCard, kpi, funnelStrip, periodSeg, ago, chip, toast, lostReason, fmtMin, fmtD } from "../ui.js";
 
 const KIND = { high_intent_no_followup: "急迫未跟進", price_dropoff_no_followup: "報價後未跟進", booked_but_no_visit: "預約已過未到店", financing_unresolved: "貸款未回覆" };
 const linkify = (s) => esc(s).replace(/#(\d+)/g, (_, id) => `<a href="/insights/${id}" data-link>#${id}</a>`);
 
 export async function render(el, ctx) {
   const days = Number(ctx.query.days || 7);
-  const [a, ins, br, se] = await Promise.all([
+  const [a, ins, br, se, de, ma] = await Promise.all([
     api(`/api/analytics?days=${days}`), api("/api/insights"), api("/api/brief"), api("/api/series?weeks=8"),
+    api("/api/decisions?days=30"), api("/api/mgmt-actions"),
   ]);
   if (!a.ok) { el.innerHTML = `<div class="empty">${esc(a.message || "沒有權限看全公司數字。")}</div>`; return; }
   const weeks = se.weeks || [];
@@ -37,6 +38,22 @@ export async function render(el, ctx) {
   const attention = a.attention.slice(0, 5);
   const isAdmin = ctx.me?.role === "admin";
 
+  /* ── 最重要的問題（人／客戶／漏斗／獲利）：來自決策卡與分析層，點進去就是那一頁 ── */
+  const PAIR_LABEL = { price_to_booking: "報價→預約", booking_to_visit: "預約→到店", visit_to_sold: "到店→成交" };
+  const cards = de.ok ? de.cards : [], mActs = ma.ok ? ma.actions : [];
+  const cardBy = (...ks) => cards.find((x) => ks.includes(x.kind));
+  const coach = cardBy("coach"), pricing = cardBy("review_pricing"), lossCard = cards.find((x) => x.key.startsWith("loss_"));
+  const tPeople = coach ? { title: coach.title, href: "/decisions", warn: true } : (de.ok && de.watch && de.watch[0] ? { title: `${de.watch[0].name}：${de.watch[0].issue.text.split("（")[0]}`, href: `/staff/${de.watch[0].staff_id}`, warn: true } : null);
+  const tCust = lossCard ? { title: lossCard.title, href: "/loss", warn: true } : (d.lost ? { title: `本期流失 ${d.lost} 台${d.lost_reasons[0] ? `，最多「${lostReason(d.lost_reasons[0].reason)}」` : ""}`, href: "/loss" } : null);
+  const tFunnel = weakest ? { title: `${PAIR_LABEL[weakest[0]] || weakest[0]} ${pct(weakest[1].rate)} 是最弱的一段（n=${weakest[1].n}）`, href: "/funnel" } : null;
+  const tProfit = pricing ? { title: pricing.title, href: "/decisions", warn: true } : { title: d.below_cost ? `${d.below_cost} 筆成交低於成本` : `毛利率 ${pct(d.gp_margin)}、毛利 ${nt(d.gross_profit)}`, href: "/deals", warn: !!d.below_cost };
+  const tile = (hd, x) => x ? `<a class="tile ${x.warn ? "warn" : ""}" href="${esc(x.href)}" data-link><div class="h">${hd}</div><div class="t">${esc(x.title)}</div><div class="m"><span class="sp"></span><span style="color:var(--cyan)">查看 ›</span></div></a>` : `<div class="tile"><div class="h">${hd}</div><div class="t faint">目前沒有明顯問題</div></div>`;
+  const tilesHtml = `<section><div class="ph" style="margin-bottom:6px"><h3 class="muted" style="margin:0;font-weight:500;letter-spacing:.06em">最重要的問題</h3><a href="/decisions" data-link class="faint">決策中心 ›</a></div><div class="tiles">${tile("人", tPeople)}${tile("客戶", tCust)}${tile("漏斗", tFunnel)}${tile("獲利", tProfit)}</div></section>`;
+  const fmtSnap = (x) => (x.value == null ? "—" : x.key === "first_response" ? fmtMin(x.value) : (x.key === "gp" || x.key === "avg_gp") ? nt(x.value) : String(x.key).startsWith("loss:") ? `${x.value} 位` : pct(x.value));
+  const openActs = mActs.filter((x) => x.status === "approved"), doneActs = mActs.filter((x) => x.status === "done");
+  const actHtml = `<section class="panel"><h3>行動狀態 <span class="faint" style="letter-spacing:0;font-weight:400">${openActs.length} 個進行中 · ${doneActs.length} 個完成</span><span class="sp"></span><a href="/decisions" data-link style="font-weight:400;letter-spacing:0">管理行動中心 ›</a></h3>
+    ${openActs.length ? `<ul class="acts">${openActs.slice(0, 3).map((x) => `<li class="act"><span class="txt"><b>${esc(x.title)}</b> <span class="faint">${esc(x.staff_name || "團隊")} · 期限 ${fmtD(x.due_at)}</span></span><span class="faint">${x.progress && x.progress.before && x.progress.before.value != null ? `${fmtSnap(x.progress.before)} → ${x.progress.after ? fmtSnap(x.progress.after) : "—"}` : "還沒有基準"}</span></li>`).join("")}</ul>` : '<div class="empty">還沒有進行中的管理行動。從決策中心的卡片建立。</div>'}</section>`;
+
   el.innerHTML = h`<div class="wrap stack">
     <div class="ph"><h1>CEO 總覽</h1><span class="faint">最近 ${days} 天 · 對照前 ${days} 天</span><span class="sp"></span>${raw(periodSeg(days, (dd) => ctx.nav(`/overview?days=${dd}`)))}
       ${isAdmin ? raw('<button class="btn sm" id="rerun" style="margin-left:10px">重新分析</button>') : ""}</div>
@@ -45,6 +62,7 @@ export async function render(el, ctx) {
       ${raw(briefLines.map(([k, v]) => `<p><b>${esc(k)}</b>${linkify(v)}</p>`).join(""))}
     </section>
 
+    ${raw(tilesHtml)}
     <section>${insights.length ? raw(`<div class="cards">${insights.map((i) => insightCard(i)).join("")}</div>`) : raw('<div class="panel empty">目前沒有成立的洞察。按「重新分析」或匯入資料。</div>')}</section>
 
     <section class="panel"><h3>漏斗快照 <span class="sp"></span><a href="/funnel" data-link style="font-weight:400;letter-spacing:0">完整漏斗 ›</a></h3>${raw(funnelStrip(stages, { slim: true, bottleneck }))}</section>
@@ -62,6 +80,7 @@ export async function render(el, ctx) {
           <td>${chip(KIND[x.kind] || x.kind, x.kind === "high_intent_no_followup" ? "amber" : "")}</td><td class="muted">${esc(x.reason)}</td></tr>`).join("")}</tbody></table>`)
         : raw('<div class="empty">沒有需要注意的客戶。</div>')}
     </section>
+    ${raw(actHtml)}
   </div>`;
 
   el.querySelectorAll("tr[data-href]").forEach((tr) => tr.addEventListener("click", () => ctx.nav(tr.dataset.href)));

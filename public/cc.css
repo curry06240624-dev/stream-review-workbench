@@ -223,3 +223,43 @@ a.stat{display:block; color:var(--text)} a.stat:hover{border-color:var(--line-2)
 .acts .act:last-child{border-bottom:0}
 .acts .act .txt{flex:1; min-width:200px}
 .acts .act a b{color:var(--text)}
+
+/* ── 員工效能／決策中心／流失原因 ── */
+.two{display:grid; grid-template-columns:minmax(0,2fr) minmax(0,1fr); gap:14px; align-items:start}
+.tiles{display:grid; grid-template-columns:repeat(4,1fr); gap:12px}
+.tile{background:var(--layer); border:1px solid var(--line); border-radius:var(--r-sm); padding:12px 14px; min-height:96px; display:flex; flex-direction:column; gap:6px; color:var(--text)}
+.tile .h{font-size:12px; color:var(--muted); letter-spacing:.06em}
+.tile .t{font-size:13.5px; line-height:1.5}
+.tile .m{display:flex; align-items:center; gap:8px; margin-top:auto; font-size:12px; color:var(--faint)}
+.tile.warn{border-left:2px solid var(--amber)} a.tile:hover{border-color:var(--line-2)}
+.pcard{background:var(--layer); border:1px solid var(--line); border-radius:var(--r-sm); padding:12px 14px; position:relative; display:flex; flex-direction:column; gap:6px}
+.pcard .rank{position:absolute; top:10px; right:12px; font-family:var(--mono); font-size:12px; color:var(--faint)}
+.pcard h4{margin:0; font-size:15px; font-weight:600}
+.pcard .why{font-size:12.5px; color:var(--muted); line-height:1.5}
+.pcard .g3{display:grid; grid-template-columns:repeat(3,1fr); gap:3px 10px; font-size:12.5px}
+.pcard .g3 span{color:var(--muted)} .pcard .g3 b{font-weight:500}
+.pcard.watch{border-left:2px solid var(--amber)}
+.pcard .foot{display:flex; gap:10px; align-items:center; margin-top:4px; font-size:12.5px; flex-wrap:wrap}
+.dcard{background:var(--layer); border:1px solid var(--line); border-radius:var(--r-sm); padding:14px 16px; display:flex; flex-direction:column; gap:6px}
+.dcard.high{border-left:2px solid var(--amber)}
+.dcard h4{margin:0; font-size:14.5px; font-weight:600; line-height:1.4}
+.dcard .r4 div{font-size:12.5px; line-height:1.55; margin:2px 0}
+.dcard .r4 b{color:var(--muted); font-weight:500; margin-right:6px}
+.dcard .btns{display:flex; gap:8px; margin-top:6px; flex-wrap:wrap}
+.cmp td.dn{color:var(--amber)} .cmp .ins{display:block}
+.ins{color:var(--faint); font-size:11px; font-family:var(--mono)}
+.heat td.c{border-radius:4px; text-align:right}
+.ba{border:1px solid var(--line); border-radius:var(--r-sm); overflow:hidden}
+.ba > div{padding:8px 12px; border-top:1px solid var(--line); font-size:13px; line-height:1.55}
+.ba > div:first-child{border-top:0}
+.ba .l{font-size:11px; color:var(--muted); letter-spacing:.06em; display:block; margin-bottom:2px}
+.ba .sug{background:var(--cyan-dim)} .ba .iss{background:var(--amber-dim)}
+.plan ol{margin:0; padding-left:18px; font-size:13px; line-height:1.6}
+.plan li{margin:6px 0}
+.plan .why{color:var(--muted); font-size:12.5px; display:block}
+.pat{display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--line); font-size:13px; flex-wrap:wrap}
+.pat:last-child{border-bottom:0} .pat .who{color:var(--muted); flex:1; min-width:120px}
+.lossrow{display:grid; grid-template-columns:1fr auto; gap:6px 12px; align-items:center; padding:6px 0; border-bottom:1px solid var(--line); font-size:13px}
+.lossrow:last-child{border-bottom:0}
+.bar{height:6px; background:var(--surface); border-radius:3px; overflow:hidden} .bar i{display:block; height:100%; background:var(--muted)} .bar i.warn{background:var(--amber)}
+@media (max-width:1100px){ .two{grid-template-columns:1fr} .tiles{grid-template-columns:repeat(2,1fr)} }

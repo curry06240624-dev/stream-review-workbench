@@ -6,6 +6,7 @@ const ROUTES = [
   ["/overview", "overview"], ["/funnel", "funnel"], ["/attention", "attention"],
   ["/conversations", "conversations"], ["/conversations/:id", "conversations"],
   ["/insights/:id", "insight"], ["/appointments", "appointments"], ["/deals", "deals"],
+  ["/staff", "staff"], ["/staff/:id", "staffProfile"], ["/decisions", "decisions"], ["/loss", "loss"],
   ["/ask", "ask"], ["/data", "data"],
 ];
 const PAGES = {};
@@ -17,7 +18,7 @@ function match(path) {
     if (pp.length !== xx.length) continue;
     const params = {}; let ok = true;
     for (let i = 0; i < pp.length; i++) { if (pp[i].startsWith(":")) params[pp[i].slice(1)] = decodeURIComponent(xx[i]); else if (pp[i] !== xx[i]) { ok = false; break; } }
-    if (ok) return { mod, params, key: mod === "insight" ? "conversations" : mod };
+    if (ok) return { mod, params, key: mod === "insight" ? "conversations" : mod === "staffProfile" ? "staff" : mod };
   }
   return null;
 }
