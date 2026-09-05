@@ -30,7 +30,7 @@ export async function render(el, ctx) {
       </div>
       ${raw(listHtml)}
     </section>
-    <section class="panel" id="thread">${cur ? raw(threadHtml(detail)) : '<div class="empty" style="text-align:center;padding:80px 0">從左邊選一位客戶，看完整對話與系統偵測到的事件。</div>'}</section>
+    <section class="panel" id="thread">${raw(cur ? threadHtml(detail) : '<div class="empty" style="text-align:center;padding:80px 0">從左邊選一位客戶，看完整對話與系統偵測到的事件。</div>')}</section>
     <section class="panel" id="side">${cur && detail?.ok ? raw(sideHtml(detail)) : ""}</section>
   </div>`;
 
