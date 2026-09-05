@@ -163,10 +163,20 @@ export class AppDB extends DurableObject {
      Worker→DO 每一次查詢都算一次 subrequest（免費方案一次呼叫上限 1000）；
      匯入 1,344 則訊息、或跑 144 個 lead 的漏斗，在 Worker 端會直接爆
      「Too many API requests by single Worker invocation」。搬進 DO 就是本地呼叫，沒有這個上限。 */
-  async importLocal(bundle, opts) { return importBundle(this, bundle, opts); }
-  async funnelLocal(opts) { return runFunnel(this, opts); }
+  /* ── 讀取快取：DO 免費方案每天 500 萬列讀取；員工報表一次讀幾萬列、每頁又叫好幾次（2026-09-05 就撞到
+        「Exceeded allowed rows read」）。同一小時、同參數直接回記憶體快取；資料一改就清掉。 ── */
+  async cached(key, ttlMs, fn) {
+    this._cache ??= new Map();
+    const hit = this._cache.get(key); if (hit && hit.exp > Date.now()) return hit.value;
+    const value = await fn(); this._cache.set(key, { value, exp: Date.now() + ttlMs }); return value;
+  }
+  bust() { this._cache = new Map(); }
+  reportCached(days, to) { const bucket = to ?? new Date().toISOString().slice(0, 13); return this.cached(`report:${days ?? 30}:${bucket}`, 30 * 60_000, () => computeStaffReport(this, { days, to })); }
+  async importLocal(bundle, opts) { this.bust(); return importBundle(this, bundle, opts); }
+  async funnelLocal(opts) { this.bust(); return runFunnel(this, opts); }
   /** 員工效能／流失原因的三段分析：角色（歸因）→ 行為特徵（要先有角色）→ 流失原因。全部規則、可重跑。 */
   async analyzeLocal(opts) {
+    this.bust();
     const t0 = Date.now();
     const roles = await computeRoles(this, { leadIds: opts.leadIds });
     const behaviors = await computeBehaviors(this, { now: opts.now, leadIds: opts.leadIds });
@@ -174,9 +184,9 @@ export class AppDB extends DurableObject {
     return { roles, behaviors, loss, ms: Date.now() - t0 };
   }
   /* ── 員工效能／流失原因／教練／決策卡／管理行動：重活一律在這裡跑 ── */
-  async staffLocal(opts) { return computeStaffReport(this, opts); }
+  async staffLocal(opts) { return this.reportCached(opts.days, opts.to); }
   async staffProfileLocal(opts) {
-    const report = await computeStaffReport(this, { days: opts.days, to: opts.to });
+    const report = await this.reportCached(opts.days, opts.to);
     const s = report.staff.find((x) => x.id === opts.id); if (!s) return null;
     const last = await this.first("SELECT content, model, created_at FROM coaching_plans WHERE staff_id = ? ORDER BY id DESC LIMIT 1", opts.id);
     let plan = null; if (last && !opts.refresh) { try { plan = JSON.parse(String(last.content)); plan.model = last.model; } catch { plan = null; } }
@@ -190,11 +200,11 @@ export class AppDB extends DurableObject {
     return { staff: s, issues: report.issues[opts.id] ?? [], rankings: ranks, team: report.team, top_ids: report.compare.top_ids, watch_ids: report.compare.watch_ids, plan, leads, roles,
       pairs: report.pairs.filter((p) => p.a_id === opts.id || p.b_id === opts.id), patterns: report.patterns.filter((p) => p.staff.some((x) => x.id === opts.id)).map((p) => ({ key: p.key, label: p.label })), period: report.period, associations: report.associations };
   }
-  async coachingLocal(opts) { const report = await computeStaffReport(this, { days: opts.days, to: opts.to }); return buildCoachingPlan(this, report, opts.id, opts.now); }
-  async decisionsLocal(opts) { const report = await computeStaffReport(this, { days: opts.days, to: opts.to }); return { cards: await computeDecisions(this, report, opts.now), period: report.period, top: report.top.slice(0, 3), watch: report.watch.slice(0, 2) }; }
+  async coachingLocal(opts) { const report = await this.reportCached(opts.days, opts.to); return buildCoachingPlan(this, report, opts.id, opts.now); }
+  async decisionsLocal(opts) { const report = await this.reportCached(opts.days, opts.to); return this.cached(`decisions:${opts.days}:${new Date().toISOString().slice(0, 13)}`, 30 * 60_000, async () => ({ cards: await computeDecisions(this, report, opts.now), period: report.period, top: report.top.slice(0, 3), watch: report.watch.slice(0, 2) })); }
   async lossAggLocal(opts) { return lossAggregate(this, opts); }
-  async baselineLocal(opts) { const report = await computeStaffReport(this, { days: opts.days ?? 30, to: opts.now }); return metricSnapshot(report, opts.metric_key, opts.staff_id ?? null); }
-  async progressLocal(opts) { const a = await this.first("SELECT * FROM actions WHERE id = ?", opts.id); if (!a) return null; return actionProgress(this, a, opts.now); }
+  async baselineLocal(opts) { const report = await this.reportCached(opts.days ?? 30, undefined); return metricSnapshot(report, opts.metric_key, opts.staff_id ?? null); }
+  async progressLocal(opts) { const a = await this.first("SELECT * FROM actions WHERE id = ?", opts.id); if (!a) return null; return this.cached(`progress:${opts.id}:${new Date().toISOString().slice(0, 13)}`, 30 * 60_000, () => actionProgress(this, a, opts.now)); }
   /** 給評測腳本：每個 lead 的角色／流失原因／行為特徵，附對話外部鍵（CV{n} ↔ 標準答案 L{n}） */
   async analyzeDumpLocal() {
     const rows = await this.all(`SELECT l.id, l.outcome, cv.external_id AS conv_key, la.primary_reason, la.secondary_reason, la.confidence AS loss_conf, la.driver, la.stage, la.status AS loss_status, b.features
@@ -211,6 +221,7 @@ export class AppDB extends DurableObject {
   /** 洞察的決定性部分（分析 → 規則推導 → 落庫含證據）。AI 敘事留在 Worker 端做：
       DO 被釘在某個機房，從那裡打 Gemini 會被拒「User location is not supported」（2026-09-04 實測），Worker 端從台灣打就正常。 */
   async insightsLocal(opts) {
+    this.bust();
     const at = opts.now;
     const a = await computeAnalytics(this, { to: opts.to, days: opts.days });
     const cands = deriveInsights(a);
