@@ -21,7 +21,7 @@ const median = (xs: number[]) => { if (!xs.length) return null; const s = [...xs
 const mean = (xs: number[]) => (xs.length ? r3(xs.reduce((a, b) => a + b, 0) / xs.length) : null);
 
 /** 最低樣本：低於這個數就「資料不足」 */
-export const MIN_N = { close: 10, price_continue: 10, appt: 10, appt_visit: 8, visit_sale: 5, gp_per_deal: 3, response: 10, followup: 5, behavior: 5, reactivation: 3, pair: 3, pair_rate: 5 };
+export const MIN_N = { close: 10, price_continue: 10, appt: 10, appt_visit: 8, visit_sale: 5, gp_per_deal: 3, response: 10, followup: 5, behavior: 5, reactivation: 3, pair: 2, pair_rate: 5 };   // 組合：2 件就列、5 件才給比例
 /** Wilson 95% 下界 */
 export function wilsonLow(k: number, n: number, z = 1.96): number {
   if (!n) return 0; const p = k / n; const d = 1 + (z * z) / n; const c = p + (z * z) / (2 * n); const s = z * Math.sqrt((p * (1 - p)) / n + (z * z) / (4 * n * n));
