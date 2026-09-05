@@ -37,8 +37,8 @@ const LEDGER: Record<string, LossReasonKey> = {
 /** 客戶用語（順序＝優先權：越具體越前面） */
 const TXT: Array<[LossReasonKey, RegExp]> = [
   ["slow_response",     /久才回|回太慢|都沒回|怎麼沒回|沒人回/],
-  ["bought_elsewhere",  /別家(買|訂)|跟朋友買|已經(訂|買)了|其他車行/],
-  ["family",            /老婆|老公|家人|爸媽|太太|家裡.*(討論|不同意|反對)|不同意|反對/],
+  ["bought_elsewhere",  /別家|跟朋友買|已經(訂|買)了|其他車行/],
+  ["family",            /(老婆|老公|家人|爸媽|太太|家裡).*(討論|不同意|反對|不讓|說不)|不同意|反對/],   // 「老婆說這週要定」不是家人反對
   ["trade_in",          /舊車估價|折抵|估價差|收購價/],
   ["vehicle_condition", /事故|泡水|里程(太|有點)|底盤|異音|擔心車況|車況.*(擔心|不放心|有問題)/],   // 開場問「車況怎麼樣」不算疑慮
   ["vehicle_mismatch",  /不太適合|空間不夠|太小|太大|不是我要的|想看別款|別的車型|顏色/],
@@ -47,6 +47,7 @@ const TXT: Array<[LossReasonKey, RegExp]> = [
   ["browsing",          /先看看|隨便看|只是看看|沒有要買|參考一下|只是參考/],
   ["timing",            /年底|過年|再等|不急|下個月|明年|還沒決定|再看好了/],
   ["price_resistance",  /預算不夠|太貴|差太多|價格.*(差|高)|超出預算|預算只有|便宜/],
+  ["timing",            /先不換|先不買|不換了|不買了/],                     // 最後才看這種「先不要」：同一句有更具體原因時讓給前面
 ];
 const STAFF_NOSTOCK = /賣掉了|已售|沒有現車|訂走|已經賣/;
 const STAGE_ORDER: Array<[string, string]> = [["NEW_LEAD", "new"], ["VEHICLE_INTEREST", "interest"], ["ACTIVE_DISCUSSION", "discussion"], ["PRICE_MENTIONED", "price"], ["APPOINTMENT_BOOKED", "appointment"], ["STORE_VISIT", "visit"], ["NEGOTIATION", "negotiation"]];
@@ -144,6 +145,7 @@ export function analyzeLoss(c: LossCtx): LossResult {
     alt ? `替代可能 ${LOSS_LABEL[alt]}` : "",
     lastC ? `最後一則客戶訊息後沉默 ${Math.round(silentH / 24)} 天` : "",
   ].filter(Boolean).join("；") + "。";
+  if (c.outcome !== "lost" && (conf === "CONFIRMED" || conf === "STRONGLY_SUGGESTED")) conf = "POSSIBLE";   // 推定流失的原因最多只能「可能」
   return {
     status: c.outcome === "lost" ? "lost" : "suspected", primary, secondary, alt, driver, confidence: conf, stage, summary,
     evidence: evidence.slice(0, 6),
@@ -183,4 +185,35 @@ export async function computeLoss(db: DbLike, opts: { now: string; leadIds?: num
     by[r.primary] = (by[r.primary] ?? 0) + 1; if (r.status === "lost") lost++; else suspected++;
   }
   return { analyzed: leads.length, lost, suspected, by_reason: by };
+}
+
+/* ── 彙總視圖：本期 vs 前期、分項（業務／車款／車型／階段／價格帶／組別）、清單 ── */
+const rateOf = (k: number, n: number) => (n > 0 ? Math.round((k / n) * 1000) / 1000 : null);
+const bandOf = (price: number) => (price <= 0 ? "未知" : price < 800_000 ? "入門（<80 萬）" : price < 1_300_000 ? "中階（80–130 萬）" : "高階（130 萬+）");
+export interface LossGroup { label: string; n: number; top: Array<{ key: string; label: string; k: number; rate: number | null }>; process: number; lead_ids: number[] }
+export async function lossAggregate(db: DbLike, opts: { days?: number; to?: string; reason?: string }) {
+  const days = opts.days ?? 30; const toT = opts.to ? Date.parse(opts.to) : Date.now(); const fromT = toT - days * D, pFromT = fromT - days * D;
+  const rows = await db.all(`SELECT la.lead_id, la.status, la.primary_reason, la.secondary_reason, la.alt_reason, la.driver, la.confidence, la.stage, la.summary, la.closed_at, la.last_customer_at,
+      l.opened_at, l.staff_id, COALESCE(NULLIF(c.pseudonym,''), c.display_name) AS contact, COALESCE(u.name,'未指派') AS staff, COALESCE(t.name,'') AS team,
+      COALESCE(v.brand||' '||v.model,'') AS vehicle, COALESCE(v.body_type,'') AS body_type, COALESCE(v.list_price,0) AS list_price
+     FROM loss_analyses la JOIN leads l ON l.id = la.lead_id JOIN contacts c ON c.id = l.contact_id LEFT JOIN users u ON u.id = l.staff_id LEFT JOIN teams t ON t.id = u.team_id LEFT JOIN vehicles v ON v.id = l.vehicle_id`);
+  const inW = (r: Row, a: number, b: number) => { const t = Date.parse(String(r["closed_at"] || r["opened_at"])); return t >= a && t < b; };
+  const cur = rows.filter((r) => r["status"] === "lost" && inW(r, fromT, toT)), prev = rows.filter((r) => r["status"] === "lost" && inW(r, pFromT, fromT));
+  const suspected = rows.filter((r) => r["status"] === "suspected");
+  const count = (set: Row[]) => { const c: Record<string, number> = {}; for (const r of set) { const k = String(r["primary_reason"]); c[k] = (c[k] ?? 0) + 1; } return c; };
+  const cc = count(cur), pc = count(prev);
+  const L = LOSS_LABEL as Record<string, string>;
+  const reasons = [...new Set([...Object.keys(cc), ...Object.keys(pc)])].map((k) => ({ key: k, label: L[k] ?? k, k: cc[k] ?? 0, prev_k: pc[k] ?? 0, rate: rateOf(cc[k] ?? 0, cur.length), delta: (cc[k] ?? 0) - (pc[k] ?? 0), process: (PROCESS_REASONS as string[]).includes(k) })).sort((a, b) => b.k - a.k);
+  const driver = { customer: cur.filter((r) => r["driver"] === "customer").length, process: cur.filter((r) => r["driver"] === "process").length, unclear: cur.filter((r) => r["driver"] === "unclear").length };
+  const dims: Record<string, (r: Row) => string> = { staff: (r) => String(r["staff"]), vehicle: (r) => String(r["vehicle"] || "未知"), body: (r) => String(r["body_type"] || "未分類"), stage: (r) => STAGE_LABEL[String(r["stage"])] ?? String(r["stage"]), band: (r) => bandOf(num(r["list_price"])), team: (r) => String(r["team"] || "未分組") };
+  const by: Record<string, LossGroup[]> = {};
+  for (const [dim, f] of Object.entries(dims)) {
+    const g = new Map<string, Row[]>(); for (const r of cur) { const k = f(r); if (!g.has(k)) g.set(k, []); g.get(k)!.push(r); }
+    by[dim] = [...g.entries()].map(([label, set]) => { const c = count(set); return { label, n: set.length, top: Object.entries(c).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([key, k]) => ({ key, label: L[key] ?? key, k, rate: rateOf(k, set.length) })), process: set.filter((r) => r["driver"] === "process").length, lead_ids: set.slice(0, 8).map((r) => num(r["lead_id"])) }; }).sort((a, b) => b.n - a.n);
+  }
+  const shape = (r: Row) => ({ lead_id: num(r["lead_id"]), contact: String(r["contact"]), staff: String(r["staff"]), team: String(r["team"]), vehicle: String(r["vehicle"]), list_price: num(r["list_price"]), stage: String(r["stage"]), stage_label: STAGE_LABEL[String(r["stage"])] ?? String(r["stage"]),
+    reason: String(r["primary_reason"]), reason_label: L[String(r["primary_reason"])] ?? String(r["primary_reason"]), secondary: String(r["secondary_reason"] || ""), secondary_label: r["secondary_reason"] ? (L[String(r["secondary_reason"])] ?? String(r["secondary_reason"])) : "", alt_label: r["alt_reason"] ? (L[String(r["alt_reason"])] ?? String(r["alt_reason"])) : "",
+    driver: String(r["driver"]), confidence: String(r["confidence"]), summary: String(r["summary"]), closed_at: r["closed_at"] ?? null, last_customer_at: r["last_customer_at"] ?? null, status: String(r["status"]) });
+  const list = (opts.reason ? cur.filter((r) => r["primary_reason"] === opts.reason) : cur).sort((a, b) => String(b["closed_at"]).localeCompare(String(a["closed_at"]))).slice(0, 60).map(shape);
+  return { period: { from: new Date(fromT).toISOString(), to: new Date(toT).toISOString(), days }, totals: { lost: cur.length, prev: prev.length, suspected: suspected.length }, reasons, driver, by, list, suspected: suspected.slice(0, 30).map(shape) };
 }

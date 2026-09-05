@@ -3,7 +3,7 @@
 import { api } from "../api.js";
 import { esc, chip, drawChart } from "../ui.js";
 
-const EXAMPLES = ["為什麼這週報價後客戶都不回？", "哪個業務報價後流失最多？", "今天我該先處理誰？", "預約到店的狀況怎麼樣？", "這個月成交和毛利如何？", "哪台車詢問最多但最少成交？"];
+const EXAMPLES = ["為什麼這週報價後客戶都不回？", "我們最好的業務做了什麼不一樣？", "這週客戶為什麼沒買？", "今天我該做什麼決定？", "阿凱該怎麼改進他的客戶訊息？", "哪個行為值得教全隊？"];
 const ROLE = { ceo: "老闆", manager: "主管", staff: "業務" };
 
 export async function render(el, ctx) {
@@ -31,7 +31,7 @@ export async function render(el, ctx) {
 }
 
 function answerHtml(a) {
-  const lbl = (c) => `<span class="lbl ${c === "hypothesis" ? "h" : ""}">${c === "hypothesis" ? "假設" : "事實"}</span>`;
+  const lbl = (c) => `<span class="lbl ${c === "hypothesis" ? "h" : ""}">${c === "hypothesis" ? "假設" : c === "correlation" ? "關聯" : "事實"}</span>`;
   return `<div class="ans">
     <section><h4>結論 <span class="faint" style="letter-spacing:0;font-weight:400">· ${a.mode === "ai" ? "AI 敘述，數字經事實包核對" : "規則版"} · 最近 ${a.period.days} 天</span></h4><p>${esc(a.conclusion)}</p></section>
     <section><h4>關鍵數據</h4><div class="chips">${a.numbers.map((n) => `<a ${n.href ? `href="${esc(n.href)}" data-link` : ""}>${esc(n.label)} <b>${esc(n.value)}</b>${n.sub ? ` <span class="faint">${esc(n.sub)}</span>` : ""}</a>`).join("")}</div></section>
@@ -40,6 +40,7 @@ function answerHtml(a) {
     ${a.leads.length ? `<section><h4>受影響客戶 <span class="faint" style="letter-spacing:0;font-weight:400">· ${a.leads.length} 位</span></h4><ul class="acts">${a.leads.map((l) => `<li class="act"><a href="/conversations/${l.id}" data-link><b>${esc(l.contact)}</b></a><span class="muted">${esc(l.staff)}</span><span class="muted">${esc(l.vehicle)}</span><span class="faint txt">${esc(l.note)}</span></li>`).join("")}</ul></section>` : ""}
     ${a.evidence.length ? `<section><h4>證據</h4><div class="chips">${a.evidence.map((e) => `<a href="/insights/${e.id}" data-link>#${e.id} ${esc(e.title)}</a>`).join("")}</div></section>` : ""}
     ${a.actions.length ? `<section><h4>建議行動</h4><ul style="margin:0;padding-left:0;list-style:none">${a.actions.map((x) => `<li style="margin:4px 0">${chip(ROLE[x.owner_role] || x.owner_role)} ${esc(x.text)}</li>`).join("")}</ul></section>` : ""}
+    ${a.extras?.length ? a.extras.map((x) => `<section><h4>${esc(x.title)}${x.href ? ` <a href="${esc(x.href)}" data-link class="faint" style="letter-spacing:0;font-weight:400">開啟 ›</a>` : ""}</h4>${x.lines.map((l) => `<p style="font-size:13.5px">${esc(l)}</p>`).join("")}</section>`).join("") : ""}
     <section><details><summary>我怎麼算的</summary><ul class="muted" style="font-size:13px;margin:8px 0 0;padding-left:18px;line-height:1.7">${a.how.map((s) => `<li>${esc(s)}</li>`).join("")}</ul></details></section>
     ${a.suggest?.length ? `<div class="ex" style="margin:14px 0 0">${a.suggest.map((q) => `<button data-q="${esc(q)}">${esc(q)}</button>`).join("")}</div>` : ""}
   </div>`;

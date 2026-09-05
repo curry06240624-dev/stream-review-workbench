@@ -11,6 +11,7 @@
 import type { Analytics } from "./analytics.ts";
 import type { DbLike } from "../adapters/import.ts";
 import type { BriefContent } from "../model/types.ts";
+import type { CoachingPlan } from "./coaching.ts";
 
 type Row = Record<string, unknown>;
 interface Env { GEMINI_API_KEY?: string; GEMINI_MODEL?: string; }
@@ -144,4 +145,25 @@ function templateBrief(a: Analytics, insights: Row[]): BriefContent {
     do_today: a.attention.find((x) => x.kind === "high_intent_no_followup") ? `先把 ${a.attention.filter((x) => x.kind === "high_intent_no_followup").length} 位急迫但沒人跟進的客戶分回給業務，今天回。` : sec ? `處理 #${sec["id"]}。` : "看一遍需要注意清單。",
     insight_ids: insights.slice(0, 3).map((i) => Number(i["id"])),
   };
+}
+
+/* ── 教練計畫潤稿：只改寫建議句與範例訊息的語氣；數字白名單照舊，不准新增數字；失敗就留規則版 ── */
+export async function polishCoaching(env: Env, plan: CoachingPlan): Promise<CoachingPlan> {
+  if (!env.GEMINI_API_KEY || (!plan.changes.length && !plan.message_examples.length)) return plan;
+  const allowed = numbersIn(JSON.stringify(plan));
+  const prompt = `你是中古車公司的銷售教練。下面是系統從對話算出來的教練建議（規則版）。請用繁體中文、像資深主管跟業務講話的語氣改寫：
+  - "changes"：每條建議改寫成更具體、可執行的一句話（保留原意，不新增任何數字或百分比）
+  - "examples"：每則建議訊息改寫成更自然的 LINE 口吻（台灣中古車業務的語氣，可用「!!」「～」），價格與數字不能改
+嚴格輸出 JSON：{"changes":["…"],"examples":["…"]}，陣列長度要跟輸入一樣。
+【建議】${JSON.stringify(plan.changes.map((c) => c.text))}
+【範例訊息】${JSON.stringify(plan.message_examples.map((e) => e.suggested))}`;
+  try {
+    const p = await gemini(env, prompt) as { changes?: string[]; examples?: string[] };
+    const out: CoachingPlan = { ...plan, changes: plan.changes.map((c) => ({ ...c })), message_examples: plan.message_examples.map((e) => ({ ...e })) };
+    let used = false;
+    (p.changes ?? []).forEach((t, i) => { const s = String(t).slice(0, 200); const c = out.changes[i]; if (c && s && !violates(s, allowed)) { c.text = s; used = true; } });
+    (p.examples ?? []).forEach((t, i) => { const s = String(t).slice(0, 300); const e = out.message_examples[i]; if (e && s && !violates(s, allowed)) { e.suggested = s; used = true; } });
+    out.model = used ? (env.GEMINI_MODEL || "gemini-3.7-flash") : "template";
+    return out;
+  } catch { return plan; }
 }

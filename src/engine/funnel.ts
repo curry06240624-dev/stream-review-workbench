@@ -110,7 +110,8 @@ export function detectEvents(ctx: Ctx, vehicles: VehicleName[], now: number): De
   const fin = cust.find((m) => RE.financing.test(m.text));
   if (fin) {
     const reply = staff.find((m) => m.at > fin.at && m.at <= fin.at + 24 * H);
-    const resolved = !!reply && RE.finOk.test(reply.text) && !(RE.finWeak.test(reply.text) && !RE.finOk.test(reply.text));
+    const concrete = !!reply && /%|頭期\s*\d|月付大概\s*\d|試算/.test(reply.text);
+    const resolved = !!reply && (concrete || (RE.finOk.test(reply.text) && !RE.finWeak.test(reply.text)));   // 「問一下貸款專員」不算有答
     out.push(ev("FINANCING_QUESTION", fin.at, "CONFIRMED", "rule", { resolved, reply_message_id: reply?.id ?? null }, [{ message_id: fin.id, note: "客戶問貸款/頭期/利率" }, ...(reply ? [{ message_id: reply.id, note: resolved ? "業務給了具體數字或轉專員" : "業務沒有給具體答案" }] : [])]));
   }
 

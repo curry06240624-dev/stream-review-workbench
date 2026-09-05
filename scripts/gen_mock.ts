@@ -32,7 +32,7 @@ const chance = (p: number) => rnd() < p;
 /* ── 時間 ─────────────────────────────────────────────── */
 const MIN = 60_000, H = 60 * MIN, D = 24 * H, TZ = 8 * H;
 const NOW = Date.parse("2026-09-04T12:00:00Z");
-const SPAN_DAYS = 70;                                           // 十週歷史，才有「上週 vs 本週」
+const SPAN_DAYS = 120;                                          // 四個月歷史：30 天窗口有前期可比、每人樣本才夠
 const iso = (t: number) => new Date(t).toISOString();
 const localHour = (t: number) => new Date(t + TZ).getUTCHours();
 const localDow = (t: number) => new Date(t + TZ).getUTCDay();   // 0=日
@@ -229,7 +229,7 @@ function beatPrice(s: Scene): boolean {
   staff(s, fill(pick(PRICE_S), s)); s.expect.add("PRICE_MENTIONED");
   const asked = chance(s.agent.style.askAfterPrice);
   if (asked) staff(s, fill(pick(PRICE_Q_S), s), [1, 8]);
-  s.behaviors["asked_after_price"] = asked;
+  if (s.behaviors["asked_after_price"] === undefined) s.behaviors["asked_after_price"] = asked;   // 引擎看第一次報價
   return asked;
 }
 /** 報價後客戶回預算、往預約走（問了問題的人比較常走到這裡） */
@@ -302,7 +302,7 @@ function beatVisit(s: Scene, at: number, outcome: "bought" | "negotiating" | "le
   const [a, b] = s.agent.style.postVisitH;
   const hours = int(a, b);
   staff(s, fill(pick(AFTER_VISIT_S), s), [hours * 60, hours * 60 + 30]);
-  s.behaviors["postvisit_24h"] = hours <= 24;
+  s.behaviors["postvisit_24h"] = s.t - at <= 24 * H;                       // 用實際時間戳算，跟引擎一致
   cust(s, pick(AFTER_VISIT_C_THINK), [30, 900]);
 }
 function beatNegotiation(s: Scene, rounds: number, agree: boolean): number {
@@ -449,8 +449,9 @@ const truth: TruthLabel[] = [];
 let n = 0;
 const totalW = SCENARIOS.reduce((a, s) => a + s.weight, 0);
 
+const MULT = 3;                                                 // 每個劇本跑三輪：588 位客戶，接近真實一季的量
 for (const sc of SCENARIOS) {
-  for (let i = 0; i < sc.weight; i++) {
+  for (let i = 0; i < sc.weight * MULT; i++) {
     n++;
     const agent = sc.agent ? sc.agent(AGENTS) : pick(AGENTS);
     const car = sc.car ? sc.car() : anyCar();

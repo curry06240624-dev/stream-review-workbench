@@ -11,7 +11,7 @@ import { listContacts, getContact, updateContact } from "./contacts.js";
 import { situation, getSla } from "./situation.js";
 import { listRules, matchRule, tryAutoReply, blockedReason } from "./autoreply.js";
 import { computeAnalytics } from "./engine/analytics.ts";   // 匯入／漏斗／洞察的重活改在 DO 裡跑（見 db.js importLocal/funnelLocal/insightsLocal）
-import { narrateInsights, generateBrief, gemini } from "./engine/ai.ts";   // AI 一律從 Worker 端打（DO 機房會被 Gemini 拒絕）
+import { narrateInsights, generateBrief, gemini, polishCoaching } from "./engine/ai.ts";   // AI 一律從 Worker 端打（DO 機房會被 Gemini 拒絕）
 import { handleViews } from "./routes/views.ts";
 import { answer as askAnswer } from "./engine/ask.ts";
 
@@ -125,6 +125,108 @@ async function route(request, env, db, url) {
     catch (e) { worker = { ok: false, ms: Date.now() - t0, error: String(e && e.message || e).slice(0, 200) }; }
     const fromDo = await db.aiProbe({ GEMINI_API_KEY: env.GEMINI_API_KEY, GEMINI_MODEL: env.GEMINI_MODEL });
     return J({ ok: true, worker_has_key: !!env.GEMINI_API_KEY, model: env.GEMINI_MODEL || "gemini-3.7-flash", worker, durable_object: fromDo });
+  }
+
+  /* ── 員工效能／流失原因／教練／決策卡／管理行動 ── */
+  if (p === "/api/staff" && m === "GET") {
+    const me = await currentUser(request, db);
+    if (!me) return J({ ok: false, error: "not_logged_in" }, 401);
+    if (!canSeeAll(me.role)) return J({ ok: false, message: "員工效能只開放給老闆與主管。" }, 403);
+    const days = Math.min(90, Math.max(7, Number(url.searchParams.get("days") || 30)));
+    const t0 = Date.now(); const r = await db.staffLocal({ days });
+    return J({ ok: true, ms: Date.now() - t0, ...r });
+  }
+  const mSt = p.match(/^\/api\/staff\/(\d+)$/);
+  if (mSt && m === "GET") {
+    const me = await currentUser(request, db);
+    if (!me) return J({ ok: false, error: "not_logged_in" }, 401);
+    const id = Number(mSt[1]);
+    if (!canSeeAll(me.role) && me.id !== id) return J({ ok: false, error: "not_found" }, 404);   // 業務只能看自己
+    const days = Math.min(90, Math.max(7, Number(url.searchParams.get("days") || 30)));
+    const r = await db.staffProfileLocal({ id, days, now: now(), refresh: url.searchParams.get("refresh") === "1" });
+    if (!r) return J({ ok: false, message: "找不到這位員工。" }, 404);
+    return J({ ok: true, ...r });
+  }
+  const mCo = p.match(/^\/api\/coaching\/(\d+)$/);
+  if (mCo && m === "POST") {
+    const me = await currentUser(request, db);
+    if (!me) return J({ ok: false, error: "not_logged_in" }, 401);
+    if (!canSeeAll(me.role)) return J({ ok: false, error: "forbidden" }, 403);
+    const b = await request.json().catch(() => ({}));
+    const id = Number(mCo[1]), at = now(), t0 = Date.now();
+    let plan = await db.coachingLocal({ id, days: Math.min(90, Math.max(7, Number(b.days || 30))), now: at });
+    if (!plan) return J({ ok: false, message: "找不到這位員工。" }, 404);
+    if (b.polish !== false) {
+      const polished = await polishCoaching(env, plan);                       // AI 只潤稿，在 Worker 端
+      if (polished.model !== "template") { plan = polished; await db.run("UPDATE coaching_plans SET content = ?, model = ? WHERE id = (SELECT MAX(id) FROM coaching_plans WHERE staff_id = ?)", JSON.stringify(plan), plan.model, id); }
+    }
+    return J({ ok: true, ms: Date.now() - t0, plan });
+  }
+  if (p === "/api/loss" && m === "GET") {
+    const me = await currentUser(request, db);
+    if (!me) return J({ ok: false, error: "not_logged_in" }, 401);
+    if (!canSeeAll(me.role)) return J({ ok: false, error: "forbidden" }, 403);
+    const days = Math.min(90, Math.max(7, Number(url.searchParams.get("days") || 30)));
+    return J({ ok: true, ...(await db.lossAggLocal({ days, reason: url.searchParams.get("reason") || undefined })) });
+  }
+  const mLo = p.match(/^\/api\/loss\/lead\/(\d+)$/);
+  if (mLo && m === "GET") {
+    const me = await currentUser(request, db);
+    if (!me) return J({ ok: false, error: "not_logged_in" }, 401);
+    const row = await db.first(`SELECT la.* FROM loss_analyses la JOIN leads l ON l.id = la.lead_id WHERE la.lead_id = ?${canSeeAll(me.role) ? "" : ` AND l.staff_id = ${Number(me.id)}`}`, Number(mLo[1]));
+    if (!row) return J({ ok: false, message: "這位客戶沒有流失分析。" }, 404);
+    const ev = await db.all("SELECT message_id, note FROM evidence WHERE loss_id = ?", row.id);
+    return J({ ok: true, analysis: row, evidence: ev });
+  }
+  if (p === "/api/decisions" && m === "GET") {
+    const me = await currentUser(request, db);
+    if (!me) return J({ ok: false, error: "not_logged_in" }, 401);
+    if (!canSeeAll(me.role)) return J({ ok: false, error: "forbidden" }, 403);
+    const days = Math.min(90, Math.max(7, Number(url.searchParams.get("days") || 30)));
+    return J({ ok: true, ...(await db.decisionsLocal({ days, now: now() })) });
+  }
+  if (p === "/api/mgmt-actions" && (m === "GET" || m === "POST")) {
+    const me = await currentUser(request, db);
+    if (!me) return J({ ok: false, error: "not_logged_in" }, 401);
+    if (!canSeeAll(me.role)) return J({ ok: false, error: "forbidden" }, 403);
+    if (m === "GET") {
+      const rows = await db.all(`SELECT a.*, u.name AS staff_name FROM actions a LEFT JOIN users u ON u.id = a.staff_id WHERE a.kind <> ''
+        ORDER BY CASE a.status WHEN 'approved' THEN 0 WHEN 'proposed' THEN 1 WHEN 'done' THEN 2 ELSE 3 END, CASE a.priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END, a.id DESC LIMIT 50`);
+      const at = now(); let budget = 8;
+      for (const a of rows) { a.baseline = JSON.parse(a.baseline || "null"); a.after = JSON.parse(a.after || "null"); if (a.metric_key && a.status !== "dismissed" && budget-- > 0) a.progress = await db.progressLocal({ id: a.id, now: at }); }
+      return J({ ok: true, actions: rows });
+    }
+    const b = await request.json().catch(() => ({}));
+    const title = String(b.title || "").trim().slice(0, 120); if (!title) return J({ ok: false, message: "要有標題。" }, 400);
+    const at = now(); const staffId = b.staff_id ? Number(b.staff_id) : null; const metric = String(b.metric_key || "").slice(0, 40);
+    const SNAPSHOT_OK = /^(price_continue|appt|appt_visit|visit_sale|close|dropoff|followup_24h|first_response|gp|avg_gp|asked_after_price|objection_clarified|proposed_after_intent|fin_answered|postvisit_24h|loss:[a-z_]+)$/;
+    const baseline = SNAPSHOT_OK.test(metric) ? await db.baselineLocal({ metric_key: metric, staff_id: staffId, now: at }) : null;
+    const due = new Date(Date.parse(at) + Math.min(180, Math.max(1, Number(b.due_days || 30))) * 86_400_000).toISOString();
+    const r = await db.run(`INSERT INTO actions (insight_id, text, owner_role, status, created_at, kind, title, staff_id, priority, due_at, metric_key, baseline, why, measure, owner_user_id)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, b.insight_id ? Number(b.insight_id) : null, String(b.action || title).slice(0, 400), ["ceo", "manager", "staff"].includes(b.owner_role) ? b.owner_role : "manager", "approved", at,
+      String(b.kind || "coach").slice(0, 30), title, staffId, ["high", "medium", "low"].includes(b.priority) ? b.priority : "medium", due, metric, JSON.stringify(baseline), String(b.why || "").slice(0, 400), String(b.measure || "").slice(0, 200), me.id);
+    return J({ ok: true, id: r.lastRowId, baseline });
+  }
+  const mMa = p.match(/^\/api\/mgmt-actions\/(\d+)$/);
+  if (mMa && (m === "GET" || m === "PATCH")) {
+    const me = await currentUser(request, db);
+    if (!me) return J({ ok: false, error: "not_logged_in" }, 401);
+    if (!canSeeAll(me.role)) return J({ ok: false, error: "forbidden" }, 403);
+    const id = Number(mMa[1]); const at = now();
+    const a = await db.first("SELECT a.*, u.name AS staff_name FROM actions a LEFT JOIN users u ON u.id = a.staff_id WHERE a.id = ?", id);
+    if (!a) return J({ ok: false, message: "找不到這個行動。" }, 404);
+    if (m === "PATCH") {
+      const b = await request.json().catch(() => ({}));
+      const st = ["approved", "dismissed", "done", "proposed"].includes(b.status) ? b.status : null;
+      if (st) {
+        let after = null; if (st === "done" && a.metric_key) { const pr = await db.progressLocal({ id, now: at }); after = pr?.after ?? null; }
+        await db.run("UPDATE actions SET status = ?, decided_at = ?, decided_by = ?, result_note = COALESCE(?, result_note), after = COALESCE(?, after) WHERE id = ?", st, at, me.id, b.result_note != null ? String(b.result_note).slice(0, 400) : null, after ? JSON.stringify(after) : null, id);
+      } else if (b.result_note != null) await db.run("UPDATE actions SET result_note = ? WHERE id = ?", String(b.result_note).slice(0, 400), id);
+    }
+    const row = await db.first("SELECT a.*, u.name AS staff_name FROM actions a LEFT JOIN users u ON u.id = a.staff_id WHERE a.id = ?", id);
+    row.baseline = JSON.parse(row.baseline || "null"); row.after = JSON.parse(row.after || "null");
+    const progress = row.metric_key ? await db.progressLocal({ id, now: at }) : null;
+    return J({ ok: true, action: row, progress });
   }
 
   /* ── 問 AI：規則判斷意圖 → 決定性分析 → AI 只講人話（事實包閘門），見 engine/ask.ts ── */

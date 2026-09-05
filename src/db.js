@@ -13,7 +13,9 @@ import { deriveInsights, persistInsights } from "./engine/insights.ts";
 import { gemini } from "./engine/ai.ts";
 import { computeRoles } from "./engine/attribution.ts";
 import { computeBehaviors } from "./engine/behavior.ts";
-import { computeLoss } from "./engine/loss.ts";
+import { computeLoss, lossAggregate } from "./engine/loss.ts";
+import { computeStaffReport } from "./engine/staff.ts";
+import { buildCoachingPlan, computeDecisions, metricSnapshot, actionProgress } from "./engine/coaching.ts";
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS users (
@@ -171,6 +173,28 @@ export class AppDB extends DurableObject {
     const loss = await computeLoss(this, { now: opts.now, leadIds: opts.leadIds });
     return { roles, behaviors, loss, ms: Date.now() - t0 };
   }
+  /* ── 員工效能／流失原因／教練／決策卡／管理行動：重活一律在這裡跑 ── */
+  async staffLocal(opts) { return computeStaffReport(this, opts); }
+  async staffProfileLocal(opts) {
+    const report = await computeStaffReport(this, { days: opts.days, to: opts.to });
+    const s = report.staff.find((x) => x.id === opts.id); if (!s) return null;
+    const last = await this.first("SELECT content, model, created_at FROM coaching_plans WHERE staff_id = ? ORDER BY id DESC LIMIT 1", opts.id);
+    let plan = null; if (last && !opts.refresh) { try { plan = JSON.parse(String(last.content)); plan.model = last.model; } catch { plan = null; } }
+    if (!plan) plan = await buildCoachingPlan(this, report, opts.id, opts.now);
+    const leads = await this.all(`SELECT l.id, l.stage, l.outcome, l.opened_at, l.closed_at, COALESCE(NULLIF(c.pseudonym,''), c.display_name) AS contact, COALESCE(v.brand||' '||v.model,'') AS vehicle,
+        la.primary_reason, la.driver, la.stage AS lost_stage, d.gross_profit, d.sale_price
+      FROM leads l JOIN contacts c ON c.id = l.contact_id LEFT JOIN vehicles v ON v.id = l.vehicle_id LEFT JOIN loss_analyses la ON la.lead_id = l.id LEFT JOIN deals d ON d.lead_id = l.id AND d.status = 'sold'
+      WHERE l.staff_id = ? AND l.opened_at >= ? AND l.opened_at < ? ORDER BY l.opened_at DESC LIMIT 60`, opts.id, report.period.from, report.period.to);
+    const roles = await this.all(`SELECT r.role, COUNT(*) AS n FROM lead_roles r JOIN leads l ON l.id = r.lead_id WHERE r.user_id = ? AND l.opened_at >= ? AND l.opened_at < ? GROUP BY r.role`, opts.id, report.period.from, report.period.to);
+    const ranks = report.rankings.map((r) => { const row = r.rows.find((x) => x.staff_id === opts.id); return { key: r.key, label: r.label, rank: row?.rank ?? null, display: row?.display ?? "—", n: row?.n ?? 0, ok: !!row?.ok, of: r.rows.filter((x) => x.ok).length }; });
+    return { staff: s, issues: report.issues[opts.id] ?? [], rankings: ranks, team: report.team, top_ids: report.compare.top_ids, watch_ids: report.compare.watch_ids, plan, leads, roles,
+      pairs: report.pairs.filter((p) => p.a_id === opts.id || p.b_id === opts.id), patterns: report.patterns.filter((p) => p.staff.some((x) => x.id === opts.id)).map((p) => ({ key: p.key, label: p.label })), period: report.period, associations: report.associations };
+  }
+  async coachingLocal(opts) { const report = await computeStaffReport(this, { days: opts.days, to: opts.to }); return buildCoachingPlan(this, report, opts.id, opts.now); }
+  async decisionsLocal(opts) { const report = await computeStaffReport(this, { days: opts.days, to: opts.to }); return { cards: await computeDecisions(this, report, opts.now), period: report.period, top: report.top.slice(0, 3), watch: report.watch.slice(0, 2) }; }
+  async lossAggLocal(opts) { return lossAggregate(this, opts); }
+  async baselineLocal(opts) { const report = await computeStaffReport(this, { days: opts.days ?? 30, to: opts.now }); return metricSnapshot(report, opts.metric_key, opts.staff_id ?? null); }
+  async progressLocal(opts) { const a = await this.first("SELECT * FROM actions WHERE id = ?", opts.id); if (!a) return null; return actionProgress(this, a, opts.now); }
   /** 給評測腳本：每個 lead 的角色／流失原因／行為特徵，附對話外部鍵（CV{n} ↔ 標準答案 L{n}） */
   async analyzeDumpLocal() {
     const rows = await this.all(`SELECT l.id, l.outcome, cv.external_id AS conv_key, la.primary_reason, la.secondary_reason, la.confidence AS loss_conf, la.driver, la.stage, la.status AS loss_status, b.features

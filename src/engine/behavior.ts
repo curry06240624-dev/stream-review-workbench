@@ -21,6 +21,8 @@ export const B = {
   budget:    /預算/,
   apptProp:  /約個時間|方便嗎|有空嗎|來店|來看車|留車|哪天有空|來看實車|安排看車|排看車/,
   clarify:   /預算|方案|爭取|幫您|多少|哪|什麼|月付|總價|數字/,
+  /** 具體的看車邀約：要有時間或「約」的字眼，「可以來看車現場再談」這種順口話不算 */
+  apptOffer: /(約|方便|有空|哪天|什麼時候|時段|週[一二三四五六日]|禮拜|明天|後天|下午|早上|晚上|\d\s*點).*(看車|來店|過來|賞車|來看|留車)|(看車|來店|賞車).*(約|方便嗎|有空嗎|哪天|時段|時間)|(排|安排)看車/,
 };
 /** 特徵的中文名與方向（畫面與問 AI 共用） */
 export const FEATURE_LABEL: Record<string, { label: string; unit: "rate" | "min" | "hour" | "num" | "pct"; goodIsUp: boolean; situation: string }> = {
@@ -38,7 +40,6 @@ export const FEATURE_LABEL: Record<string, { label: string; unit: "rate" | "min"
   reactivated_by_staff: { label: "沉默客戶被業務叫回來", unit: "rate", goodIsUp: true, situation: "客戶沉默 ≥7 天" },
   escalated:           { label: "找主管或同事協助", unit: "rate", goodIsUp: true, situation: "每個客戶" },
   discount_pct:        { label: "成交折讓（佔定價）", unit: "pct", goodIsUp: false, situation: "成交" },
-  staff_msgs:          { label: "業務訊息數", unit: "num", goodIsUp: true, situation: "每個客戶" },
 };
 
 const median = (xs: number[]) => { if (!xs.length) return null; const s = [...xs].sort((a, b) => a - b); const m = Math.floor(s.length / 2); return s.length % 2 ? s[m]! : (s[m - 1]! + s[m]!) / 2; };
@@ -94,8 +95,8 @@ export function extractFeatures(c: LeadCtx): Features {
   const hi = ev("HIGH_INTENT")[0];
   if (hi) {
     const at = evAt(hi);
-    const proposed = ev("APPOINTMENT_PROPOSED").some((e) => evAt(e) >= at && evAt(e) <= at + 48 * H) || staff.some((m) => m.at >= at && m.at <= at + 48 * H && B.apptProp.test(m.text));
-    const pm = staff.find((m) => m.at >= at && B.apptProp.test(m.text));
+    const proposed = staff.some((m) => m.at >= at && m.at <= at + 48 * H && B.apptOffer.test(m.text)) || c.events.some((e) => String(e["type"]) === "APPOINTMENT_BOOKED" && evAt(e) >= at && evAt(e) <= at + 72 * H);
+    const pm = staff.find((m) => m.at >= at && B.apptOffer.test(m.text));
     f["proposed_after_intent"] = { v: proposed ? 1 : 0, msg: pm?.id ?? null };
   }
   const fin = ev("FINANCING_QUESTION")[0];
