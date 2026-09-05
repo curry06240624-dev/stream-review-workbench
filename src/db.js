@@ -225,6 +225,62 @@ export class AppDB extends DurableObject {
     }
     throw new Error("沒有這個動作");
   }
+  /* ── 資料上傳箱：中繼資料在這裡，檔案本體在 KV（Worker 端處理）── */
+  async documentsLocal() {
+    const rows = await this.all("SELECT id, name, size, mime, kind, note, uploaded_by, uploaded_at, status, result, processed_at, sha FROM documents WHERE deleted_at IS NULL ORDER BY uploaded_at DESC LIMIT 300");
+    return rows.map((r) => { let result = {}; try { result = JSON.parse(r.result || "{}"); } catch {} return { ...r, result }; });
+  }
+  async documentInsertLocal(d) {
+    const dup = await this.first("SELECT id, name FROM documents WHERE sha = ? AND deleted_at IS NULL", d.sha);
+    if (dup) return { id: Number(dup.id), duplicate: true, dupName: dup.name };
+    const r = await this.run("INSERT INTO documents (name, size, mime, kind, note, uploaded_by, uploaded_at, status, sha, kv_key) VALUES (?,?,?,?,?,?,?,?,?,?)", d.name, d.size, d.mime, d.kind, d.note, d.uploaded_by, d.uploaded_at, "uploaded", d.sha, d.kv_key);
+    return { id: r.lastRowId, duplicate: false };
+  }
+  async documentUpdateLocal(id, patch) {
+    const sets = [], args = [];
+    for (const k of ["kind", "note", "status", "result", "processed_at", "deleted_at"]) if (patch[k] !== undefined) { sets.push(`${k} = ?`); args.push(typeof patch[k] === "object" && patch[k] !== null ? JSON.stringify(patch[k]) : patch[k]); }
+    if (!sets.length) return { ok: true };
+    await this.run(`UPDATE documents SET ${sets.join(", ")} WHERE id = ?`, ...args, id);
+    return { ok: true };
+  }
+  async documentGetLocal(id) { return this.first("SELECT * FROM documents WHERE id = ? AND deleted_at IS NULL", id); }
+  /** 車源表 CSV → vehicles：有車牌的以車牌更新，沒有的用「廠牌 車型 年份 顏色」找，都找不到就新增 */
+  async vehiclesUpsertLocal(opts) {
+    this.bust(); let inserted = 0, updated = 0;
+    for (const v of opts.vehicles) {
+      let ex = v.plate_norm ? await this.first("SELECT id FROM vehicles WHERE plate_norm = ?", v.plate_norm) : null;
+      if (!ex && !v.plate_norm) ex = await this.first("SELECT id FROM vehicles WHERE brand = ? AND model = ? AND COALESCE(year,0) = COALESCE(?,0) AND color = ? AND plate_norm = ''", v.brand, v.model, v.year, v.color);
+      const costKnown = v.cost == null ? 0 : 1;
+      if (ex) {
+        await this.run(`UPDATE vehicles SET brand = COALESCE(NULLIF(?,''), brand), model = COALESCE(NULLIF(?,''), model), year = COALESCE(?, year), color = COALESCE(NULLIF(?,''), color), mileage_km = COALESCE(?, mileage_km),
+            list_price = COALESCE(?, list_price), cost = CASE WHEN ? = 1 THEN ? ELSE cost END, cost_known = CASE WHEN ? = 1 THEN 1 ELSE cost_known END, stock_status = ?, status_text = ?, stock_in_at = COALESCE(?, stock_in_at), cert = COALESCE(NULLIF(?,''), cert), trim = COALESCE(NULLIF(?,''), trim), trade_price = COALESCE(?, trade_price), plate = COALESCE(NULLIF(?,''), plate), plate_norm = COALESCE(NULLIF(?,''), plate_norm) WHERE id = ?`,
+          v.brand, v.model, v.year, v.color, v.mileage_km, v.list_price, costKnown, v.cost ?? 0, costKnown, v.stock_status, v.status_text, v.stock_in_at, v.cert, v.trim, v.trade_price, v.plate, v.plate_norm, Number(ex.id));
+        updated++;
+      } else {
+        await this.run(`INSERT INTO vehicles (brand, model, year, body_type, list_price, cost, cost_known, stock_status, external_id, plate, plate_norm, color, trim, mileage_km, stock_in_at, cert, trade_price, source, peer_dealer, status_text)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, v.brand || "", v.model || "", v.year, "", v.list_price ?? 0, v.cost ?? 0, costKnown, v.stock_status, `sheet:${v.plate_norm || `${v.brand}-${v.model}-${v.year ?? ""}-${v.color}`}`, v.plate, v.plate_norm, v.color, v.trim, v.mileage_km, v.stock_in_at, v.cert, v.trade_price, v.stock_status === "peer" ? "peer" : "stock", "", v.status_text);
+        inserted++;
+      }
+    }
+    return { inserted, updated, total: opts.vehicles.length };
+  }
+  /** 會計月成本表 → deals.cost（正式成本，cost_source='accounting'）：車號＋成交日 ±3 天 */
+  async accountingCostLocal(opts) {
+    this.bust(); let matched = 0; const unmatched = [];
+    for (const r of opts.rows) {
+      if (r.cost == null) { unmatched.push({ plate: r.plate, why: "沒有成本" }); continue; }
+      const dateSql = r.closed_at ? "AND ABS(julianday(d.closed_at) - julianday(?)) <= 3" : "";
+      const args = r.closed_at ? [r.plate_norm, r.plate_norm, r.closed_at, r.closed_at] : [r.plate_norm, r.plate_norm];
+      const d = await this.first(`SELECT d.id, d.sale_price FROM deals d LEFT JOIN vehicles v ON v.id = d.vehicle_id
+          WHERE d.status = 'sold' AND (UPPER(REPLACE(REPLACE(d.plate,'-',''),' ','')) = ? OR v.plate_norm = ?) ${dateSql}
+          ORDER BY ${r.closed_at ? "ABS(julianday(d.closed_at) - julianday(?))" : "d.closed_at DESC"} LIMIT 1`, ...args);
+      if (!d) { unmatched.push({ plate: r.plate, why: r.closed_at ? "找不到這台車在成交日 ±3 天的成交" : "找不到這台車的成交" }); continue; }
+      const price = r.sale_price ?? Number(d.sale_price);
+      await this.run("UPDATE deals SET cost = ?, gross_profit = ?, cost_source = 'accounting', gp_is_estimate = 0, sale_price = ? WHERE id = ?", r.cost, price - r.cost, price, Number(d.id));
+      matched++;
+    }
+    return { matched, unmatched_n: unmatched.length, unmatched: unmatched.slice(0, 20), total: opts.rows.length };
+  }
   /** 重新配對所有還沒確認的貼文（例如補了暱稱或車源表之後） */
   async rematchAllLocal(opts) {
     this.bust();

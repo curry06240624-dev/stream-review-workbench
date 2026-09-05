@@ -14,6 +14,7 @@ import { computeAnalytics } from "./engine/analytics.ts";   // 匯入／漏斗�
 import { narrateInsights, generateBrief, gemini, polishCoaching } from "./engine/ai.ts";   // AI 一律從 Worker 端打（DO 機房會被 Gemini 拒絕）
 import { handleViews } from "./routes/views.ts";
 import { answer as askAnswer } from "./engine/ask.ts";
+import { detectDocKind, processDocument, checklist, KIND_LABEL, AUTO_KINDS, PROCESSABLE, MAX_FILE_BYTES } from "./engine/documents.ts";
 
 export { AppDB };
 
@@ -304,6 +305,82 @@ async function route(request, env, db, url) {
     if (b.seat_shared !== undefined) await db.run("UPDATE users SET seat_shared = ? WHERE id = ?", b.seat_shared ? 1 : 0, id);
     await db.bust();
     return J({ ok: true });
+  }
+
+  /* ── 資料上傳箱：公司把檔案丟進來；本體在 KV（DOCS），中繼資料在 documents；認得的自動處理 ── */
+  if (p === "/api/documents" && (m === "GET" || m === "POST")) {
+    const me = await currentUser(request, db);
+    if (!me) return J({ ok: false, error: "not_logged_in" }, 401);
+    if (!canSeeAll(me.role)) return J({ ok: false, message: "資料上傳只開放給老闆與主管。" }, 403);
+    if (m === "GET") {
+      const docs = await db.documentsLocal();
+      return J({ ok: true, documents: docs, checklist: checklist(docs), kinds: KIND_LABEL, processable: PROCESSABLE, storage: env.DOCS ? "kv" : "none" });
+    }
+    if (!env.DOCS) return J({ ok: false, message: "還沒設定檔案儲存空間（KV binding DOCS）。" }, 500);
+    let form; try { form = await request.formData(); } catch { return J({ ok: false, message: "要用 multipart/form-data 上傳。" }, 400); }
+    const files = form.getAll("file").filter((f) => typeof f === "object" && f && "arrayBuffer" in f);
+    if (!files.length) return J({ ok: false, message: "沒有收到檔案。" }, 400);
+    const note = String(form.get("note") || "").trim().slice(0, 300); const forced = String(form.get("kind") || "auto");
+    const at = now(); const out = [];
+    for (const f of files) {
+      const buf = await f.arrayBuffer();
+      if (buf.byteLength > MAX_FILE_BYTES) { out.push({ name: f.name, ok: false, message: "超過 25 MB，請分割或壓縮" }); continue; }
+      if (!buf.byteLength) { out.push({ name: f.name, ok: false, message: "空檔案" }); continue; }
+      const sha = [...new Uint8Array(await crypto.subtle.digest("SHA-256", buf))].map((b) => b.toString(16).padStart(2, "0")).join("");
+      const kind = detectDocKind(f.name, f.type || "", buf, forced);
+      const ins = await db.documentInsertLocal({ name: String(f.name).slice(0, 200), size: buf.byteLength, mime: String(f.type || "").slice(0, 100), kind, note, uploaded_by: me.name, uploaded_at: at, sha, kv_key: `doc:${sha}` });
+      if (ins.duplicate) { out.push({ name: f.name, ok: true, id: ins.id, duplicate: true, message: `跟「${ins.dupName}」內容一樣，已經上傳過` }); continue; }
+      await env.DOCS.put(`doc:${sha}`, buf, { metadata: { name: f.name, mime: f.type || "" } });
+      let processed = null;
+      if (AUTO_KINDS.includes(kind)) {
+        const doc = await db.documentGetLocal(ins.id);
+        processed = await processDocument(db, env.DOCS, doc, { now: at });
+        await db.documentUpdateLocal(ins.id, { status: processed.status, result: processed.result, processed_at: at });
+      } else await db.documentUpdateLocal(ins.id, { status: PROCESSABLE.includes(kind) ? "uploaded" : "needs_me" });
+      out.push({ name: f.name, ok: true, id: ins.id, kind, kind_label: KIND_LABEL[kind], processed });
+    }
+    return J({ ok: true, files: out });
+  }
+  const mDoc = p.match(/^\/api\/documents\/(\d+)(?:\/(file|process))?$/);
+  if (mDoc) {
+    const me = await currentUser(request, db);
+    if (!me) return J({ ok: false, error: "not_logged_in" }, 401);
+    if (!canSeeAll(me.role)) return J({ ok: false, error: "forbidden" }, 403);
+    const id = Number(mDoc[1]); const sub = mDoc[2];
+    const doc = await db.documentGetLocal(id);
+    if (!doc) return J({ ok: false, message: "找不到這個檔案。" }, 404);
+    if (sub === "file" && m === "GET") {
+      const body = env.DOCS ? await env.DOCS.get(String(doc.kv_key), "arrayBuffer") : null;
+      if (!body) return J({ ok: false, message: "檔案本體不在儲存空間裡。" }, 404);
+      return new Response(body, { headers: { "content-type": doc.mime || "application/octet-stream", "content-disposition": `attachment; filename*=UTF-8''${encodeURIComponent(doc.name)}`, "cache-control": "no-store" } });
+    }
+    if (sub === "process" && m === "POST") {
+      if (!env.DOCS) return J({ ok: false, message: "還沒設定檔案儲存空間。" }, 500);
+      const b = await request.json().catch(() => ({}));
+      if (b.kind && KIND_LABEL[b.kind]) { await db.documentUpdateLocal(id, { kind: b.kind }); doc.kind = b.kind; }
+      if (!PROCESSABLE.includes(String(doc.kind))) return J({ ok: false, message: `${KIND_LABEL[doc.kind] || doc.kind} 不會自動處理，Curry 會來看。` }, 400);
+      if (doc.kind === "bundle" && b.reset && me.role !== "admin") return J({ ok: false, message: "只有管理者可以重灌。" }, 403);
+      const at = now();
+      const r = await processDocument(db, env.DOCS, doc, { now: at, reset: !!b.reset });
+      await db.documentUpdateLocal(id, { status: r.status, result: r.result, processed_at: at });
+      return J({ ok: r.status !== "error", ...r });
+    }
+    if (m === "PATCH") {
+      const b = await request.json().catch(() => ({}));
+      const patch = {};
+      if (b.note !== undefined) patch.note = String(b.note).slice(0, 300);
+      if (b.kind !== undefined && KIND_LABEL[b.kind]) patch.kind = b.kind;
+      await db.documentUpdateLocal(id, patch);
+      return J({ ok: true });
+    }
+    if (m === "DELETE") {
+      if (me.role !== "admin") return J({ ok: false, error: "forbidden", message: "只有管理者可以刪檔案。" }, 403);
+      await db.documentUpdateLocal(id, { deleted_at: now() });
+      const others = (await db.documentsLocal()).some((d) => d.sha === doc.sha);
+      if (env.DOCS && !others) await env.DOCS.delete(String(doc.kv_key));
+      return J({ ok: true });
+    }
+    return J({ ok: false, error: "not_found" }, 404);
   }
 
   /* ── 問 AI：規則判斷意圖 → 決定性分析 → AI 只講人話（事實包閘門），見 engine/ask.ts ── */

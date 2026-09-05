@@ -25,6 +25,11 @@ class_name = "AppDB"
 tag = "v1"
 new_sqlite_classes = ["AppDB"]
 
+# 資料上傳箱：公司丟進來的檔案本體（LINE 匯出、CSV、PDF、截圖）放 KV，免費額度與 DO 的列讀取分開；中繼資料在 DO 的 documents 表
+[[kv_namespaces]]
+binding = "DOCS"
+id = "f75f2d6b88f34fd7b30f60956a20f9e6"
+
 # 秘密（本機放 .dev.vars，永不進 git；部署用 wrangler secret put）：
 #   SETUP_CODE      首次建立管理員帳號用的一次性代碼
 [vars]

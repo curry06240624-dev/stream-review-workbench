@@ -6,7 +6,7 @@ const ROUTES = [
   ["/overview", "overview"], ["/funnel", "funnel"], ["/attention", "attention"],
   ["/conversations", "conversations"], ["/conversations/:id", "conversations"],
   ["/insights/:id", "insight"], ["/appointments", "appointments"], ["/deals", "deals"],
-  ["/staff", "staff"], ["/staff/:id", "staffProfile"], ["/decisions", "decisions"], ["/loss", "loss"], ["/reconcile", "reconcile"],
+  ["/staff", "staff"], ["/staff/:id", "staffProfile"], ["/decisions", "decisions"], ["/loss", "loss"], ["/reconcile", "reconcile"], ["/uploads", "uploads"],
   ["/ask", "ask"], ["/data", "data"],
 ];
 const PAGES = {};

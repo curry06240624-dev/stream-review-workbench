@@ -68,3 +68,12 @@ CEO 總覽（AI 簡報＋洞察卡）→ 點「查看證據」`/insights/:id`（
 - 對話與證據：標題與右欄有「涵蓋不完整」chip 與原因；右欄多「估車」框與「送貨囉貼文」框；角色 chip 多「訊息組」。
 - 資料與設定：員工工作性質（下拉）、Super 8 座位共用（勾選）、各系統暱稱（加／刪）；管理者才可改。
 - 驗證：`node scripts/test_posts.ts`（解析器 45 項）、`scripts/eval_reconcile.mjs`（配對門檻）、scratchpad 的 confirm_flow（確認→成交建立→撤銷還原）與 import_group_test（真實 9/4 貼文貼入）；各頁 console 0 error。
+
+## 2026-09-05 深夜：資料上傳箱
+| 路徑 | 模組 | 讀哪些 API | 內容 |
+|---|---|---|---|
+| `/uploads` | `pages/uploads.js` | `GET/POST /api/documents`（multipart）、`POST /api/documents/:id/process`、`PATCH /api/documents/:id`、`DELETE /api/documents/:id`、`GET /api/documents/:id/file` | 收集進度八格（Super 8 對話、三個群匯出、車源表、會計表、名冊、官方後台）、拖放上傳（多檔、種類自動判斷或指定、備註）、清單（種類、狀態／處理結果、備註、處理／重新處理／匯入／下載／刪除） |
+
+- 自動處理：LINE 匯出（`src/engine/posts.ts` → `reconcile.ts`）、車源表 CSV（`src/engine/csv.ts` → `vehiclesUpsertLocal`）、會計成本表 CSV（→ `accountingCostLocal`，`cost_source='accounting'`）。bundle 要按「匯入」，重灌只有管理者。
+- 檔案本體在 KV `DOCS`（`wrangler.toml`），單檔 25 MB；中繼資料在 `documents` 表（不隨 `--reset` 清掉）。
+- 驗證：scratchpad `upload_test.mjs`（接待群貼文把未指派客戶指給小婷並建到店、估車連上、送貨囉自動配對；車源表新增 1 更新 1；會計成本對到 1；PDF／bundle 只存；重複擋；下載；刪除）。

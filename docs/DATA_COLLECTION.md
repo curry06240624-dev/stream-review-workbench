@@ -112,6 +112,10 @@ LINE 官方後台匯出 ───────────┼─→ adapter（去
 
 ## 4. 每次匯入的順序
 
+**最簡單的路：畫面「資料上傳」（`/uploads`）。** 公司把檔案丟進去就好：LINE 匯出 .txt 會自動變成群組貼文並配對；車源表 CSV 會更新車輛主檔；會計成本表 CSV 會把正式成本寫進成交（畫面不再標估算）；bundle.json 按「匯入」；PDF、截圖、Excel 先存著，標「待 Curry 處理」。上面的「收集進度」直接顯示還缺哪幾樣。檔案本體放 Workers KV（單檔 25 MB），中繼資料在 `documents` 表；重複的檔案會被擋。
+
+命令列版：
+
 ```bash
 node scripts/validate_bundle.mjs bundle.json                 # 結構、參照、個資掃描
 node scripts/import_bundle.mjs bundle.json https://<站> [--reset]   # 第一次 --reset，之後不用（external_id 去重）

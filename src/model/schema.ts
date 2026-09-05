@@ -288,6 +288,24 @@ CREATE TABLE IF NOT EXISTS group_posts (
   UNIQUE(source_system, external_id)
 );
 
+/* 資料上傳箱：公司丟進來的檔案（本體在 KV，這裡是中繼資料與處理結果） */
+CREATE TABLE IF NOT EXISTS documents (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  name         TEXT NOT NULL,
+  size         INTEGER NOT NULL DEFAULT 0,
+  mime         TEXT NOT NULL DEFAULT '',
+  kind         TEXT NOT NULL DEFAULT 'other',
+  note         TEXT NOT NULL DEFAULT '',
+  uploaded_by  TEXT NOT NULL DEFAULT '',
+  uploaded_at  TEXT NOT NULL,
+  status       TEXT NOT NULL DEFAULT 'uploaded',
+  result       TEXT NOT NULL DEFAULT '{}',
+  processed_at TEXT,
+  sha          TEXT NOT NULL DEFAULT '',
+  kv_key       TEXT NOT NULL DEFAULT '',
+  deleted_at   TEXT
+);
+
 /* 員工在各系統的名字（LINE 暱稱／Super 8 帳號／車源表寫法）→ 同一個 user */
 CREATE TABLE IF NOT EXISTS staff_aliases (
   id      INTEGER PRIMARY KEY AUTOINCREMENT,

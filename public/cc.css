@@ -281,3 +281,9 @@ a.stat{display:block; color:var(--text)} a.stat:hover{border-color:var(--line-2)
 .paste{width:100%; min-height:150px; font-family:var(--mono); font-size:12px; line-height:1.5; resize:vertical}
 .tbl td.warn,.warn{color:var(--amber)}
 @media (max-width:900px){ .rc{grid-template-columns:1fr} }
+
+/* ── 資料上傳箱 ── */
+.drop{border:1px dashed var(--line-2); border-radius:var(--r); padding:26px 16px; text-align:center; color:var(--muted); background:var(--surface); font-size:13.5px}
+.drop.over{border-color:var(--cyan-line); background:var(--cyan-dim); color:var(--text)}
+.drop label.btn{display:inline-block; margin:0 4px}
+.tile .h .st{font-family:var(--mono); font-size:11px; margin-right:6px}
