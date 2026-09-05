@@ -52,7 +52,7 @@ const RE = {
   noShowStaff:/沒關係.*(改約|什麼時候)|留到週末|有空跟我說|那改約/,
   schedInText:/(\d{1,2})\/(\d{1,2})\s*(\d{1,2}):(\d{2})/,
   visitStaff: /今天.*(看的|看車|賞車)|謝謝您來|今天看的/,
-  highIntent: /急|現車|就想決定|要交車|沒問題就訂|老客戶|這週就|這個月要/,
+  highIntent: /急|就想決定|要交車|沒問題就訂|老客戶|這週就|這個月要|有現車(就|我就)|定下來|跟你買過|買過.*想換/,   // 光問「有現車嗎」不算急迫
   soldStaff:  /恭喜|過戶完成|交車/,
   lostCust:   /跟朋友買|買了別家|先不換|預算不夠|不用了|之後再說|不好意思.*買了/,
   laterPositiveCust: /成交|下訂|想看車|可以來看|我想看|過去看|考慮好了/,
@@ -90,8 +90,8 @@ export function detectEvents(ctx: Ctx, vehicles: VehicleName[], now: number): De
   const c2 = cust.filter((m) => m.at <= win), s1 = staff.filter((m) => m.at <= win);
   if (c2.length >= 2 && s1.length >= 1) out.push(ev("ACTIVE_DISCUSSION", c2[1]!.at, "CONFIRMED", "rule", { customer_msgs_48h: c2.length }, [{ message_id: c2[1]!.id, note: "48 小時內客戶至少兩則、業務至少一則" }]));
 
-  // HIGH_INTENT（前五則客戶訊息）
-  const hi = cust.slice(0, 2).find((m) => RE.highIntent.test(m.text));
+  // HIGH_INTENT（前四則客戶訊息：需求描述常排第二則，急迫語排第三則）
+  const hi = cust.slice(0, 4).find((m) => RE.highIntent.test(m.text));
   if (hi) out.push(ev("HIGH_INTENT", hi.at, "STRONGLY_SUGGESTED", "rule", { phrase: hi.text.match(RE.highIntent)?.[0] }, [{ message_id: hi.id, note: "客戶早期出現急迫用語" }]));
 
   // PRICE_MENTIONED

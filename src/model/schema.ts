@@ -147,6 +147,63 @@ CREATE TABLE IF NOT EXISTS source_records (
   UNIQUE(source_system, entity, external_id)
 );
 
+/* 歸因：一位員工在一個 lead 上的角色。primary/supporting/manager/handoff_from/handoff_to/reactivation */
+CREATE TABLE IF NOT EXISTS lead_roles (
+  id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+  lead_id             INTEGER NOT NULL REFERENCES leads(id),
+  user_id             INTEGER NOT NULL REFERENCES users(id),
+  role                TEXT NOT NULL,
+  confidence          TEXT NOT NULL DEFAULT 'CONFIRMED',
+  at                  TEXT,
+  evidence_message_id INTEGER REFERENCES messages(id),
+  note                TEXT NOT NULL DEFAULT '',
+  UNIQUE(lead_id, user_id, role)
+);
+
+/* 流失原因分析：每一位未成交（或推定流失）客戶一列。哪裡掉＋為什麼掉＋信心＋證據。 */
+CREATE TABLE IF NOT EXISTS loss_analyses (
+  id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+  lead_id            INTEGER NOT NULL UNIQUE REFERENCES leads(id),
+  status             TEXT NOT NULL,
+  primary_reason     TEXT NOT NULL,
+  secondary_reason   TEXT NOT NULL DEFAULT '',
+  alt_reason         TEXT NOT NULL DEFAULT '',
+  driver             TEXT NOT NULL DEFAULT '',
+  confidence         TEXT NOT NULL,
+  stage              TEXT NOT NULL,
+  staff_id           INTEGER,
+  vehicle_id         INTEGER,
+  appointment_status TEXT NOT NULL DEFAULT '',
+  visit_status       TEXT NOT NULL DEFAULT '',
+  first_at           TEXT,
+  last_customer_at   TEXT,
+  last_staff_at      TEXT,
+  closed_at          TEXT,
+  summary            TEXT NOT NULL DEFAULT '',
+  method             TEXT NOT NULL DEFAULT 'rule',
+  computed_at        TEXT NOT NULL
+);
+
+/* 訊息層行為特徵：每個 lead 一列，features 是 JSON { key: { v, msg } } */
+CREATE TABLE IF NOT EXISTS behaviors (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  lead_id     INTEGER NOT NULL UNIQUE REFERENCES leads(id),
+  staff_id    INTEGER,
+  features    TEXT NOT NULL DEFAULT '{}',
+  computed_at TEXT NOT NULL
+);
+
+/* 教練計畫：每位員工最新一份（JSON），舊的留著看前後 */
+CREATE TABLE IF NOT EXISTS coaching_plans (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  staff_id    INTEGER NOT NULL REFERENCES users(id),
+  period_from TEXT,
+  period_to   TEXT,
+  content     TEXT NOT NULL,
+  model       TEXT NOT NULL DEFAULT 'template',
+  created_at  TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_leads_contact    ON leads(contact_id, opened_at);
 CREATE INDEX IF NOT EXISTS idx_leads_stage      ON leads(stage, outcome);
 CREATE INDEX IF NOT EXISTS idx_fe_lead          ON funnel_events(lead_id, at);
@@ -156,6 +213,8 @@ CREATE INDEX IF NOT EXISTS idx_deals_closed     ON deals(closed_at, status);
 CREATE INDEX IF NOT EXISTS idx_evidence_ins     ON evidence(insight_id);
 CREATE INDEX IF NOT EXISTS idx_evidence_evt     ON evidence(event_id);
 CREATE INDEX IF NOT EXISTS idx_insights_created ON insights(created_at, dismissed);
+CREATE INDEX IF NOT EXISTS idx_roles_user       ON lead_roles(user_id, role);
+CREATE INDEX IF NOT EXISTS idx_loss_reason      ON loss_analyses(primary_reason, staff_id);
 `;
 
 /** 舊表要補的欄位：[表, 欄位, 定義]。ALTER 沒有 IF NOT EXISTS，所以先查 PRAGMA。 */
@@ -170,6 +229,19 @@ const ADD_COLUMNS: ReadonlyArray<readonly [string, string, string]> = [
   ["messages",      "sender_role",      "TEXT NOT NULL DEFAULT ''"],
   ["messages",      "msg_type",         "TEXT NOT NULL DEFAULT 'text'"],
   ["messages",      "external_id",      "TEXT NOT NULL DEFAULT ''"],
+  ["evidence",      "loss_id",          "INTEGER"],
+  /* 管理行動中心：actions 從「洞察的建議」長成「有負責人、期限、前後指標的行動」 */
+  ["actions",       "kind",             "TEXT NOT NULL DEFAULT ''"],
+  ["actions",       "title",            "TEXT NOT NULL DEFAULT ''"],
+  ["actions",       "staff_id",         "INTEGER"],
+  ["actions",       "priority",         "TEXT NOT NULL DEFAULT 'medium'"],
+  ["actions",       "due_at",           "TEXT"],
+  ["actions",       "metric_key",       "TEXT NOT NULL DEFAULT ''"],
+  ["actions",       "baseline",         "TEXT NOT NULL DEFAULT '{}'"],
+  ["actions",       "after",            "TEXT NOT NULL DEFAULT '{}'"],
+  ["actions",       "why",              "TEXT NOT NULL DEFAULT ''"],
+  ["actions",       "measure",          "TEXT NOT NULL DEFAULT ''"],
+  ["actions",       "owner_user_id",    "INTEGER"],
 ];
 
 export function migrate(sql: SqlLike): { added: string[] } {

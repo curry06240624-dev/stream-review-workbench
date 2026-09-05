@@ -5,6 +5,7 @@
   "expect_events": [
    "NEW_LEAD",
    "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
    "PRICE_MENTIONED",
    "FOLLOW_UP",
    "PRICE_DROP_OFF",
@@ -12,7 +13,18 @@
    "LOST"
   ],
   "price_dropoff": true,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "小柔",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false
+  },
+  "loss_reason": "stopped_replying"
  },
  {
   "lead_key": "L2",
@@ -22,13 +34,23 @@
    "VEHICLE_INTEREST",
    "ACTIVE_DISCUSSION",
    "PRICE_MENTIONED",
-   "FOLLOW_UP",
    "PRICE_DROP_OFF",
    "CUSTOMER_INACTIVE",
    "LOST"
   ],
   "price_dropoff": true,
-  "weak_followup": false
+  "weak_followup": true,
+  "roles": [
+   {
+    "staff": "阿國",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": false
+  },
+  "loss_reason": "stopped_replying"
  },
  {
   "lead_key": "L3",
@@ -38,13 +60,23 @@
    "VEHICLE_INTEREST",
    "ACTIVE_DISCUSSION",
    "PRICE_MENTIONED",
-   "FOLLOW_UP",
    "PRICE_DROP_OFF",
    "CUSTOMER_INACTIVE",
    "LOST"
   ],
   "price_dropoff": true,
-  "weak_followup": false
+  "weak_followup": true,
+  "roles": [
+   {
+    "staff": "阿凱",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false
+  },
+  "loss_reason": "stopped_replying"
  },
  {
   "lead_key": "L4",
@@ -54,13 +86,23 @@
    "VEHICLE_INTEREST",
    "ACTIVE_DISCUSSION",
    "PRICE_MENTIONED",
-   "FOLLOW_UP",
    "PRICE_DROP_OFF",
    "CUSTOMER_INACTIVE",
    "LOST"
   ],
   "price_dropoff": true,
-  "weak_followup": false
+  "weak_followup": true,
+  "roles": [
+   {
+    "staff": "阿凱",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false
+  },
+  "loss_reason": "stopped_replying"
  },
  {
   "lead_key": "L5",
@@ -70,12 +112,26 @@
    "VEHICLE_INTEREST",
    "ACTIVE_DISCUSSION",
    "PRICE_MENTIONED",
-   "PRICE_DROP_OFF",
-   "CUSTOMER_INACTIVE",
-   "LOST"
+   "PRICE_OBJECTION",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "FOLLOW_UP"
   ],
-  "price_dropoff": true,
-  "weak_followup": true
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "小婷",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": true,
+   "objection_clarified": true,
+   "postvisit_24h": true
+  }
  },
  {
   "lead_key": "L6",
@@ -85,14 +141,24 @@
    "VEHICLE_INTEREST",
    "ACTIVE_DISCUSSION",
    "PRICE_MENTIONED",
-   "PRICE_OBJECTION",
    "FOLLOW_UP",
    "PRICE_DROP_OFF",
    "CUSTOMER_INACTIVE",
    "LOST"
   ],
   "price_dropoff": true,
-  "weak_followup": true
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿豪",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false
+  },
+  "loss_reason": "stopped_replying"
  },
  {
   "lead_key": "L7",
@@ -102,13 +168,23 @@
    "VEHICLE_INTEREST",
    "ACTIVE_DISCUSSION",
    "PRICE_MENTIONED",
-   "FOLLOW_UP",
    "PRICE_DROP_OFF",
    "CUSTOMER_INACTIVE",
    "LOST"
   ],
   "price_dropoff": true,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "小柔",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false
+  },
+  "loss_reason": "stopped_replying"
  },
  {
   "lead_key": "L8",
@@ -118,13 +194,24 @@
    "VEHICLE_INTEREST",
    "ACTIVE_DISCUSSION",
    "PRICE_MENTIONED",
-   "PRICE_OBJECTION",
+   "FOLLOW_UP",
    "PRICE_DROP_OFF",
    "CUSTOMER_INACTIVE",
    "LOST"
   ],
   "price_dropoff": true,
-  "weak_followup": true
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "小婷",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": false
+  },
+  "loss_reason": "stopped_replying"
  },
  {
   "lead_key": "L9",
@@ -134,13 +221,23 @@
    "VEHICLE_INTEREST",
    "ACTIVE_DISCUSSION",
    "PRICE_MENTIONED",
-   "PRICE_OBJECTION",
-   "PRICE_DROP_OFF",
-   "CUSTOMER_INACTIVE",
-   "LOST"
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
   ],
-  "price_dropoff": true,
-  "weak_followup": false
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "妮妮",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": true
+  }
  },
  {
   "lead_key": "L10",
@@ -150,13 +247,23 @@
    "VEHICLE_INTEREST",
    "ACTIVE_DISCUSSION",
    "PRICE_MENTIONED",
-   "PRICE_OBJECTION",
-   "PRICE_DROP_OFF",
-   "CUSTOMER_INACTIVE",
-   "LOST"
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT"
   ],
-  "price_dropoff": true,
-  "weak_followup": true
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿豪",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": true,
+   "postvisit_24h": true
+  }
  },
  {
   "lead_key": "L11",
@@ -164,16 +271,27 @@
   "expect_events": [
    "NEW_LEAD",
    "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
    "PRICE_MENTIONED",
    "PRICE_OBJECTION",
-   "FOLLOW_UP",
    "PRICE_DROP_OFF",
    "CUSTOMER_INACTIVE",
-   "LOST",
-   "ACTIVE_DISCUSSION"
+   "LOST"
   ],
   "price_dropoff": true,
-  "weak_followup": false
+  "weak_followup": true,
+  "roles": [
+   {
+    "staff": "阿凱",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false,
+   "objection_clarified": false
+  },
+  "loss_reason": "price_resistance"
  },
  {
   "lead_key": "L12",
@@ -183,13 +301,23 @@
    "VEHICLE_INTEREST",
    "ACTIVE_DISCUSSION",
    "PRICE_MENTIONED",
-   "FOLLOW_UP",
-   "PRICE_DROP_OFF",
-   "CUSTOMER_INACTIVE",
-   "LOST"
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
   ],
-  "price_dropoff": true,
-  "weak_followup": false
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "妮妮",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": true
+  }
  },
  {
   "lead_key": "L13",
@@ -205,7 +333,18 @@
    "LOST"
   ],
   "price_dropoff": true,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "小婷",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": true
+  },
+  "loss_reason": "stopped_replying"
  },
  {
   "lead_key": "L14",
@@ -214,16 +353,55 @@
    "NEW_LEAD",
    "VEHICLE_INTEREST",
    "PRICE_MENTIONED",
-   "FOLLOW_UP",
-   "PRICE_DROP_OFF",
-   "CUSTOMER_INACTIVE",
-   "LOST"
+   "PRICE_OBJECTION",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD",
+   "ACTIVE_DISCUSSION"
   ],
-  "price_dropoff": true,
-  "weak_followup": false
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿凱",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false,
+   "objection_clarified": true
+  }
  },
  {
   "lead_key": "L15",
+  "scenario": "02_price_then_continue",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿國",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false,
+   "postvisit_24h": false
+  }
+ },
+ {
+  "lead_key": "L16",
   "scenario": "02_price_then_continue",
   "expect_events": [
    "NEW_LEAD",
@@ -236,23 +414,18 @@
    "FOLLOW_UP"
   ],
   "price_dropoff": false,
-  "weak_followup": false
- },
- {
-  "lead_key": "L16",
-  "scenario": "02_price_then_continue",
-  "expect_events": [
-   "NEW_LEAD",
-   "VEHICLE_INTEREST",
-   "PRICE_MENTIONED",
-   "APPOINTMENT_PROPOSED",
-   "APPOINTMENT_BOOKED",
-   "STORE_VISIT",
-   "FOLLOW_UP",
-   "ACTIVE_DISCUSSION"
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "小婷",
+    "role": "primary"
+   }
   ],
-  "price_dropoff": false,
-  "weak_followup": false
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": true,
+   "postvisit_24h": true
+  }
  },
  {
   "lead_key": "L17",
@@ -268,7 +441,18 @@
    "FOLLOW_UP"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "小婷",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": true,
+   "postvisit_24h": true
+  }
  },
  {
   "lead_key": "L18",
@@ -284,7 +468,17 @@
    "SOLD"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "妮妮",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": true
+  }
  },
  {
   "lead_key": "L19",
@@ -292,15 +486,26 @@
   "expect_events": [
    "NEW_LEAD",
    "VEHICLE_INTEREST",
-   "ACTIVE_DISCUSSION",
    "PRICE_MENTIONED",
    "APPOINTMENT_PROPOSED",
    "APPOINTMENT_BOOKED",
    "STORE_VISIT",
-   "FOLLOW_UP"
+   "FOLLOW_UP",
+   "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "大偉",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": false,
+   "postvisit_24h": true
+  }
  },
  {
   "lead_key": "L20",
@@ -313,10 +518,20 @@
    "APPOINTMENT_PROPOSED",
    "APPOINTMENT_BOOKED",
    "STORE_VISIT",
-   "FOLLOW_UP"
+   "SOLD"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "佳佳",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": true
+  }
  },
  {
   "lead_key": "L21",
@@ -328,30 +543,24 @@
    "PRICE_MENTIONED",
    "APPOINTMENT_PROPOSED",
    "APPOINTMENT_BOOKED",
-   "STORE_VISIT",
-   "SOLD"
+   "STORE_VISIT"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿凱",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false,
+   "postvisit_24h": true
+  }
  },
  {
   "lead_key": "L22",
-  "scenario": "02_price_then_continue",
-  "expect_events": [
-   "NEW_LEAD",
-   "VEHICLE_INTEREST",
-   "PRICE_MENTIONED",
-   "APPOINTMENT_PROPOSED",
-   "APPOINTMENT_BOOKED",
-   "STORE_VISIT",
-   "SOLD",
-   "ACTIVE_DISCUSSION"
-  ],
-  "price_dropoff": false,
-  "weak_followup": false
- },
- {
-  "lead_key": "L23",
   "scenario": "02_price_then_continue",
   "expect_events": [
    "NEW_LEAD",
@@ -363,7 +572,45 @@
    "STORE_VISIT"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿凱",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": true,
+   "postvisit_24h": false
+  }
+ },
+ {
+  "lead_key": "L23",
+  "scenario": "02_price_then_continue",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "FOLLOW_UP"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "佳佳",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": true,
+   "postvisit_24h": true
+  }
  },
  {
   "lead_key": "L24",
@@ -376,10 +623,20 @@
    "APPOINTMENT_PROPOSED",
    "APPOINTMENT_BOOKED",
    "STORE_VISIT",
-   "FOLLOW_UP"
+   "SOLD"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "小柔",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": true
+  }
  },
  {
   "lead_key": "L25",
@@ -389,10 +646,21 @@
    "VEHICLE_INTEREST",
    "ACTIVE_DISCUSSION",
    "PRICE_MENTIONED",
-   "NEGOTIATION"
+   "NEGOTIATION",
+   "FOLLOW_UP"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "小婷",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": true
+  }
  },
  {
   "lead_key": "L26",
@@ -400,16 +668,50 @@
   "expect_events": [
    "NEW_LEAD",
    "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
    "PRICE_MENTIONED",
    "NEGOTIATION",
-   "FOLLOW_UP",
-   "ACTIVE_DISCUSSION"
+   "SOLD"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "大偉",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": false
+  }
  },
  {
   "lead_key": "L27",
+  "scenario": "03_negotiation",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "NEGOTIATION",
+   "FOLLOW_UP"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "佳佳",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false
+  }
+ },
+ {
+  "lead_key": "L28",
   "scenario": "03_negotiation",
   "expect_events": [
    "NEW_LEAD",
@@ -420,21 +722,17 @@
    "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
-  "weak_followup": false
- },
- {
-  "lead_key": "L28",
-  "scenario": "03_negotiation",
-  "expect_events": [
-   "NEW_LEAD",
-   "VEHICLE_INTEREST",
-   "ACTIVE_DISCUSSION",
-   "PRICE_MENTIONED",
-   "NEGOTIATION",
-   "FOLLOW_UP"
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "妮妮",
+    "role": "primary"
+   }
   ],
-  "price_dropoff": false,
-  "weak_followup": false
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": true
+  }
  },
  {
   "lead_key": "L29",
@@ -448,7 +746,17 @@
    "SOLD"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "佳佳",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": false
+  }
  },
  {
   "lead_key": "L30",
@@ -462,24 +770,20 @@
    "SOLD"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "小婷",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": true
+  }
  },
  {
   "lead_key": "L31",
-  "scenario": "03_negotiation",
-  "expect_events": [
-   "NEW_LEAD",
-   "VEHICLE_INTEREST",
-   "PRICE_MENTIONED",
-   "NEGOTIATION",
-   "SOLD",
-   "ACTIVE_DISCUSSION"
-  ],
-  "price_dropoff": false,
-  "weak_followup": false
- },
- {
-  "lead_key": "L32",
   "scenario": "03_negotiation",
   "expect_events": [
    "NEW_LEAD",
@@ -490,7 +794,41 @@
    "SOLD"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "小婷",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": false
+  }
+ },
+ {
+  "lead_key": "L32",
+  "scenario": "03_negotiation",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "NEGOTIATION",
+   "FOLLOW_UP"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "佳佳",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": true
+  }
  },
  {
   "lead_key": "L33",
@@ -500,11 +838,25 @@
    "VEHICLE_INTEREST",
    "PRICE_MENTIONED",
    "FINANCING_QUESTION",
-   "CUSTOMER_INACTIVE",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
    "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
-  "weak_followup": true
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿國",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false,
+   "fin_answered": true,
+   "postvisit_24h": false
+  }
  },
  {
   "lead_key": "L34",
@@ -517,11 +869,22 @@
    "FINANCING_QUESTION",
    "APPOINTMENT_PROPOSED",
    "APPOINTMENT_BOOKED",
-   "STORE_VISIT",
-   "SOLD"
+   "STORE_VISIT"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿國",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false,
+   "fin_answered": true,
+   "postvisit_24h": false
+  }
  },
  {
   "lead_key": "L35",
@@ -538,10 +901,74 @@
    "SOLD"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "小婷",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": true,
+   "fin_answered": true
+  }
  },
  {
   "lead_key": "L36",
+  "scenario": "04_financing_question",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "PRICE_MENTIONED",
+   "FINANCING_QUESTION",
+   "CUSTOMER_INACTIVE",
+   "ACTIVE_DISCUSSION"
+  ],
+  "price_dropoff": false,
+  "weak_followup": true,
+  "roles": [
+   {
+    "staff": "阿凱",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false,
+   "fin_answered": false
+  }
+ },
+ {
+  "lead_key": "L37",
+  "scenario": "04_financing_question",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "PRICE_MENTIONED",
+   "FINANCING_QUESTION",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD",
+   "ACTIVE_DISCUSSION"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿凱",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": true,
+   "fin_answered": true
+  }
+ },
+ {
+  "lead_key": "L38",
   "scenario": "04_financing_question",
   "expect_events": [
    "NEW_LEAD",
@@ -555,35 +982,18 @@
    "SOLD"
   ],
   "price_dropoff": false,
-  "weak_followup": false
- },
- {
-  "lead_key": "L37",
-  "scenario": "04_financing_question",
-  "expect_events": [
-   "NEW_LEAD",
-   "VEHICLE_INTEREST",
-   "ACTIVE_DISCUSSION",
-   "PRICE_MENTIONED",
-   "FINANCING_QUESTION",
-   "CUSTOMER_INACTIVE"
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "妮妮",
+    "role": "primary"
+   }
   ],
-  "price_dropoff": false,
-  "weak_followup": true
- },
- {
-  "lead_key": "L38",
-  "scenario": "04_financing_question",
-  "expect_events": [
-   "NEW_LEAD",
-   "VEHICLE_INTEREST",
-   "ACTIVE_DISCUSSION",
-   "PRICE_MENTIONED",
-   "FINANCING_QUESTION",
-   "CUSTOMER_INACTIVE"
-  ],
-  "price_dropoff": false,
-  "weak_followup": true
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": true,
+   "fin_answered": true
+  }
  },
  {
   "lead_key": "L39",
@@ -593,11 +1003,22 @@
    "VEHICLE_INTEREST",
    "PRICE_MENTIONED",
    "FINANCING_QUESTION",
-   "APPOINTMENT_PROPOSED",
+   "CUSTOMER_INACTIVE",
    "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": true,
+  "roles": [
+   {
+    "staff": "小婷",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": true,
+   "fin_answered": false
+  }
  },
  {
   "lead_key": "L40",
@@ -605,30 +1026,31 @@
   "expect_events": [
    "NEW_LEAD",
    "VEHICLE_INTEREST",
-   "ACTIVE_DISCUSSION",
    "PRICE_MENTIONED",
    "FINANCING_QUESTION",
-   "CUSTOMER_INACTIVE"
-  ],
-  "price_dropoff": false,
-  "weak_followup": true
- },
- {
-  "lead_key": "L41",
-  "scenario": "05_books_appointment",
-  "expect_events": [
-   "NEW_LEAD",
-   "VEHICLE_INTEREST",
-   "PRICE_MENTIONED",
    "APPOINTMENT_PROPOSED",
    "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "FOLLOW_UP",
    "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "小柔",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": true,
+   "fin_answered": true,
+   "postvisit_24h": true
+  }
  },
  {
-  "lead_key": "L42",
+  "lead_key": "L41",
   "scenario": "05_books_appointment",
   "expect_events": [
    "NEW_LEAD",
@@ -639,10 +1061,20 @@
    "APPOINTMENT_BOOKED"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿國",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false
+  }
  },
  {
-  "lead_key": "L43",
+  "lead_key": "L42",
   "scenario": "05_books_appointment",
   "expect_events": [
    "NEW_LEAD",
@@ -653,7 +1085,41 @@
    "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿凱",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false
+  }
+ },
+ {
+  "lead_key": "L43",
+  "scenario": "05_books_appointment",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "佳佳",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": true
+  }
  },
  {
   "lead_key": "L44",
@@ -667,7 +1133,17 @@
    "APPOINTMENT_BOOKED"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿凱",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false
+  }
  },
  {
   "lead_key": "L45",
@@ -681,7 +1157,17 @@
    "APPOINTMENT_BOOKED"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "妮妮",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": false
+  }
  },
  {
   "lead_key": "L46",
@@ -695,7 +1181,17 @@
    "APPOINTMENT_BOOKED"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "佳佳",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": true
+  }
  },
  {
   "lead_key": "L47",
@@ -707,12 +1203,20 @@
    "PRICE_MENTIONED",
    "APPOINTMENT_PROPOSED",
    "APPOINTMENT_BOOKED",
-   "NO_SHOW",
-   "CUSTOMER_INACTIVE",
-   "LOST"
+   "NO_SHOW"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿凱",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false
+  }
  },
  {
   "lead_key": "L48",
@@ -727,7 +1231,17 @@
    "NO_SHOW"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿凱",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false
+  }
  },
  {
   "lead_key": "L49",
@@ -743,7 +1257,17 @@
    "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "佳佳",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": true
+  }
  },
  {
   "lead_key": "L50",
@@ -760,7 +1284,18 @@
    "LOST"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "小婷",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": true
+  },
+  "loss_reason": "no_show"
  },
  {
   "lead_key": "L51",
@@ -768,16 +1303,25 @@
   "expect_events": [
    "NEW_LEAD",
    "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
    "PRICE_MENTIONED",
    "APPOINTMENT_PROPOSED",
    "APPOINTMENT_BOOKED",
    "NO_SHOW",
-   "CUSTOMER_INACTIVE",
-   "LOST",
-   "ACTIVE_DISCUSSION"
+   "FOLLOW_UP"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "小柔",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": true
+  }
  },
  {
   "lead_key": "L52",
@@ -785,16 +1329,24 @@
   "expect_events": [
    "NEW_LEAD",
    "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
    "PRICE_MENTIONED",
    "APPOINTMENT_PROPOSED",
    "APPOINTMENT_BOOKED",
-   "NO_SHOW",
-   "CUSTOMER_INACTIVE",
-   "LOST",
-   "ACTIVE_DISCUSSION"
+   "NO_SHOW"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿凱",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": true
+  }
  },
  {
   "lead_key": "L53",
@@ -810,7 +1362,17 @@
    "FOLLOW_UP"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "妮妮",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": true
+  }
  },
  {
   "lead_key": "L54",
@@ -823,11 +1385,21 @@
    "APPOINTMENT_BOOKED",
    "STORE_VISIT",
    "FOLLOW_UP",
-   "LOST",
    "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿豪",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": true,
+   "postvisit_24h": true
+  }
  },
  {
   "lead_key": "L55",
@@ -839,10 +1411,22 @@
    "PRICE_MENTIONED",
    "APPOINTMENT_PROPOSED",
    "APPOINTMENT_BOOKED",
-   "STORE_VISIT"
+   "STORE_VISIT",
+   "SOLD"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "佳佳",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": true,
+   "postvisit_24h": true
+  }
  },
  {
   "lead_key": "L56",
@@ -850,15 +1434,26 @@
   "expect_events": [
    "NEW_LEAD",
    "VEHICLE_INTEREST",
-   "ACTIVE_DISCUSSION",
    "PRICE_MENTIONED",
    "APPOINTMENT_PROPOSED",
    "APPOINTMENT_BOOKED",
    "STORE_VISIT",
-   "FOLLOW_UP"
+   "FOLLOW_UP",
+   "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "妮妮",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": true,
+   "postvisit_24h": true
+  }
  },
  {
   "lead_key": "L57",
@@ -871,11 +1466,21 @@
    "APPOINTMENT_PROPOSED",
    "APPOINTMENT_BOOKED",
    "STORE_VISIT",
-   "FOLLOW_UP",
-   "LOST"
+   "SOLD"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "佳佳",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": false,
+   "postvisit_24h": true
+  }
  },
  {
   "lead_key": "L58",
@@ -887,10 +1492,24 @@
    "PRICE_MENTIONED",
    "APPOINTMENT_PROPOSED",
    "APPOINTMENT_BOOKED",
-   "STORE_VISIT"
+   "STORE_VISIT",
+   "FOLLOW_UP",
+   "LOST"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "小婷",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": true,
+   "postvisit_24h": true
+  },
+  "loss_reason": "price_resistance"
  },
  {
   "lead_key": "L59",
@@ -903,10 +1522,23 @@
    "APPOINTMENT_PROPOSED",
    "APPOINTMENT_BOOKED",
    "STORE_VISIT",
+   "FOLLOW_UP",
    "LOST"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿豪",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": false,
+   "postvisit_24h": true
+  },
+  "loss_reason": "timing"
  },
  {
   "lead_key": "L60",
@@ -919,11 +1551,22 @@
    "APPOINTMENT_PROPOSED",
    "APPOINTMENT_BOOKED",
    "STORE_VISIT",
-   "FOLLOW_UP",
    "LOST"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿凱",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": true,
+   "postvisit_24h": false
+  },
+  "loss_reason": "price_resistance"
  },
  {
   "lead_key": "L61",
@@ -939,7 +1582,18 @@
    "FOLLOW_UP"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "小婷",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": true,
+   "postvisit_24h": true
+  }
  },
  {
   "lead_key": "L62",
@@ -952,10 +1606,21 @@
    "APPOINTMENT_PROPOSED",
    "APPOINTMENT_BOOKED",
    "STORE_VISIT",
+   "NEGOTIATION",
    "SOLD"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿國",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false
+  }
  },
  {
   "lead_key": "L63",
@@ -972,7 +1637,17 @@
    "SOLD"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "大偉",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": true
+  }
  },
  {
   "lead_key": "L64",
@@ -985,10 +1660,21 @@
    "APPOINTMENT_PROPOSED",
    "APPOINTMENT_BOOKED",
    "STORE_VISIT",
+   "NEGOTIATION",
    "SOLD"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿國",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false
+  }
  },
  {
   "lead_key": "L65",
@@ -1001,13 +1687,51 @@
    "APPOINTMENT_PROPOSED",
    "APPOINTMENT_BOOKED",
    "STORE_VISIT",
+   "NEGOTIATION",
    "SOLD"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿豪",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false
+  }
  },
  {
   "lead_key": "L66",
+  "scenario": "08_visit_and_buy",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "NEGOTIATION",
+   "SOLD",
+   "ACTIVE_DISCUSSION"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "佳佳",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": true
+  }
+ },
+ {
+  "lead_key": "L67",
   "scenario": "08_visit_and_buy",
   "expect_events": [
    "NEW_LEAD",
@@ -1017,26 +1741,21 @@
    "APPOINTMENT_PROPOSED",
    "APPOINTMENT_BOOKED",
    "STORE_VISIT",
+   "NEGOTIATION",
    "SOLD"
   ],
   "price_dropoff": false,
-  "weak_followup": false
- },
- {
-  "lead_key": "L67",
-  "scenario": "08_visit_and_buy",
-  "expect_events": [
-   "NEW_LEAD",
-   "VEHICLE_INTEREST",
-   "PRICE_MENTIONED",
-   "APPOINTMENT_PROPOSED",
-   "APPOINTMENT_BOOKED",
-   "STORE_VISIT",
-   "SOLD",
-   "ACTIVE_DISCUSSION"
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "妮妮",
+    "role": "primary"
+   }
   ],
-  "price_dropoff": false,
-  "weak_followup": false
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false
+  }
  },
  {
   "lead_key": "L68",
@@ -1053,26 +1772,20 @@
    "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿國",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false
+  }
  },
  {
   "lead_key": "L69",
-  "scenario": "08_visit_and_buy",
-  "expect_events": [
-   "NEW_LEAD",
-   "VEHICLE_INTEREST",
-   "ACTIVE_DISCUSSION",
-   "PRICE_MENTIONED",
-   "APPOINTMENT_PROPOSED",
-   "APPOINTMENT_BOOKED",
-   "STORE_VISIT",
-   "SOLD"
-  ],
-  "price_dropoff": false,
-  "weak_followup": false
- },
- {
-  "lead_key": "L70",
   "scenario": "08_visit_and_buy",
   "expect_events": [
    "NEW_LEAD",
@@ -1086,7 +1799,43 @@
    "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "妮妮",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": true
+  }
+ },
+ {
+  "lead_key": "L70",
+  "scenario": "08_visit_and_buy",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿國",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": true
+  }
  },
  {
   "lead_key": "L71",
@@ -1101,40 +1850,22 @@
    "LOST"
   ],
   "price_dropoff": false,
-  "weak_followup": true
+  "weak_followup": true,
+  "roles": [
+   {
+    "staff": "大偉",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "proposed_after_intent": false,
+   "asked_after_price": false
+  },
+  "loss_reason": "slow_response"
  },
  {
   "lead_key": "L72",
-  "scenario": "09_strong_lead_weak_followup",
-  "expect_events": [
-   "NEW_LEAD",
-   "VEHICLE_INTEREST",
-   "HIGH_INTENT",
-   "PRICE_MENTIONED",
-   "CUSTOMER_INACTIVE",
-   "LOST",
-   "ACTIVE_DISCUSSION"
-  ],
-  "price_dropoff": false,
-  "weak_followup": true
- },
- {
-  "lead_key": "L73",
-  "scenario": "09_strong_lead_weak_followup",
-  "expect_events": [
-   "NEW_LEAD",
-   "VEHICLE_INTEREST",
-   "HIGH_INTENT",
-   "PRICE_MENTIONED",
-   "CUSTOMER_INACTIVE",
-   "LOST",
-   "ACTIVE_DISCUSSION"
-  ],
-  "price_dropoff": false,
-  "weak_followup": true
- },
- {
-  "lead_key": "L74",
   "scenario": "09_strong_lead_weak_followup",
   "expect_events": [
    "NEW_LEAD",
@@ -1146,7 +1877,73 @@
    "LOST"
   ],
   "price_dropoff": false,
-  "weak_followup": true
+  "weak_followup": true,
+  "roles": [
+   {
+    "staff": "阿國",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "proposed_after_intent": false,
+   "asked_after_price": false
+  },
+  "loss_reason": "slow_response"
+ },
+ {
+  "lead_key": "L73",
+  "scenario": "09_strong_lead_weak_followup",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "HIGH_INTENT",
+   "PRICE_MENTIONED",
+   "CUSTOMER_INACTIVE",
+   "LOST"
+  ],
+  "price_dropoff": false,
+  "weak_followup": true,
+  "roles": [
+   {
+    "staff": "大偉",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "proposed_after_intent": false,
+   "asked_after_price": true
+  },
+  "loss_reason": "slow_response"
+ },
+ {
+  "lead_key": "L74",
+  "scenario": "09_strong_lead_weak_followup",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "HIGH_INTENT",
+   "PRICE_MENTIONED",
+   "CUSTOMER_INACTIVE",
+   "LOST",
+   "ACTIVE_DISCUSSION"
+  ],
+  "price_dropoff": false,
+  "weak_followup": true,
+  "roles": [
+   {
+    "staff": "阿國",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "proposed_after_intent": false,
+   "asked_after_price": true
+  },
+  "loss_reason": "slow_response"
  },
  {
   "lead_key": "L75",
@@ -1161,7 +1958,19 @@
    "LOST"
   ],
   "price_dropoff": false,
-  "weak_followup": true
+  "weak_followup": true,
+  "roles": [
+   {
+    "staff": "阿凱",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "proposed_after_intent": false,
+   "asked_after_price": false
+  },
+  "loss_reason": "slow_response"
  },
  {
   "lead_key": "L76",
@@ -1169,14 +1978,26 @@
   "expect_events": [
    "NEW_LEAD",
    "VEHICLE_INTEREST",
-   "ACTIVE_DISCUSSION",
    "HIGH_INTENT",
    "PRICE_MENTIONED",
    "CUSTOMER_INACTIVE",
-   "LOST"
+   "LOST",
+   "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
-  "weak_followup": true
+  "weak_followup": true,
+  "roles": [
+   {
+    "staff": "大偉",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "proposed_after_intent": false,
+   "asked_after_price": false
+  },
+  "loss_reason": "slow_response"
  },
  {
   "lead_key": "L77",
@@ -1191,7 +2012,19 @@
    "LOST"
   ],
   "price_dropoff": false,
-  "weak_followup": true
+  "weak_followup": true,
+  "roles": [
+   {
+    "staff": "阿國",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "proposed_after_intent": false,
+   "asked_after_price": false
+  },
+  "loss_reason": "slow_response"
  },
  {
   "lead_key": "L78",
@@ -1199,16 +2032,27 @@
   "expect_events": [
    "NEW_LEAD",
    "VEHICLE_INTEREST",
-   "ACTIVE_DISCUSSION",
    "HIGH_INTENT",
    "PRICE_MENTIONED",
    "APPOINTMENT_PROPOSED",
    "APPOINTMENT_BOOKED",
    "STORE_VISIT",
-   "SOLD"
+   "SOLD",
+   "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "妮妮",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "proposed_after_intent": true,
+   "asked_after_price": true
+  }
  },
  {
   "lead_key": "L79",
@@ -1225,10 +2069,49 @@
    "SOLD"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "妮妮",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "proposed_after_intent": true,
+   "asked_after_price": true
+  }
  },
  {
   "lead_key": "L80",
+  "scenario": "10_high_intent_good_followup",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "HIGH_INTENT",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "小婷",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "proposed_after_intent": true,
+   "asked_after_price": true
+  }
+ },
+ {
+  "lead_key": "L81",
   "scenario": "10_high_intent_good_followup",
   "expect_events": [
    "NEW_LEAD",
@@ -1242,24 +2125,18 @@
    "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
-  "weak_followup": false
- },
- {
-  "lead_key": "L81",
-  "scenario": "10_high_intent_good_followup",
-  "expect_events": [
-   "NEW_LEAD",
-   "VEHICLE_INTEREST",
-   "ACTIVE_DISCUSSION",
-   "HIGH_INTENT",
-   "PRICE_MENTIONED",
-   "APPOINTMENT_PROPOSED",
-   "APPOINTMENT_BOOKED",
-   "STORE_VISIT",
-   "SOLD"
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "小柔",
+    "role": "primary"
+   }
   ],
-  "price_dropoff": false,
-  "weak_followup": false
+  "behaviors": {
+   "budget_clarified": false,
+   "proposed_after_intent": true,
+   "asked_after_price": true
+  }
  },
  {
   "lead_key": "L82",
@@ -1267,16 +2144,27 @@
   "expect_events": [
    "NEW_LEAD",
    "VEHICLE_INTEREST",
-   "ACTIVE_DISCUSSION",
    "HIGH_INTENT",
    "PRICE_MENTIONED",
    "APPOINTMENT_PROPOSED",
    "APPOINTMENT_BOOKED",
    "STORE_VISIT",
-   "SOLD"
+   "SOLD",
+   "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "佳佳",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "proposed_after_intent": true,
+   "asked_after_price": true
+  }
  },
  {
   "lead_key": "L83",
@@ -1291,7 +2179,17 @@
    "PRICE_DROP_OFF"
   ],
   "price_dropoff": true,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "小柔",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": true
+  }
  },
  {
   "lead_key": "L84",
@@ -1299,16 +2197,43 @@
   "expect_events": [
    "NEW_LEAD",
    "VEHICLE_INTEREST",
-   "ACTIVE_DISCUSSION",
-   "CUSTOMER_INACTIVE",
-   "FOLLOW_UP",
-   "PRICE_DROP_OFF"
+   "CUSTOMER_INACTIVE"
   ],
-  "price_dropoff": true,
-  "weak_followup": false
+  "price_dropoff": false,
+  "weak_followup": true,
+  "roles": [
+   {
+    "staff": "阿國",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false
+  }
  },
  {
   "lead_key": "L85",
+  "scenario": "11_goes_inactive",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "CUSTOMER_INACTIVE"
+  ],
+  "price_dropoff": false,
+  "weak_followup": true,
+  "roles": [
+   {
+    "staff": "阿凱",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false
+  }
+ },
+ {
+  "lead_key": "L86",
   "scenario": "11_goes_inactive",
   "expect_events": [
    "NEW_LEAD",
@@ -1318,19 +2243,17 @@
    "PRICE_DROP_OFF"
   ],
   "price_dropoff": true,
-  "weak_followup": false
- },
- {
-  "lead_key": "L86",
-  "scenario": "11_goes_inactive",
-  "expect_events": [
-   "NEW_LEAD",
-   "VEHICLE_INTEREST",
-   "CUSTOMER_INACTIVE",
-   "FOLLOW_UP"
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿豪",
+    "role": "primary"
+   }
   ],
-  "price_dropoff": false,
-  "weak_followup": false
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": true
+  }
  },
  {
   "lead_key": "L87",
@@ -1338,10 +2261,22 @@
   "expect_events": [
    "NEW_LEAD",
    "VEHICLE_INTEREST",
-   "CUSTOMER_INACTIVE"
+   "PRICE_MENTIONED",
+   "CUSTOMER_INACTIVE",
+   "PRICE_DROP_OFF"
   ],
-  "price_dropoff": false,
-  "weak_followup": true
+  "price_dropoff": true,
+  "weak_followup": true,
+  "roles": [
+   {
+    "staff": "大偉",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false
+  }
  },
  {
   "lead_key": "L88",
@@ -1350,12 +2285,23 @@
    "NEW_LEAD",
    "VEHICLE_INTEREST",
    "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
    "CUSTOMER_INACTIVE",
    "FOLLOW_UP",
    "PRICE_DROP_OFF"
   ],
   "price_dropoff": true,
-  "weak_followup": false
+  "weak_followup": true,
+  "roles": [
+   {
+    "staff": "阿國",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false
+  }
  },
  {
   "lead_key": "L89",
@@ -1364,13 +2310,19 @@
    "NEW_LEAD",
    "VEHICLE_INTEREST",
    "ACTIVE_DISCUSSION",
-   "PRICE_MENTIONED",
-   "CUSTOMER_INACTIVE",
-   "FOLLOW_UP",
-   "PRICE_DROP_OFF"
+   "CUSTOMER_INACTIVE"
   ],
-  "price_dropoff": true,
-  "weak_followup": false
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿豪",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false
+  }
  },
  {
   "lead_key": "L90",
@@ -1385,7 +2337,17 @@
    "PRICE_DROP_OFF"
   ],
   "price_dropoff": true,
-  "weak_followup": false
+  "weak_followup": true,
+  "roles": [
+   {
+    "staff": "阿凱",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": false
+  }
  },
  {
   "lead_key": "L91",
@@ -1393,12 +2355,19 @@
   "expect_events": [
    "NEW_LEAD",
    "VEHICLE_INTEREST",
-   "ACTIVE_DISCUSSION",
-   "CUSTOMER_INACTIVE",
-   "FOLLOW_UP"
+   "CUSTOMER_INACTIVE"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": true,
+  "roles": [
+   {
+    "staff": "阿國",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false
+  }
  },
  {
   "lead_key": "L92",
@@ -1411,7 +2380,16 @@
    "FOLLOW_UP"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "小柔",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false
+  }
  },
  {
   "lead_key": "L93",
@@ -1419,6 +2397,7 @@
   "expect_events": [
    "NEW_LEAD",
    "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
    "PRICE_MENTIONED",
    "CUSTOMER_INACTIVE",
    "RE_ENGAGED",
@@ -1428,7 +2407,17 @@
    "SOLD"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "小婷",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": true
+  }
  },
  {
   "lead_key": "L94",
@@ -1436,6 +2425,7 @@
   "expect_events": [
    "NEW_LEAD",
    "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
    "PRICE_MENTIONED",
    "CUSTOMER_INACTIVE",
    "RE_ENGAGED",
@@ -1445,7 +2435,17 @@
    "SOLD"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "妮妮",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": true
+  }
  },
  {
   "lead_key": "L95",
@@ -1463,7 +2463,17 @@
    "SOLD"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿國",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false
+  }
  },
  {
   "lead_key": "L96",
@@ -1471,6 +2481,7 @@
   "expect_events": [
    "NEW_LEAD",
    "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
    "PRICE_MENTIONED",
    "CUSTOMER_INACTIVE",
    "RE_ENGAGED",
@@ -1480,7 +2491,17 @@
    "SOLD"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "小婷",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": true
+  }
  },
  {
   "lead_key": "L97",
@@ -1498,7 +2519,17 @@
    "SOLD"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "大偉",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": false
+  }
  },
  {
   "lead_key": "L98",
@@ -1508,13 +2539,28 @@
    "VEHICLE_INTEREST",
    "ACTIVE_DISCUSSION",
    "PRICE_MENTIONED",
-   "APPOINTMENT_PROPOSED",
-   "APPOINTMENT_BOOKED",
-   "STORE_VISIT",
-   "FOLLOW_UP"
+   "APPOINTMENT_PROPOSED"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "小柔",
+    "role": "primary"
+   },
+   {
+    "staff": "大偉",
+    "role": "handoff_from"
+   },
+   {
+    "staff": "小柔",
+    "role": "handoff_to"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": true
+  }
  },
  {
   "lead_key": "L99",
@@ -1522,20 +2568,6 @@
   "expect_events": [
    "NEW_LEAD",
    "VEHICLE_INTEREST",
-   "ACTIVE_DISCUSSION",
-   "PRICE_MENTIONED",
-   "APPOINTMENT_PROPOSED"
-  ],
-  "price_dropoff": false,
-  "weak_followup": false
- },
- {
-  "lead_key": "L100",
-  "scenario": "13_staff_handoff",
-  "expect_events": [
-   "NEW_LEAD",
-   "VEHICLE_INTEREST",
-   "ACTIVE_DISCUSSION",
    "PRICE_MENTIONED",
    "APPOINTMENT_PROPOSED",
    "APPOINTMENT_BOOKED",
@@ -1543,7 +2575,57 @@
    "FOLLOW_UP"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "妮妮",
+    "role": "primary"
+   },
+   {
+    "staff": "小柔",
+    "role": "handoff_from"
+   },
+   {
+    "staff": "妮妮",
+    "role": "handoff_to"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": true,
+   "postvisit_24h": true
+  }
+ },
+ {
+  "lead_key": "L100",
+  "scenario": "13_staff_handoff",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "ACTIVE_DISCUSSION"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "小婷",
+    "role": "primary"
+   },
+   {
+    "staff": "佳佳",
+    "role": "handoff_from"
+   },
+   {
+    "staff": "小婷",
+    "role": "handoff_to"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": true
+  }
  },
  {
   "lead_key": "L101",
@@ -1551,12 +2633,30 @@
   "expect_events": [
    "NEW_LEAD",
    "VEHICLE_INTEREST",
-   "ACTIVE_DISCUSSION",
    "PRICE_MENTIONED",
-   "APPOINTMENT_PROPOSED"
+   "APPOINTMENT_PROPOSED",
+   "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "大偉",
+    "role": "primary"
+   },
+   {
+    "staff": "佳佳",
+    "role": "handoff_from"
+   },
+   {
+    "staff": "大偉",
+    "role": "handoff_to"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false
+  }
  },
  {
   "lead_key": "L102",
@@ -1574,7 +2674,18 @@
    "SOLD"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "佳佳",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": true,
+   "fin_answered": true
+  }
  },
  {
   "lead_key": "L103",
@@ -1592,7 +2703,18 @@
    "SOLD"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿國",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false,
+   "fin_answered": true
+  }
  },
  {
   "lead_key": "L104",
@@ -1600,17 +2722,28 @@
   "expect_events": [
    "NEW_LEAD",
    "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
    "PRICE_MENTIONED",
    "FINANCING_QUESTION",
    "FOLLOW_UP",
    "APPOINTMENT_PROPOSED",
    "APPOINTMENT_BOOKED",
    "STORE_VISIT",
-   "SOLD",
-   "ACTIVE_DISCUSSION"
+   "SOLD"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "大偉",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": true,
+   "fin_answered": true
+  }
  },
  {
   "lead_key": "L105",
@@ -1628,7 +2761,18 @@
    "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿豪",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": false,
+   "fin_answered": true
+  }
  },
  {
   "lead_key": "L106",
@@ -1636,15 +2780,25 @@
   "expect_events": [
    "NEW_LEAD",
    "VEHICLE_INTEREST",
-   "ACTIVE_DISCUSSION",
    "PRICE_MENTIONED",
    "APPOINTMENT_PROPOSED",
    "APPOINTMENT_BOOKED",
    "STORE_VISIT",
-   "SOLD"
+   "SOLD",
+   "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿凱",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false
+  }
  },
  {
   "lead_key": "L107",
@@ -1652,15 +2806,25 @@
   "expect_events": [
    "NEW_LEAD",
    "VEHICLE_INTEREST",
-   "ACTIVE_DISCUSSION",
    "PRICE_MENTIONED",
    "APPOINTMENT_PROPOSED",
    "APPOINTMENT_BOOKED",
    "STORE_VISIT",
-   "SOLD"
+   "SOLD",
+   "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "佳佳",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": true
+  }
  },
  {
   "lead_key": "L108",
@@ -1676,7 +2840,17 @@
    "SOLD"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿凱",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": false
+  }
  },
  {
   "lead_key": "L109",
@@ -1684,15 +2858,25 @@
   "expect_events": [
    "NEW_LEAD",
    "VEHICLE_INTEREST",
-   "ACTIVE_DISCUSSION",
    "PRICE_MENTIONED",
    "APPOINTMENT_PROPOSED",
    "APPOINTMENT_BOOKED",
    "STORE_VISIT",
-   "SOLD"
+   "SOLD",
+   "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿凱",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false
+  }
  },
  {
   "lead_key": "L110",
@@ -1702,11 +2886,21 @@
    "VEHICLE_INTEREST",
    "PRICE_MENTIONED",
    "NEGOTIATION",
-   "FOLLOW_UP",
+   "SOLD",
    "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "小婷",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": true
+  }
  },
  {
   "lead_key": "L111",
@@ -1719,7 +2913,17 @@
    "NEGOTIATION"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿國",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false
+  }
  },
  {
   "lead_key": "L112",
@@ -1729,11 +2933,21 @@
    "VEHICLE_INTEREST",
    "PRICE_MENTIONED",
    "NEGOTIATION",
-   "SOLD",
+   "FOLLOW_UP",
    "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "小婷",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": true
+  }
  },
  {
   "lead_key": "L113",
@@ -1747,7 +2961,17 @@
    "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "小婷",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": true
+  }
  },
  {
   "lead_key": "L114",
@@ -1755,13 +2979,23 @@
   "expect_events": [
    "NEW_LEAD",
    "VEHICLE_INTEREST",
-   "ACTIVE_DISCUSSION",
    "PRICE_MENTIONED",
    "NEGOTIATION",
-   "FOLLOW_UP"
+   "FOLLOW_UP",
+   "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "小柔",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false
+  }
  },
  {
   "lead_key": "L115",
@@ -1777,7 +3011,17 @@
    "SOLD"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿豪",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": true
+  }
  },
  {
   "lead_key": "L116",
@@ -1793,7 +3037,17 @@
    "SOLD"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "小婷",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": true
+  }
  },
  {
   "lead_key": "L117",
@@ -1809,7 +3063,17 @@
    "SOLD"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿凱",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false
+  }
  },
  {
   "lead_key": "L118",
@@ -1823,7 +3087,17 @@
    "SOLD"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "妮妮",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false
+  }
  },
  {
   "lead_key": "L119",
@@ -1837,7 +3111,17 @@
    "SOLD"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "大偉",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": false
+  }
  },
  {
   "lead_key": "L120",
@@ -1845,13 +3129,23 @@
   "expect_events": [
    "NEW_LEAD",
    "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
    "PRICE_MENTIONED",
    "NEGOTIATION",
-   "SOLD",
-   "ACTIVE_DISCUSSION"
+   "SOLD"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿豪",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false
+  }
  },
  {
   "lead_key": "L121",
@@ -1859,13 +3153,25 @@
   "expect_events": [
    "NEW_LEAD",
    "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
    "PRICE_MENTIONED",
    "PRICE_DROP_OFF",
    "CUSTOMER_INACTIVE",
    "LOST"
   ],
   "price_dropoff": true,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "小婷",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": true
+  },
+  "loss_reason": "price_resistance"
  },
  {
   "lead_key": "L122",
@@ -1876,15 +3182,55 @@
    "ACTIVE_DISCUSSION",
    "PRICE_MENTIONED",
    "PRICE_OBJECTION",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "FOLLOW_UP"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "大偉",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": false,
+   "objection_clarified": true,
+   "postvisit_24h": true
+  }
+ },
+ {
+  "lead_key": "L123",
+  "scenario": "19_hot_vehicle_low_conversion",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "FOLLOW_UP",
    "PRICE_DROP_OFF",
    "CUSTOMER_INACTIVE",
    "LOST"
   ],
   "price_dropoff": true,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿豪",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": false
+  },
+  "loss_reason": "price_resistance"
  },
  {
-  "lead_key": "L123",
+  "lead_key": "L124",
   "scenario": "19_hot_vehicle_low_conversion",
   "expect_events": [
    "NEW_LEAD",
@@ -1898,22 +3244,19 @@
    "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": true,
-  "weak_followup": false
- },
- {
-  "lead_key": "L124",
-  "scenario": "19_hot_vehicle_low_conversion",
-  "expect_events": [
-   "NEW_LEAD",
-   "VEHICLE_INTEREST",
-   "PRICE_MENTIONED",
-   "FOLLOW_UP",
-   "PRICE_DROP_OFF",
-   "CUSTOMER_INACTIVE",
-   "LOST"
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "妮妮",
+    "role": "primary"
+   }
   ],
-  "price_dropoff": true,
-  "weak_followup": false
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": true,
+   "objection_clarified": true
+  },
+  "loss_reason": "price_resistance"
  },
  {
   "lead_key": "L125",
@@ -1930,7 +3273,19 @@
    "LOST"
   ],
   "price_dropoff": true,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿豪",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": false,
+   "objection_clarified": false
+  },
+  "loss_reason": "price_resistance"
  },
  {
   "lead_key": "L126",
@@ -1940,14 +3295,24 @@
    "VEHICLE_INTEREST",
    "ACTIVE_DISCUSSION",
    "PRICE_MENTIONED",
-   "PRICE_OBJECTION",
    "FOLLOW_UP",
    "PRICE_DROP_OFF",
    "CUSTOMER_INACTIVE",
    "LOST"
   ],
   "price_dropoff": true,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "佳佳",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": true
+  },
+  "loss_reason": "price_resistance"
  },
  {
   "lead_key": "L127",
@@ -1955,15 +3320,25 @@
   "expect_events": [
    "NEW_LEAD",
    "VEHICLE_INTEREST",
-   "ACTIVE_DISCUSSION",
    "PRICE_MENTIONED",
    "APPOINTMENT_PROPOSED",
    "APPOINTMENT_BOOKED",
    "STORE_VISIT",
-   "SOLD"
+   "SOLD",
+   "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿豪",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": true
+  }
  },
  {
   "lead_key": "L128",
@@ -1979,7 +3354,17 @@
    "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿豪",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": true
+  }
  },
  {
   "lead_key": "L129",
@@ -1995,7 +3380,17 @@
    "SOLD"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "佳佳",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": true
+  }
  },
  {
   "lead_key": "L130",
@@ -2011,7 +3406,17 @@
    "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿豪",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": false
+  }
  },
  {
   "lead_key": "L131",
@@ -2022,12 +3427,22 @@
    "ACTIVE_DISCUSSION",
    "PRICE_MENTIONED",
    "PRICE_OBJECTION",
-   "FOLLOW_UP",
    "PRICE_DROP_OFF",
    "CUSTOMER_INACTIVE"
   ],
   "price_dropoff": true,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "大偉",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": true,
+   "objection_clarified": false
+  }
  },
  {
   "lead_key": "L132",
@@ -2042,7 +3457,18 @@
    "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": true,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "大偉",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": false,
+   "objection_clarified": false
+  }
  },
  {
   "lead_key": "L133",
@@ -2058,7 +3484,18 @@
    "CUSTOMER_INACTIVE"
   ],
   "price_dropoff": true,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿凱",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false,
+   "objection_clarified": false
+  }
  },
  {
   "lead_key": "L134",
@@ -2066,15 +3503,26 @@
   "expect_events": [
    "NEW_LEAD",
    "VEHICLE_INTEREST",
-   "ACTIVE_DISCUSSION",
    "PRICE_MENTIONED",
    "PRICE_OBJECTION",
    "FOLLOW_UP",
    "PRICE_DROP_OFF",
-   "CUSTOMER_INACTIVE"
+   "CUSTOMER_INACTIVE",
+   "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": true,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "小婷",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": true,
+   "objection_clarified": true
+  }
  },
  {
   "lead_key": "L135",
@@ -2082,14 +3530,26 @@
   "expect_events": [
    "NEW_LEAD",
    "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
    "PRICE_MENTIONED",
    "FINANCING_QUESTION",
    "CUSTOMER_INACTIVE",
-   "LOST",
-   "ACTIVE_DISCUSSION"
+   "LOST"
   ],
   "price_dropoff": false,
-  "weak_followup": true
+  "weak_followup": true,
+  "roles": [
+   {
+    "staff": "阿豪",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false,
+   "fin_answered": false
+  },
+  "loss_reason": "financing"
  },
  {
   "lead_key": "L136",
@@ -2104,7 +3564,19 @@
    "LOST"
   ],
   "price_dropoff": false,
-  "weak_followup": true
+  "weak_followup": true,
+  "roles": [
+   {
+    "staff": "阿豪",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": true,
+   "fin_answered": false
+  },
+  "loss_reason": "financing"
  },
  {
   "lead_key": "L137",
@@ -2119,7 +3591,19 @@
    "LOST"
   ],
   "price_dropoff": false,
-  "weak_followup": true
+  "weak_followup": true,
+  "roles": [
+   {
+    "staff": "佳佳",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": true,
+   "fin_answered": false
+  },
+  "loss_reason": "financing"
  },
  {
   "lead_key": "L138",
@@ -2134,7 +3618,19 @@
    "LOST"
   ],
   "price_dropoff": false,
-  "weak_followup": true
+  "weak_followup": true,
+  "roles": [
+   {
+    "staff": "阿豪",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": true,
+   "fin_answered": false
+  },
+  "loss_reason": "financing"
  },
  {
   "lead_key": "L139",
@@ -2151,7 +3647,17 @@
    "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "大偉",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "asked_after_price": false,
+   "proposed_after_intent": true
+  }
  },
  {
   "lead_key": "L140",
@@ -2168,7 +3674,17 @@
    "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "大偉",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "asked_after_price": false,
+   "proposed_after_intent": true
+  }
  },
  {
   "lead_key": "L141",
@@ -2185,7 +3701,17 @@
    "ACTIVE_DISCUSSION"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "小柔",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "asked_after_price": true,
+   "proposed_after_intent": true
+  }
  },
  {
   "lead_key": "L142",
@@ -2201,7 +3727,17 @@
    "SOLD"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "小婷",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": false
+  }
  },
  {
   "lead_key": "L143",
@@ -2209,7 +3745,6 @@
   "expect_events": [
    "NEW_LEAD",
    "VEHICLE_INTEREST",
-   "ACTIVE_DISCUSSION",
    "PRICE_MENTIONED",
    "APPOINTMENT_PROPOSED",
    "APPOINTMENT_BOOKED",
@@ -2217,7 +3752,17 @@
    "SOLD"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿凱",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false
+  }
  },
  {
   "lead_key": "L144",
@@ -2233,6 +3778,1392 @@
    "SOLD"
   ],
   "price_dropoff": false,
-  "weak_followup": false
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "小婷",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": false
+  }
+ },
+ {
+  "lead_key": "L145",
+  "scenario": "25_high_intent_by_style",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "HIGH_INTENT",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD",
+   "ACTIVE_DISCUSSION"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿凱",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": true,
+   "proposed_after_intent": true
+  }
+ },
+ {
+  "lead_key": "L146",
+  "scenario": "25_high_intent_by_style",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "HIGH_INTENT",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD",
+   "ACTIVE_DISCUSSION"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "妮妮",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": false,
+   "proposed_after_intent": true
+  }
+ },
+ {
+  "lead_key": "L147",
+  "scenario": "25_high_intent_by_style",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "HIGH_INTENT",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "小柔",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": true,
+   "proposed_after_intent": true,
+   "postvisit_24h": true
+  }
+ },
+ {
+  "lead_key": "L148",
+  "scenario": "25_high_intent_by_style",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "HIGH_INTENT",
+   "PRICE_MENTIONED",
+   "CUSTOMER_INACTIVE",
+   "LOST",
+   "ACTIVE_DISCUSSION"
+  ],
+  "price_dropoff": false,
+  "weak_followup": true,
+  "roles": [
+   {
+    "staff": "阿凱",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": true,
+   "proposed_after_intent": false
+  },
+  "loss_reason": "weak_followup"
+ },
+ {
+  "lead_key": "L149",
+  "scenario": "25_high_intent_by_style",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "HIGH_INTENT",
+   "PRICE_MENTIONED",
+   "CUSTOMER_INACTIVE",
+   "LOST"
+  ],
+  "price_dropoff": false,
+  "weak_followup": true,
+  "roles": [
+   {
+    "staff": "妮妮",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": true,
+   "proposed_after_intent": false
+  },
+  "loss_reason": "weak_followup"
+ },
+ {
+  "lead_key": "L150",
+  "scenario": "25_high_intent_by_style",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "HIGH_INTENT",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "FOLLOW_UP",
+   "ACTIVE_DISCUSSION"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "佳佳",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false,
+   "proposed_after_intent": true,
+   "postvisit_24h": true
+  }
+ },
+ {
+  "lead_key": "L151",
+  "scenario": "26_manager_intervention",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "PRICE_OBJECTION",
+   "NEGOTIATION",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "FOLLOW_UP"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿國",
+    "role": "primary"
+   },
+   {
+    "staff": "阿哲",
+    "role": "manager"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false,
+   "escalated": true,
+   "postvisit_24h": false
+  }
+ },
+ {
+  "lead_key": "L152",
+  "scenario": "26_manager_intervention",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "PRICE_OBJECTION",
+   "NEGOTIATION",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "大偉",
+    "role": "primary"
+   },
+   {
+    "staff": "阿哲",
+    "role": "manager"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false,
+   "escalated": true
+  }
+ },
+ {
+  "lead_key": "L153",
+  "scenario": "26_manager_intervention",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "PRICE_OBJECTION",
+   "NEGOTIATION",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "小柔",
+    "role": "primary"
+   },
+   {
+    "staff": "阿哲",
+    "role": "manager"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": true,
+   "escalated": true
+  }
+ },
+ {
+  "lead_key": "L154",
+  "scenario": "26_manager_intervention",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "PRICE_MENTIONED",
+   "PRICE_OBJECTION",
+   "NEGOTIATION",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD",
+   "ACTIVE_DISCUSSION"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "小婷",
+    "role": "primary"
+   },
+   {
+    "staff": "阿哲",
+    "role": "manager"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": false,
+   "escalated": true
+  }
+ },
+ {
+  "lead_key": "L155",
+  "scenario": "26_manager_intervention",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "PRICE_MENTIONED",
+   "PRICE_OBJECTION",
+   "NEGOTIATION",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD",
+   "ACTIVE_DISCUSSION"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "小婷",
+    "role": "primary"
+   },
+   {
+    "staff": "阿哲",
+    "role": "manager"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": true,
+   "escalated": true
+  }
+ },
+ {
+  "lead_key": "L156",
+  "scenario": "27_colleague_support",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "佳佳",
+    "role": "primary"
+   },
+   {
+    "staff": "阿國",
+    "role": "supporting"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": true
+  }
+ },
+ {
+  "lead_key": "L157",
+  "scenario": "27_colleague_support",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "FOLLOW_UP",
+   "PRICE_DROP_OFF"
+  ],
+  "price_dropoff": true,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "佳佳",
+    "role": "primary"
+   },
+   {
+    "staff": "小婷",
+    "role": "supporting"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": false
+  }
+ },
+ {
+  "lead_key": "L158",
+  "scenario": "27_colleague_support",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "小柔",
+    "role": "primary"
+   },
+   {
+    "staff": "大偉",
+    "role": "supporting"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": true
+  }
+ },
+ {
+  "lead_key": "L159",
+  "scenario": "27_colleague_support",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "PRICE_MENTIONED",
+   "ACTIVE_DISCUSSION",
+   "PRICE_DROP_OFF"
+  ],
+  "price_dropoff": true,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿國",
+    "role": "primary"
+   },
+   {
+    "staff": "小婷",
+    "role": "supporting"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": true
+  }
+ },
+ {
+  "lead_key": "L160",
+  "scenario": "27_colleague_support",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "FOLLOW_UP"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿豪",
+    "role": "primary"
+   },
+   {
+    "staff": "佳佳",
+    "role": "supporting"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": true,
+   "postvisit_24h": true
+  }
+ },
+ {
+  "lead_key": "L161",
+  "scenario": "28_staff_reactivation",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "CUSTOMER_INACTIVE",
+   "FOLLOW_UP",
+   "RE_ENGAGED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿豪",
+    "role": "primary"
+   },
+   {
+    "staff": "阿豪",
+    "role": "reactivation"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false,
+   "reactivated_by_staff": true,
+   "postvisit_24h": true
+  }
+ },
+ {
+  "lead_key": "L162",
+  "scenario": "28_staff_reactivation",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "CUSTOMER_INACTIVE",
+   "FOLLOW_UP",
+   "RE_ENGAGED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "SOLD"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "妮妮",
+    "role": "primary"
+   },
+   {
+    "staff": "妮妮",
+    "role": "reactivation"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false,
+   "reactivated_by_staff": true
+  }
+ },
+ {
+  "lead_key": "L163",
+  "scenario": "28_staff_reactivation",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "CUSTOMER_INACTIVE",
+   "LOST"
+  ],
+  "price_dropoff": false,
+  "weak_followup": true,
+  "roles": [
+   {
+    "staff": "阿國",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false,
+   "reactivated_by_staff": false
+  },
+  "loss_reason": "stopped_replying"
+ },
+ {
+  "lead_key": "L164",
+  "scenario": "28_staff_reactivation",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "CUSTOMER_INACTIVE",
+   "LOST"
+  ],
+  "price_dropoff": false,
+  "weak_followup": true,
+  "roles": [
+   {
+    "staff": "小柔",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": true,
+   "reactivated_by_staff": false
+  },
+  "loss_reason": "stopped_replying"
+ },
+ {
+  "lead_key": "L165",
+  "scenario": "28_staff_reactivation",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "CUSTOMER_INACTIVE",
+   "FOLLOW_UP",
+   "RE_ENGAGED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "佳佳",
+    "role": "primary"
+   },
+   {
+    "staff": "佳佳",
+    "role": "reactivation"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": true,
+   "reactivated_by_staff": true,
+   "postvisit_24h": true
+  }
+ },
+ {
+  "lead_key": "L166",
+  "scenario": "29_vehicle_condition",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "LOST",
+   "ACTIVE_DISCUSSION"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "小婷",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": false
+  },
+  "loss_reason": "vehicle_condition"
+ },
+ {
+  "lead_key": "L167",
+  "scenario": "29_vehicle_condition",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "LOST"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿國",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false
+  },
+  "loss_reason": "vehicle_condition"
+ },
+ {
+  "lead_key": "L168",
+  "scenario": "29_vehicle_condition",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "LOST"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿豪",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": true
+  },
+  "loss_reason": "vehicle_condition"
+ },
+ {
+  "lead_key": "L169",
+  "scenario": "30_trade_in",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "PRICE_MENTIONED",
+   "LOST",
+   "ACTIVE_DISCUSSION"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿豪",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": true
+  },
+  "loss_reason": "trade_in"
+ },
+ {
+  "lead_key": "L170",
+  "scenario": "30_trade_in",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "LOST"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "佳佳",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": true
+  },
+  "loss_reason": "trade_in"
+ },
+ {
+  "lead_key": "L171",
+  "scenario": "30_trade_in",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "PRICE_MENTIONED",
+   "LOST",
+   "ACTIVE_DISCUSSION"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "小柔",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": true
+  },
+  "loss_reason": "trade_in"
+ },
+ {
+  "lead_key": "L172",
+  "scenario": "31_family_decision",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "LOST"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿凱",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false,
+   "postvisit_24h": false
+  },
+  "loss_reason": "family"
+ },
+ {
+  "lead_key": "L173",
+  "scenario": "31_family_decision",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "LOST"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿國",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false,
+   "postvisit_24h": false
+  },
+  "loss_reason": "family"
+ },
+ {
+  "lead_key": "L174",
+  "scenario": "31_family_decision",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "APPOINTMENT_PROPOSED",
+   "APPOINTMENT_BOOKED",
+   "STORE_VISIT",
+   "LOST"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "小柔",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": true,
+   "postvisit_24h": true
+  },
+  "loss_reason": "family"
+ },
+ {
+  "lead_key": "L175",
+  "scenario": "32_timing",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "LOST"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "佳佳",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": true
+  },
+  "loss_reason": "timing"
+ },
+ {
+  "lead_key": "L176",
+  "scenario": "32_timing",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "LOST"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿豪",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": true
+  },
+  "loss_reason": "timing"
+ },
+ {
+  "lead_key": "L177",
+  "scenario": "32_timing",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "LOST"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "小婷",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": true
+  },
+  "loss_reason": "timing"
+ },
+ {
+  "lead_key": "L178",
+  "scenario": "33_bought_elsewhere",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "FOLLOW_UP",
+   "LOST"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "小婷",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": false
+  },
+  "loss_reason": "bought_elsewhere"
+ },
+ {
+  "lead_key": "L179",
+  "scenario": "33_bought_elsewhere",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "FOLLOW_UP",
+   "LOST"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "小柔",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": true
+  },
+  "loss_reason": "bought_elsewhere"
+ },
+ {
+  "lead_key": "L180",
+  "scenario": "33_bought_elsewhere",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "FOLLOW_UP",
+   "LOST"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "小婷",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": true
+  },
+  "loss_reason": "bought_elsewhere"
+ },
+ {
+  "lead_key": "L181",
+  "scenario": "34_no_stock",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "LOST"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿凱",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {},
+  "loss_reason": "no_stock"
+ },
+ {
+  "lead_key": "L182",
+  "scenario": "34_no_stock",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "LOST"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿凱",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {},
+  "loss_reason": "no_stock"
+ },
+ {
+  "lead_key": "L183",
+  "scenario": "35_browsing",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "LOST"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "小婷",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": true
+  },
+  "loss_reason": "browsing"
+ },
+ {
+  "lead_key": "L184",
+  "scenario": "35_browsing",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "LOST"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿國",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false
+  },
+  "loss_reason": "browsing"
+ },
+ {
+  "lead_key": "L185",
+  "scenario": "35_browsing",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "LOST"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "小婷",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": false
+  },
+  "loss_reason": "browsing"
+ },
+ {
+  "lead_key": "L186",
+  "scenario": "36_negotiation_failed",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "NEGOTIATION",
+   "LOST"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "佳佳",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": false
+  },
+  "loss_reason": "negotiation_failed"
+ },
+ {
+  "lead_key": "L187",
+  "scenario": "36_negotiation_failed",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "NEGOTIATION",
+   "LOST"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿豪",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": true
+  },
+  "loss_reason": "negotiation_failed"
+ },
+ {
+  "lead_key": "L188",
+  "scenario": "36_negotiation_failed",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "NEGOTIATION",
+   "LOST"
+  ],
+  "price_dropoff": false,
+  "weak_followup": false,
+  "roles": [
+   {
+    "staff": "阿凱",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": true
+  },
+  "loss_reason": "negotiation_failed"
+ },
+ {
+  "lead_key": "L189",
+  "scenario": "37_slow_response_loss",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "LOST"
+  ],
+  "price_dropoff": false,
+  "weak_followup": true,
+  "roles": [
+   {
+    "staff": "阿凱",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {},
+  "loss_reason": "slow_response"
+ },
+ {
+  "lead_key": "L190",
+  "scenario": "37_slow_response_loss",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "LOST"
+  ],
+  "price_dropoff": false,
+  "weak_followup": true,
+  "roles": [
+   {
+    "staff": "阿國",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {},
+  "loss_reason": "slow_response"
+ },
+ {
+  "lead_key": "L191",
+  "scenario": "37_slow_response_loss",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "LOST"
+  ],
+  "price_dropoff": false,
+  "weak_followup": true,
+  "roles": [
+   {
+    "staff": "阿國",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {},
+  "loss_reason": "slow_response"
+ },
+ {
+  "lead_key": "L192",
+  "scenario": "37_slow_response_loss",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "LOST"
+  ],
+  "price_dropoff": false,
+  "weak_followup": true,
+  "roles": [
+   {
+    "staff": "阿凱",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {},
+  "loss_reason": "slow_response"
+ },
+ {
+  "lead_key": "L193",
+  "scenario": "38_weak_followup_loss",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "CUSTOMER_INACTIVE",
+   "LOST"
+  ],
+  "price_dropoff": false,
+  "weak_followup": true,
+  "roles": [
+   {
+    "staff": "阿國",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false
+  },
+  "loss_reason": "stopped_replying"
+ },
+ {
+  "lead_key": "L194",
+  "scenario": "38_weak_followup_loss",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "PRICE_MENTIONED",
+   "CUSTOMER_INACTIVE",
+   "LOST",
+   "ACTIVE_DISCUSSION"
+  ],
+  "price_dropoff": false,
+  "weak_followup": true,
+  "roles": [
+   {
+    "staff": "阿凱",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": true,
+   "asked_after_price": true
+  },
+  "loss_reason": "stopped_replying"
+ },
+ {
+  "lead_key": "L195",
+  "scenario": "38_weak_followup_loss",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "ACTIVE_DISCUSSION",
+   "PRICE_MENTIONED",
+   "CUSTOMER_INACTIVE",
+   "LOST"
+  ],
+  "price_dropoff": false,
+  "weak_followup": true,
+  "roles": [
+   {
+    "staff": "阿國",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false
+  },
+  "loss_reason": "stopped_replying"
+ },
+ {
+  "lead_key": "L196",
+  "scenario": "38_weak_followup_loss",
+  "expect_events": [
+   "NEW_LEAD",
+   "VEHICLE_INTEREST",
+   "PRICE_MENTIONED",
+   "CUSTOMER_INACTIVE",
+   "LOST",
+   "ACTIVE_DISCUSSION"
+  ],
+  "price_dropoff": false,
+  "weak_followup": true,
+  "roles": [
+   {
+    "staff": "阿國",
+    "role": "primary"
+   }
+  ],
+  "behaviors": {
+   "budget_clarified": false,
+   "asked_after_price": false
+  },
+  "loss_reason": "stopped_replying"
  }
 ]

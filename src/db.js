@@ -11,6 +11,9 @@ import { runFunnel } from "./engine/funnel.ts";
 import { computeAnalytics } from "./engine/analytics.ts";
 import { deriveInsights, persistInsights } from "./engine/insights.ts";
 import { gemini } from "./engine/ai.ts";
+import { computeRoles } from "./engine/attribution.ts";
+import { computeBehaviors } from "./engine/behavior.ts";
+import { computeLoss } from "./engine/loss.ts";
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS users (
@@ -160,6 +163,21 @@ export class AppDB extends DurableObject {
      「Too many API requests by single Worker invocation」。搬進 DO 就是本地呼叫，沒有這個上限。 */
   async importLocal(bundle, opts) { return importBundle(this, bundle, opts); }
   async funnelLocal(opts) { return runFunnel(this, opts); }
+  /** 員工效能／流失原因的三段分析：角色（歸因）→ 行為特徵（要先有角色）→ 流失原因。全部規則、可重跑。 */
+  async analyzeLocal(opts) {
+    const t0 = Date.now();
+    const roles = await computeRoles(this, { leadIds: opts.leadIds });
+    const behaviors = await computeBehaviors(this, { now: opts.now, leadIds: opts.leadIds });
+    const loss = await computeLoss(this, { now: opts.now, leadIds: opts.leadIds });
+    return { roles, behaviors, loss, ms: Date.now() - t0 };
+  }
+  /** 給評測腳本：每個 lead 的角色／流失原因／行為特徵，附對話外部鍵（CV{n} ↔ 標準答案 L{n}） */
+  async analyzeDumpLocal() {
+    const rows = await this.all(`SELECT l.id, l.outcome, cv.external_id AS conv_key, la.primary_reason, la.secondary_reason, la.confidence AS loss_conf, la.driver, la.stage, la.status AS loss_status, b.features
+      FROM leads l LEFT JOIN conversations cv ON cv.lead_id = l.id LEFT JOIN loss_analyses la ON la.lead_id = l.id LEFT JOIN behaviors b ON b.lead_id = l.id ORDER BY l.id`);
+    const roles = await this.all("SELECT r.lead_id, u.name AS staff, r.role, r.confidence FROM lead_roles r JOIN users u ON u.id = r.user_id");
+    return { rows, roles };
+  }
   /** AI 連線測試：從 DO 端打一次 Gemini（診斷用；正式的 AI 呼叫不走這裡） */
   async aiProbe(ai) {
     const t0 = Date.now();

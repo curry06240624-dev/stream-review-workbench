@@ -41,8 +41,12 @@ export interface BundleDeal {
   lost_reason: LostReason | ""; closed_at: string; external_key: string;
 }
 
+/** 指派／交接紀錄（Super 8 的指派、或瑋瑋公司內部的交接）。沒有這個也能跑：引擎會從對話裡換人發言推定。 */
+export interface BundleAssignment { conversation_key: string; from_staff: string | null; to_staff: string; by_staff: string; at: string; }
+
 export interface NormalizedBundle {
   source_system: SourceSystem;
+  assignments?: BundleAssignment[];
   generated_at: string;
   teams: string[];
   staff: BundleStaff[];
@@ -62,4 +66,10 @@ export interface TruthLabel {
   expect_events: string[];        // 引擎應該偵測到的 FunnelEventType
   price_dropoff: boolean;
   weak_followup: boolean;
+  /** 流失原因（引擎的 LossReasonKey）；沒流失就沒有 */
+  loss_reason?: string;
+  /** 誰在這個 lead 上扮演什麼角色（歸因模型的標準答案） */
+  roles?: Array<{ staff: string; role: string }>;
+  /** 行為特徵的標準答案（有出現該情境才有鍵） */
+  behaviors?: Record<string, boolean>;
 }

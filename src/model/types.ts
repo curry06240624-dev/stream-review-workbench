@@ -30,7 +30,17 @@ export type AppointmentStatus =
 export type VisitOutcome = "negotiating" | "bought" | "left" | "followup";
 
 export type LostReason =
-  | "price" | "financing" | "competitor" | "no_response" | "changed_mind" | "vehicle_gone" | "other";
+  | "price" | "financing" | "competitor" | "no_response" | "changed_mind" | "vehicle_gone" | "other"
+  | "vehicle_condition" | "vehicle_mismatch" | "trade_in" | "timing" | "family" | "no_stock" | "browsing";
+
+/** 一位員工在一個 lead 上的角色（歸因模型，見 docs/STAFF_EFFECTIVENESS.md §1） */
+export type LeadRole = "primary" | "supporting" | "manager" | "handoff_from" | "handoff_to" | "reactivation";
+
+/** 流失原因分類（引擎用的鍵；帳本的 LostReason 會對應進來） */
+export type LossReasonKey =
+  | "price_resistance" | "financing" | "vehicle_mismatch" | "vehicle_condition" | "trade_in" | "timing" | "family"
+  | "bought_elsewhere" | "no_stock" | "slow_response" | "weak_followup" | "no_show" | "stopped_replying" | "browsing"
+  | "negotiation_failed" | "other" | "unclear";
 
 /** 漏斗事件。順序大致就是客戶旅程，但同一個 lead 可以來回（例如流失後又回來）。 */
 export type FunnelEventType =

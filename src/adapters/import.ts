@@ -27,7 +27,7 @@ export interface ImportReport {
 
 /** 清掉資料表，但保留帳號、工作階段、設定、自動回覆規則 */
 const DATA_TABLES = [
-  "evidence", "actions", "insights", "briefs", "funnel_events", "visits", "appointments",
+  "evidence", "actions", "insights", "briefs", "lead_roles", "loss_analyses", "behaviors", "coaching_plans", "funnel_events", "visits", "appointments",
   "deals", "leads", "autoreply_log", "messages", "assignment_log", "conversations",
   "contact_channels", "contacts", "vehicles", "source_records", "teams",
 ];
@@ -129,6 +129,17 @@ export async function importBundle(db: DbLike, b: NormalizedBundle, opts: { rese
     }
     await db.run("INSERT OR IGNORE INTO source_records (source_system, entity, entity_id, external_id, captured_at) VALUES (?,?,?,?,?)", b.source_system, "conversation", convId, cv.key, opts.now);
     bump("conversations");
+  }
+
+  /* ── 指派／交接紀錄（可選）── */
+  for (const a of b.assignments ?? []) {
+    const cv = await db.first("SELECT id FROM conversations WHERE external_id = ? ORDER BY id LIMIT 1", a.conversation_key);
+    const by = sid(a.by_staff) ?? sid(a.to_staff);
+    if (!cv || !by) { rep.warnings.push(`指派紀錄找不到對話或人：${a.conversation_key}`); continue; }
+    await db.run("INSERT INTO assignment_log (conversation_id, from_user_id, to_user_id, by_user_id, created_at) VALUES (?,?,?,?,?)",
+      Number(cv["id"]), sid(a.from_staff), sid(a.to_staff), by, a.at);
+    await db.run("UPDATE conversations SET assigned_to = ? WHERE id = ?", sid(a.to_staff), Number(cv["id"]));
+    bump("assignments");
   }
 
   /* ── 預約 ── */

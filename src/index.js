@@ -66,6 +66,21 @@ async function route(request, env, db, url) {
     return J({ ok: true, ...rep });
   }
 
+  /* ── 員工效能／流失原因：角色 → 行為特徵 → 流失原因（在 DO 裡跑）── */
+  if (p === "/api/admin/analyze" && m === "POST") {
+    const me = await currentUser(request, db);
+    if (!me) return J({ ok: false, error: "not_logged_in" }, 401);
+    if (me.role !== "admin") return J({ ok: false, error: "forbidden" }, 403);
+    const b = await request.json().catch(() => ({}));
+    const r = await db.analyzeLocal({ now: b.now || now(), leadIds: Array.isArray(b.lead_ids) ? b.lead_ids.map(Number) : undefined });
+    return J({ ok: true, ...r });
+  }
+  if (p === "/api/admin/analyze/dump" && m === "GET") {
+    const me = await currentUser(request, db);
+    if (!me || me.role !== "admin") return J({ ok: false, error: "forbidden" }, 403);
+    return J({ ok: true, ...(await db.analyzeDumpLocal()) });
+  }
+
   /* ── 漏斗引擎：重算事件（冪等）／讀事件（含證據）── */
   if (p === "/api/admin/funnel/run" && m === "POST") {
     const me = await currentUser(request, db);
