@@ -26,11 +26,13 @@ export interface Analytics {
   };
   appointments: Record<string, number | null>;
   visits: Record<string, number | null>;
+  /** 毛利只算「成本知道」的成交（cost_source<>'none'）；gp_estimate＝其中幾筆是車源表成本估算的；正式毛利以會計為準 */
   deals: {
     sold: number; lost: number; revenue: number; gross_profit: number; avg_gp: number | null; gp_margin: number | null; below_cost: number;
+    gp_known: number; gp_unknown: number; gp_estimate: number; peer_sold: number; revenue_known: number;
     prev_sold: number; prev_revenue: number; prev_gross_profit: number;
     lost_reasons: Array<{ reason: string; n: number }>;
-    by_staff: Array<{ staff: string; sold: number; revenue: number; gross_profit: number }>;
+    by_staff: Array<{ staff: string; sold: number; revenue: number; gross_profit: number; gp_unknown: number }>;
   };
   staff: Array<{ id: number; name: string; team: string; leads: number; priced: number; dropped: number; booked: number; sold: number; revenue: number; gross_profit: number; median_first_response_min: number | null; followups: number }>;
   vehicles: Array<{ id: number; name: string; body_type: string; inquiries: number; priced: number; dropped: number; booked: number; sold: number; inquiry_to_sold: number | null; gross_profit: number }>;
@@ -109,17 +111,22 @@ export async function computeAnalytics(db: DbLike, opts: { to?: string; days?: n
   const vOut = Object.fromEntries((await db.all(`SELECT outcome, COUNT(*) AS n FROM visits WHERE visited_at >= ? AND visited_at < ? GROUP BY outcome`, ...P)).map((r) => [String(r["outcome"]), num(r["n"])]));
   const visits = { count: vis, prev_count: pVis, bought: vOut["bought"] ?? 0, negotiating: vOut["negotiating"] ?? 0, left: vOut["left"] ?? 0, booking_to_visit: conversion["booking_to_visit"]?.rate ?? null, visit_to_sold: conversion["visit_to_sold"]?.rate ?? null };
 
-  /* ── 成交/毛利（帳本）── */
+  /* ── 成交/毛利（帳本；毛利只算成本知道的成交）── */
+  const GP = "CASE WHEN status='sold' AND cost_source<>'none' THEN gross_profit ELSE 0 END";
   const dl = await db.first(`SELECT SUM(CASE WHEN status='sold' THEN 1 ELSE 0 END) AS sold, SUM(CASE WHEN status='lost' THEN 1 ELSE 0 END) AS lost,
-      SUM(CASE WHEN status='sold' THEN sale_price ELSE 0 END) AS revenue, SUM(CASE WHEN status='sold' THEN gross_profit ELSE 0 END) AS gp,
-      SUM(CASE WHEN status='sold' AND gross_profit < 0 THEN 1 ELSE 0 END) AS below FROM deals WHERE closed_at >= ? AND closed_at < ?`, ...P);
-  const pdl = await db.first(`SELECT SUM(CASE WHEN status='sold' THEN 1 ELSE 0 END) AS sold, SUM(CASE WHEN status='sold' THEN sale_price ELSE 0 END) AS revenue, SUM(CASE WHEN status='sold' THEN gross_profit ELSE 0 END) AS gp FROM deals WHERE closed_at >= ? AND closed_at < ?`, ...Q);
-  const sold = num(dl?.["sold"]), revenue = num(dl?.["revenue"]), gp = num(dl?.["gp"]);
+      SUM(CASE WHEN status='sold' THEN sale_price ELSE 0 END) AS revenue, SUM(${GP}) AS gp,
+      SUM(CASE WHEN status='sold' AND cost_source<>'none' THEN sale_price ELSE 0 END) AS revenue_known,
+      SUM(CASE WHEN status='sold' AND cost_source<>'none' THEN 1 ELSE 0 END) AS gp_known, SUM(CASE WHEN status='sold' AND cost_source='none' THEN 1 ELSE 0 END) AS gp_unknown,
+      SUM(CASE WHEN status='sold' AND gp_is_estimate=1 AND cost_source<>'none' THEN 1 ELSE 0 END) AS gp_est, SUM(CASE WHEN status='sold' AND source_kind='peer' THEN 1 ELSE 0 END) AS peer,
+      SUM(CASE WHEN status='sold' AND cost_source<>'none' AND gross_profit < 0 THEN 1 ELSE 0 END) AS below FROM deals WHERE closed_at >= ? AND closed_at < ?`, ...P);
+  const pdl = await db.first(`SELECT SUM(CASE WHEN status='sold' THEN 1 ELSE 0 END) AS sold, SUM(CASE WHEN status='sold' THEN sale_price ELSE 0 END) AS revenue, SUM(${GP}) AS gp FROM deals WHERE closed_at >= ? AND closed_at < ?`, ...Q);
+  const sold = num(dl?.["sold"]), revenue = num(dl?.["revenue"]), gp = num(dl?.["gp"]), gpKnown = num(dl?.["gp_known"]);
   const deals: Analytics["deals"] = {
-    sold, lost: num(dl?.["lost"]), revenue, gross_profit: gp, avg_gp: sold ? Math.round(gp / sold) : null, gp_margin: rate(gp, revenue), below_cost: num(dl?.["below"]),
+    sold, lost: num(dl?.["lost"]), revenue, gross_profit: gp, avg_gp: gpKnown ? Math.round(gp / gpKnown) : null, gp_margin: rate(gp, num(dl?.["revenue_known"])), below_cost: num(dl?.["below"]),
+    gp_known: gpKnown, gp_unknown: num(dl?.["gp_unknown"]), gp_estimate: num(dl?.["gp_est"]), peer_sold: num(dl?.["peer"]), revenue_known: num(dl?.["revenue_known"]),
     prev_sold: num(pdl?.["sold"]), prev_revenue: num(pdl?.["revenue"]), prev_gross_profit: num(pdl?.["gp"]),
     lost_reasons: (await db.all(`SELECT lost_reason AS reason, COUNT(*) AS n FROM deals WHERE status='lost' AND closed_at >= ? AND closed_at < ? GROUP BY lost_reason ORDER BY n DESC`, ...P)).map((r) => ({ reason: String(r["reason"] || "unknown"), n: num(r["n"]) })),
-    by_staff: (await db.all(`SELECT COALESCE(u.name,'未指派') AS staff, COUNT(*) AS sold, SUM(d.sale_price) AS revenue, SUM(d.gross_profit) AS gp FROM deals d LEFT JOIN users u ON u.id = d.staff_id WHERE d.status='sold' AND d.closed_at >= ? AND d.closed_at < ? GROUP BY staff ORDER BY gp DESC`, ...P)).map((r) => ({ staff: String(r["staff"]), sold: num(r["sold"]), revenue: num(r["revenue"]), gross_profit: num(r["gp"]) })),
+    by_staff: (await db.all(`SELECT COALESCE(u.name,'未指派') AS staff, COUNT(*) AS sold, SUM(d.sale_price) AS revenue, SUM(CASE WHEN d.cost_source<>'none' THEN d.gross_profit ELSE 0 END) AS gp, SUM(CASE WHEN d.cost_source='none' THEN 1 ELSE 0 END) AS unk FROM deals d LEFT JOIN users u ON u.id = d.staff_id WHERE d.status='sold' AND d.closed_at >= ? AND d.closed_at < ? GROUP BY staff ORDER BY gp DESC`, ...P)).map((r) => ({ staff: String(r["staff"]), sold: num(r["sold"]), revenue: num(r["revenue"]), gross_profit: num(r["gp"]), gp_unknown: num(r["unk"]) })),
   };
 
   /* ── 業務（全期間，不只本週：跟進品質要看足夠樣本）── */
@@ -131,9 +138,9 @@ export async function computeAnalytics(db: DbLike, opts: { to?: string; days?: n
       (SELECT COUNT(*) FROM funnel_events e JOIN leads l ON l.id = e.lead_id WHERE l.staff_id = u.id AND e.type='APPOINTMENT_BOOKED') AS booked,
       (SELECT COUNT(*) FROM deals d WHERE d.staff_id = u.id AND d.status='sold') AS sold,
       (SELECT COALESCE(SUM(d.sale_price),0) FROM deals d WHERE d.staff_id = u.id AND d.status='sold') AS revenue,
-      (SELECT COALESCE(SUM(d.gross_profit),0) FROM deals d WHERE d.staff_id = u.id AND d.status='sold') AS gp,
+      (SELECT COALESCE(SUM(d.gross_profit),0) FROM deals d WHERE d.staff_id = u.id AND d.status='sold' AND d.cost_source<>'none') AS gp,
       (SELECT COUNT(*) FROM funnel_events e JOIN leads l ON l.id = e.lead_id WHERE l.staff_id = u.id AND e.type='FOLLOW_UP') AS followups
-    FROM users u LEFT JOIN teams t ON t.id = u.team_id WHERE u.role = 'agent' ORDER BY gp DESC`);
+    FROM users u LEFT JOIN teams t ON t.id = u.team_id WHERE u.role = 'agent' OR u.job IN ('chat','sales','both') ORDER BY gp DESC`);
   // 首次回覆時間中位數：客戶第一則 → 該員第一則
   const staff: Analytics["staff"] = [];
   for (const r of staffRows) {
@@ -155,7 +162,7 @@ export async function computeAnalytics(db: DbLike, opts: { to?: string; days?: n
       (SELECT COUNT(*) FROM funnel_events e JOIN leads l ON l.id = e.lead_id WHERE l.vehicle_id = v.id AND e.type='PRICE_DROP_OFF' AND e.confidence<>'UNCLEAR') AS dropped,
       (SELECT COUNT(*) FROM funnel_events e JOIN leads l ON l.id = e.lead_id WHERE l.vehicle_id = v.id AND e.type='APPOINTMENT_BOOKED') AS booked,
       (SELECT COUNT(*) FROM deals d WHERE d.vehicle_id = v.id AND d.status='sold') AS sold,
-      (SELECT COALESCE(SUM(d.gross_profit),0) FROM deals d WHERE d.vehicle_id = v.id AND d.status='sold') AS gp
+      (SELECT COALESCE(SUM(d.gross_profit),0) FROM deals d WHERE d.vehicle_id = v.id AND d.status='sold' AND d.cost_source<>'none') AS gp
     FROM vehicles v ORDER BY inquiries DESC`))
     .map((r) => ({ id: num(r["id"]), name: String(r["name"]), body_type: String(r["body_type"]), inquiries: num(r["inquiries"]), priced: num(r["priced"]), dropped: num(r["dropped"]), booked: num(r["booked"]), sold: num(r["sold"]), inquiry_to_sold: rate(num(r["sold"]), num(r["inquiries"])), gross_profit: num(r["gp"]) }));
 

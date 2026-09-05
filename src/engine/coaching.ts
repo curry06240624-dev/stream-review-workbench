@@ -195,6 +195,13 @@ export async function computeDecisions(db: DbLike, report: StaffReport, now: str
     const low = report.staff.filter((s) => s.commercial.sold >= 5 && s.commercial.avg_gp.ok && s.commercial.avg_gp.value != null && s.commercial.avg_gp.value <= t.commercial.avg_gp.value! * 0.6);
     if (low.length) cards.push({ key: "profit_quality", priority: "medium", kind: "review_pricing", title: `${low.length} 位業務成交量高但每台毛利偏低`, why: low.map((s) => `${s.name} ${s.commercial.sold} 台、每台毛利 ${wan(s.commercial.avg_gp.value!)}（團隊 ${wan(t.commercial.avg_gp.value!)}）`).join("；"), observed: "折讓幅度與議價次數見員工檔案", action: "檢視這幾位的折讓授權與議價話術；高量不等於高毛利", measure: "接下來 30 天的每台毛利", metric_key: "avg_gp", staff_ids: low.map((s) => s.id), links: [{ label: "成交與毛利", href: "/deals" }], claim: "fact" });
   }
+  // 4b. 沒有成本的成交（同行車、車號空白）：毛利算不出來，是資料流的問題不是業務的問題
+  const noCost = await db.first("SELECT COUNT(*) AS n, COALESCE(SUM(sale_price),0) AS amount FROM deals WHERE status = 'sold' AND cost_source = 'none' AND closed_at >= ? AND closed_at < ?", report.period.from, report.period.to);
+  if (num(noCost?.["n"]) >= 3) cards.push({ key: "gp_unknown", priority: "medium", kind: "review_process", title: `${num(noCost?.["n"])} 筆成交沒有成本，毛利算不出來`, why: `售價合計 ${wan(num(noCost?.["amount"]))}；同行的車不在車源表、或送貨囉貼文車號空白，對不到成本。正式毛利只有會計有。`, observed: "毛利頁與員工毛利都只算成本知道的成交，這幾筆不在裡面", action: "請會計每月給一份成交成本表；送貨囉貼文一律填車號，同行車加一欄成本", measure: "下月沒有成本的成交筆數", metric_key: "", staff_ids: [], links: [{ label: "待確認配對", href: "/reconcile" }, { label: "成交與毛利", href: "/deals" }], claim: "fact" });
+  // 4c. 送貨囉貼文還沒對到客戶或車：沒對上的成交不會算進成交率與毛利
+  const pend = await db.first("SELECT SUM(CASE WHEN match_status = 'suggested' THEN 1 ELSE 0 END) AS s, SUM(CASE WHEN match_status = 'unmatched' THEN 1 ELSE 0 END) AS u FROM deal_reports");
+  const pendN = num(pend?.["s"]) + num(pend?.["u"]);
+  if (pendN >= 3) cards.push({ key: "reports_pending", priority: pendN >= 8 ? "high" : "medium", kind: "workflow", title: `${pendN} 則送貨囉貼文還沒對到客戶或車`, why: `待確認 ${num(pend?.["s"])}、無法配對 ${num(pend?.["u"])}；沒對上的成交不會算進業務的成交率、也算不出毛利`, observed: "貼文最常缺車號與客戶名；車牌是對回車源表唯一的鍵", action: "到「待確認配對」逐筆確認；請業務貼文時一定填車號與客戶名", measure: "下週待配對的貼文數", metric_key: "", staff_ids: [], links: [{ label: "待確認配對", href: "/reconcile" }], claim: "fact" });
   // 5. 急迫客戶沒人回
   const stale = await db.first(`SELECT COUNT(*) AS n FROM leads l JOIN funnel_events h ON h.lead_id = l.id AND h.type = 'HIGH_INTENT' WHERE l.outcome = ''
     AND (SELECT MAX(m.created_at) FROM messages m JOIN conversations cv ON cv.id = m.conversation_id WHERE cv.lead_id = l.id AND m.sender_role = 'staff') < ?`, new Date(Date.parse(now) - D).toISOString());

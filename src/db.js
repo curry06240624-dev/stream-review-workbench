@@ -16,6 +16,8 @@ import { computeBehaviors } from "./engine/behavior.ts";
 import { computeLoss, lossAggregate } from "./engine/loss.ts";
 import { computeStaffReport } from "./engine/staff.ts";
 import { buildCoachingPlan, computeDecisions, metricSnapshot, actionProgress } from "./engine/coaching.ts";
+import { ingestPosts, matchReport, applyReport, unapplyReport, reconcileSummary } from "./engine/reconcile.ts";
+import { parseLineExport } from "./engine/posts.ts";
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS users (
@@ -192,7 +194,7 @@ export class AppDB extends DurableObject {
     let plan = null; if (last && !opts.refresh) { try { plan = JSON.parse(String(last.content)); plan.model = last.model; } catch { plan = null; } }
     if (!plan) plan = await buildCoachingPlan(this, report, opts.id, opts.now);
     const leads = await this.all(`SELECT l.id, l.stage, l.outcome, l.opened_at, l.closed_at, COALESCE(NULLIF(c.pseudonym,''), c.display_name) AS contact, COALESCE(v.brand||' '||v.model,'') AS vehicle,
-        la.primary_reason, la.driver, la.stage AS lost_stage, d.gross_profit, d.sale_price
+        la.primary_reason, la.driver, la.stage AS lost_stage, d.gross_profit, d.sale_price, d.cost_source, d.gp_is_estimate
       FROM leads l JOIN contacts c ON c.id = l.contact_id LEFT JOIN vehicles v ON v.id = l.vehicle_id LEFT JOIN loss_analyses la ON la.lead_id = l.id LEFT JOIN deals d ON d.lead_id = l.id AND d.status = 'sold'
       WHERE l.staff_id = ? AND l.opened_at >= ? AND l.opened_at < ? ORDER BY l.opened_at DESC LIMIT 60`, opts.id, report.period.from, report.period.to);
     const roles = await this.all(`SELECT r.role, COUNT(*) AS n FROM lead_roles r JOIN leads l ON l.id = r.lead_id WHERE r.user_id = ? AND l.opened_at >= ? AND l.opened_at < ? GROUP BY r.role`, opts.id, report.period.from, report.period.to);
@@ -203,6 +205,33 @@ export class AppDB extends DurableObject {
   async coachingLocal(opts) { const report = await this.reportCached(opts.days, opts.to); return buildCoachingPlan(this, report, opts.id, opts.now); }
   async decisionsLocal(opts) { const report = await this.reportCached(opts.days, opts.to); return this.cached(`decisions:${opts.days}:${new Date().toISOString().slice(0, 13)}`, 30 * 60_000, async () => ({ cards: await computeDecisions(this, report, opts.now), period: report.period, top: report.top.slice(0, 3), watch: report.watch.slice(0, 2) })); }
   async lossAggLocal(opts) { return lossAggregate(this, opts); }
+  /* ── 待確認配對：成交群「送貨囉」貼文 → 車／客戶／業務 → 成交帳本；接待群 → 到店；估車群 → 估車 ── */
+  async reconcileLocal(opts) { return reconcileSummary(this, opts); }
+  async ingestGroupLocal(opts) {
+    this.bust();
+    const posts = Array.isArray(opts.posts) && opts.posts.length ? opts.posts : parseLineExport(String(opts.text || ""));
+    const r = await ingestPosts(this, posts, { kind: opts.kind || "auto", source_system: opts.source_system || "line_export", now: opts.now });
+    return { ...r, unparsed: r.unparsed.slice(0, 20), unmatched_posts: r.unmatched_posts.slice(0, 20) };
+  }
+  async reportActionLocal(opts) {
+    this.bust();
+    if (opts.action === "confirm") return applyReport(this, opts.id, opts.overrides || {}, opts.by, opts.now, "confirmed");
+    if (opts.action === "reject") { await unapplyReport(this, opts.id, "rejected", opts.by, opts.now); return { ok: true }; }
+    if (opts.action === "undo") { await unapplyReport(this, opts.id, "suggested", opts.by, opts.now); return { ok: true }; }
+    if (opts.action === "rematch") {
+      await this.run("UPDATE deal_reports SET match_status = 'suggested' WHERE id = ? AND match_status IN ('unmatched','suggested','rejected')", opts.id);
+      await matchReport(this, opts.id, opts.now);
+      return { ok: true };
+    }
+    throw new Error("沒有這個動作");
+  }
+  /** 重新配對所有還沒確認的貼文（例如補了暱稱或車源表之後） */
+  async rematchAllLocal(opts) {
+    this.bust();
+    const rows = await this.all("SELECT id FROM deal_reports WHERE match_status IN ('unmatched','suggested')");
+    for (const r of rows) await matchReport(this, Number(r.id), opts.now);
+    return { rematched: rows.length };
+  }
   async baselineLocal(opts) { const report = await this.reportCached(opts.days ?? 30, undefined); return metricSnapshot(report, opts.metric_key, opts.staff_id ?? null); }
   async progressLocal(opts) { const a = await this.first("SELECT * FROM actions WHERE id = ?", opts.id); if (!a) return null; return this.cached(`progress:${opts.id}:${new Date().toISOString().slice(0, 13)}`, 30 * 60_000, () => actionProgress(this, a, opts.now)); }
   /** 給評測腳本：每個 lead 的角色／流失原因／行為特徵，附對話外部鍵（CV{n} ↔ 標準答案 L{n}） */
@@ -210,7 +239,9 @@ export class AppDB extends DurableObject {
     const rows = await this.all(`SELECT l.id, l.outcome, cv.external_id AS conv_key, la.primary_reason, la.secondary_reason, la.confidence AS loss_conf, la.driver, la.stage, la.status AS loss_status, b.features
       FROM leads l LEFT JOIN conversations cv ON cv.lead_id = l.id LEFT JOIN loss_analyses la ON la.lead_id = l.id LEFT JOIN behaviors b ON b.lead_id = l.id ORDER BY l.id`);
     const roles = await this.all("SELECT r.lead_id, u.name AS staff, r.role, r.confidence FROM lead_roles r JOIN users u ON u.id = r.user_id");
-    return { rows, roles };
+    const reports = await this.all(`SELECT r.id, r.reported_at, r.reported_by, r.match_status, r.match_confidence, r.lead_id, cv.external_id AS conv_key, v.external_id AS vehicle_key
+      FROM deal_reports r LEFT JOIN conversations cv ON cv.lead_id = r.lead_id LEFT JOIN vehicles v ON v.id = r.vehicle_id`);
+    return { rows, roles, reports };
   }
   /** AI 連線測試：從 DO 端打一次 Gemini（診斷用；正式的 AI 呼叫不走這裡） */
   async aiProbe(ai) {

@@ -1,7 +1,7 @@
 /* 員工檔案：指標 → 漏斗 → 營收／毛利 → 流失原因 → 行為對照 → 教練計畫（含訊息改寫範例）→ 證據（本期客戶）。
    每個數字附樣本；本人若在表現最佳組，對照的是「其他同事」。 */
 import { api } from "../api.js";
-import { esc, pct, nt, num, chip, table, bindRows, fmtD, mval, fmtMin, fmtFeat, chipConf, wan, lossLabel, DRIVER, STAGE_TXT, roleLabel, toast, periodSeg } from "../ui.js";
+import { esc, pct, nt, num, chip, table, bindRows, fmtD, mval, fmtMin, fmtFeat, chipConf, wan, lossLabel, DRIVER, STAGE_TXT, roleLabel, toast, periodSeg, jobChip } from "../ui.js";
 import { createAction, metricKeyFor } from "../mgmt.js";
 
 const kv = (rows) => `<div class="kv">${rows.map(([k, v]) => `<div>${esc(k)}</div><div>${v}</div>`).join("")}</div>`;
@@ -17,12 +17,12 @@ export async function render(el, ctx) {
   const rankChips = r.rankings.filter((x) => x.rank).sort((a, b) => a.rank - b.rank).slice(0, 4).map((x) => chip(`${x.label} 第 ${x.rank}／${x.of}`, x.rank <= 2 ? "cyan" : "")).join(" ");
 
   const head = `<div class="ph"><div><div class="faint" style="font-size:12px;margin-bottom:4px"><a href="/staff" data-link>員工效能</a> › 檔案</div>
-      <h1>${esc(s.name)} <span class="faint" style="font-size:14px;font-weight:400">${esc(s.team)} · ${esc(s.context.band)}${isTop ? " · " + chip("表現最佳", "cyan") : isWatch ? " · " + chip("需要關注", "amber") : ""}</span></h1></div>
+      <h1>${esc(s.name)} ${jobChip(s.job, s.seat_shared)} <span class="faint" style="font-size:14px;font-weight:400">${esc(s.team)} · ${esc(s.context.band)}${isTop ? " · " + chip("表現最佳", "cyan") : isWatch ? " · " + chip("需要關注", "amber") : ""}</span></h1></div>
       <span class="sp"></span>${periodSeg(days, (dd) => ctx.nav(`/staff/${id}?days=${dd}`))}</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${rankChips || '<span class="faint">還沒有進榜的維度（樣本不足）</span>'}${s.context.peer_note ? `<span class="faint" style="font-size:12px">· ${esc(s.context.peer_note)}</span>` : ""}</div>`;
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${rankChips || '<span class="faint">還沒有進榜的維度（樣本不足）</span>'}${s.context.peer_note ? `<span class="faint" style="font-size:12px">· ${esc(s.context.peer_note)}</span>` : ""}${s.context.chat_note ? `<span class="faint" style="font-size:12px">· ${esc(s.context.chat_note)}</span>` : ""}</div>`;
 
   const activity = kv([
-    ["處理客戶", `${s.context.leads} 位 <span class="faint">進行中 ${s.context.open}、已結案 ${s.context.closed}</span>`],
+    ["處理客戶", `${s.job === "chat" ? `${s.context.chat_leads} 位 <span class="faint">線上回覆</span>` : `${s.context.leads} 位`} <span class="faint">進行中 ${s.context.open}、已結案 ${s.context.closed}${s.job !== "chat" && s.context.chat_leads !== s.context.leads ? `、線上回覆 ${s.context.chat_leads}` : ""}</span>`],
     ["進行中對話", `${s.activity.active_conversations} <span class="faint">停滯（14 天無業務訊息）${s.activity.stale}</span>`],
     ["首次回覆中位數", cmp(s.activity.first_response, t.activity.first_response, fmtMin)],
     ["回覆中位數", cmp(s.activity.response, t.activity.response, fmtMin)],
@@ -37,7 +37,7 @@ export async function render(el, ctx) {
   ]);
   const commercial = kv([
     ["成交", `${s.commercial.sold} 台 <span class="faint">前期 ${s.prev.sold}</span>`], ["營收", nt(s.commercial.revenue)],
-    ["毛利", `${nt(s.commercial.gp)} <span class="faint">毛利率 ${pct(s.commercial.margin)} · 前期 ${wan(s.prev.gp)}</span>`],
+    ["毛利", `${nt(s.commercial.gp)}${s.commercial.gp_estimate ? ` ${chip("估算", "est")}` : ""} <span class="faint">毛利率 ${pct(s.commercial.margin)} · 前期 ${wan(s.prev.gp)}${s.commercial.gp_unknown ? ` · ${s.commercial.gp_unknown} 台無成本未計` : ""}</span>`],
     ["影響成交／毛利", `${s.commercial.influenced_sold} 台 · ${nt(s.commercial.influenced_gp)} ${chip("關聯")}`],
     ["平均售價", s.commercial.avg_price == null ? "—" : nt(s.commercial.avg_price)], ["每台毛利", mval(s.commercial.avg_gp, (v) => (v == null ? "—" : nt(v)))],
     ["平均成交天數", s.commercial.avg_days == null ? "—" : `${s.commercial.avg_days} 天`], ["折讓／低於成本", `${mval(s.commercial.discount, (v) => (v == null ? "—" : pct(v, 1)))} · ${s.commercial.below_cost} 筆`],
@@ -67,7 +67,7 @@ export async function render(el, ctx) {
   const leadCols = [
     { key: "opened_at", label: "進線", render: (x) => fmtD(x.opened_at) }, { key: "contact", label: "客戶" }, { key: "vehicle", label: "車款" },
     { key: "outcome", label: "結果", render: (x) => chip(OUT[x.outcome] ?? x.outcome, x.outcome === "sold" ? "cyan" : "") },
-    { key: "primary_reason", label: "流失原因", render: (x) => (x.primary_reason ? `${esc(lossLabel(x.primary_reason))} <span class="faint">${DRIVER[x.driver] || ""} · ${STAGE_TXT[x.lost_stage] || ""}後</span>` : x.outcome === "sold" ? `<span class="faint">毛利 ${x.gross_profit == null ? "—" : nt(x.gross_profit)}</span>` : "—") },
+    { key: "primary_reason", label: "流失原因", render: (x) => (x.primary_reason ? `${esc(lossLabel(x.primary_reason))} <span class="faint">${DRIVER[x.driver] || ""} · ${STAGE_TXT[x.lost_stage] || ""}後</span>` : x.outcome === "sold" ? `<span class="faint">毛利 ${x.cost_source === "none" ? "無成本" : x.gross_profit == null ? "—" : `${nt(x.gross_profit)}${x.gp_is_estimate ? "（估算）" : ""}`}</span>` : "—") },
   ];
 
   el.innerHTML = `<div class="wrap stack">${head}

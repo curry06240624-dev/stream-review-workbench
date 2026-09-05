@@ -60,11 +60,18 @@ export interface LossResult {
   appointment_status: string; visit_status: string; first_at: string | null; last_customer_at: string | null; last_staff_at: string | null;
 }
 
-export interface LossCtx { msgs: Msg[]; events: Row[]; deal: Row | null; appts: Row[]; visits: Row[]; outcome: string; now: number }
+export interface LossCtx {
+  msgs: Msg[]; events: Row[]; deal: Row | null; appts: Row[]; visits: Row[]; outcome: string; now: number;
+  /** 對話涵蓋程度：不是 full 就不判「回覆太慢」「跟進不足」（回覆可能在電話或 LINE 官方後台） */
+  coverage?: string;
+  /** 估車群的紀錄（有的話）：客人想要的價格高於權威／天書，是舊車折抵談不攏的線索 */
+  appraisal?: Row | null;
+}
 
 /** 純函式：一個 lead 的流失分析（呼叫端已確定它是 lost 或推定流失） */
 export function analyzeLoss(c: LossCtx): LossResult {
   const msgs = c.msgs, cust = msgs.filter((m) => m.role === "customer"), staff = msgs.filter((m) => m.role === "staff");
+  const covered = !c.coverage || c.coverage === "full";
   const ev = (t: string) => c.events.filter((e) => String(e["type"]) === t && String(e["confidence"]) !== "UNCLEAR");
   const evAt = (e: Row) => Date.parse(String(e["at"]));
   const evidence: LossResult["evidence"] = [];
@@ -91,12 +98,12 @@ export function analyzeLoss(c: LossCtx): LossResult {
   const priceMsg = staff.find((m) => /(\d{2,3})\s*萬|報價|含過戶/.test(m.text));
   const firstC = cust[0]; const firstS = firstC ? staff.find((m) => m.at > firstC.at) : undefined;
   const firstRespH = firstC && firstS ? (firstS.at - firstC.at) / H : (firstC ? (c.now - firstC.at) / H : 0);
-  const unanswered = !!lastC && !staff.some((m) => m.at > lastC.at) && /[？?]|嗎|多少|什麼時候|哪|怎麼/.test(lastC.text);
+  const unanswered = covered && !!lastC && !staff.some((m) => m.at > lastC.at) && /[？?]|嗎|多少|什麼時候|哪|怎麼/.test(lastC.text);
   const silentH = lastC ? (c.now - lastC.at) / H : 0;
   const followedAfterSilence = !!lastC && staff.some((m) => m.at > lastC.at + 24 * H && m.at <= lastC.at + 7 * D);
-  const noFollowup = !!lastC && silentH >= 72 && !followedAfterSilence;
+  const noFollowup = covered && !!lastC && silentH >= 72 && !followedAfterSilence;
 
-  const promised = !!lastS && !!lastC && lastS.at > lastC.at && /再跟您說|再確認|再幫您問|問一下|稍等|再回覆|再跟您回/.test(lastS.text)
+  const promised = covered && !!lastS && !!lastC && lastS.at > lastC.at && /再跟您說|再確認|再幫您問|問一下|稍等|再回覆|再跟您回/.test(lastS.text)
     && !staff.some((m) => m.at > lastS.at) && c.now - lastS.at >= 72 * H;          // 業務說要再回，結果沒回
   let primary: LossReasonKey = "unclear", conf: LossResult["confidence"] = "UNCLEAR", note = "";
   if (said && said.key === "price_resistance" && negotiation) {
@@ -114,14 +121,14 @@ export function analyzeLoss(c: LossCtx): LossResult {
   else if (objection) { primary = "price_resistance"; conf = "STRONGLY_SUGGESTED"; push(priceMsg, "報價"); push(msgs.find((m) => m.at === evAt(objection)) ?? cust.find((m) => /貴|預算|便宜/.test(m.text)), "客戶對價格表達異議"); note = "價格異議後沒有走下去"; }
   else if (promised) { primary = "weak_followup"; conf = "STRONGLY_SUGGESTED"; push(lastC, "客戶在等答案"); push(lastS, "業務說會再回覆，之後沒有下文"); note = "業務承諾回覆卻沒有回"; }
   else if (unanswered) { primary = "slow_response"; conf = "STRONGLY_SUGGESTED"; push(lastC, "客戶的問題沒有人回"); note = "客戶最後問了問題，業務沒有回覆"; }
-  else if (lastC && silentH >= 72) { primary = "stopped_replying"; conf = "POSSIBLE"; push(lastC, "最後一則客戶訊息，之後沉默"); note = anywhere ? `對話較早曾提到${LOSS_LABEL[anywhere.key]}` : "沒有明講原因"; }
+  else if (lastC && silentH >= 72) { primary = "stopped_replying"; conf = "POSSIBLE"; push(lastC, "最後一則客戶訊息，之後沉默"); note = !covered ? "訊息涵蓋不完整（可能有電話或官方後台回覆），不判流程面" : anywhere ? `對話較早曾提到${LOSS_LABEL[anywhere.key]}` : "沒有明講原因"; }
   else if (ledgerKey === "other") { primary = "other"; conf = "POSSIBLE"; push(lastC, "帳本標其他"); }
 
-  /* 副因：流程面 */
+  /* 副因：流程面（涵蓋不完整就不判） */
   let secondary: LossReasonKey | "" = "";
   if (!PROCESS_REASONS.includes(primary)) {
     if (noFollowup && primary !== "no_show") { secondary = "weak_followup"; push(lastS, "沉默後最後一則業務訊息（之後 7 天沒有再跟進）"); }
-    else if (firstRespH >= 4 && primary === "stopped_replying") { secondary = "slow_response"; push(firstS, `首次回覆花了 ${Math.round(firstRespH)} 小時`); }
+    else if (covered && firstRespH >= 4 && primary === "stopped_replying") { secondary = "slow_response"; push(firstS, `首次回覆花了 ${Math.round(firstRespH)} 小時`); }
     else if (noshow && !bookedAfterNoshow && primary !== "no_show") secondary = "no_show";
     else if (fin && finResolved === false && primary !== "financing") secondary = "financing";
     else if (objection && primary !== "price_resistance" && primary !== "negotiation_failed") secondary = "price_resistance";
@@ -131,6 +138,14 @@ export function analyzeLoss(c: LossCtx): LossResult {
   if (anywhere && anywhere.key !== primary && anywhere.key !== secondary) { alt = anywhere.key; push(anywhere.m, `替代可能：${LOSS_LABEL[anywhere.key]}`); }
   else if (said && anywhere && anywhere.key !== said.key) alt = anywhere.key;
   if (primary === "negotiation_failed" && !alt) alt = "price_resistance";
+  /* 估車群：車換車的客人開價高於權威／天書 → 舊車折抵是線索（只當替代可能，不當主因） */
+  let apprNote = "";
+  if (c.appraisal) {
+    const ask = num(c.appraisal["customer_ask"]), q = num(c.appraisal["book_quanwei"]), t = num(c.appraisal["book_tianshu"]);
+    const best = Math.max(q, t);
+    apprNote = `估車：${String(c.appraisal["model_text"] || "舊車")}${ask ? `，客人想要 ${Math.round(ask / 10_000)} 萬` : ""}${best ? `，權威 ${Math.round(q / 10_000)}／天書 ${Math.round(t / 10_000)} 萬` : ""}`;
+    if (String(c.appraisal["mode"]) === "trade_in" && ask && best && ask > best * 1.1 && primary !== "trade_in" && !alt) { alt = "trade_in"; apprNote += "，高於行情"; }
+  }
   const driver: LossResult["driver"] = PROCESS_REASONS.includes(primary) ? "process" : (primary === "stopped_replying" ? (secondary === "weak_followup" || secondary === "slow_response" ? "process" : "unclear") : primary === "unclear" ? "unclear" : "customer");
 
   /* 哪裡掉 */
@@ -143,7 +158,9 @@ export function analyzeLoss(c: LossCtx): LossResult {
     `主因 ${LOSS_LABEL[primary]}（${note || "依對話訊號判定"}）`,
     secondary ? `副因 ${LOSS_LABEL[secondary]}` : "",
     alt ? `替代可能 ${LOSS_LABEL[alt]}` : "",
+    apprNote,
     lastC ? `最後一則客戶訊息後沉默 ${Math.round(silentH / 24)} 天` : "",
+    !covered ? "訊息涵蓋不完整" : "",
   ].filter(Boolean).join("；") + "。";
   if (c.outcome !== "lost" && (conf === "CONFIRMED" || conf === "STRONGLY_SUGGESTED")) conf = "POSSIBLE";   // 推定流失的原因最多只能「可能」
   return {
@@ -175,6 +192,8 @@ export async function computeLoss(db: DbLike, opts: { now: string; leadIds?: num
       appts: await db.all("SELECT * FROM appointments WHERE lead_id = ? ORDER BY proposed_at", lid),
       visits: await db.all("SELECT * FROM visits WHERE lead_id = ? ORDER BY visited_at", lid),
       outcome: String(l["outcome"] ?? ""), now,
+      coverage: String((await db.first("SELECT coverage FROM conversations WHERE lead_id = ? ORDER BY id LIMIT 1", lid))?.["coverage"] ?? "full"),
+      appraisal: await db.first("SELECT * FROM appraisals WHERE lead_id = ? ORDER BY reported_at DESC LIMIT 1", lid),
     });
     const ins = await db.run(
       `INSERT INTO loss_analyses (lead_id, status, primary_reason, secondary_reason, alt_reason, driver, confidence, stage, staff_id, vehicle_id, appointment_status, visit_status, first_at, last_customer_at, last_staff_at, closed_at, summary, method, computed_at)

@@ -204,7 +204,102 @@ CREATE TABLE IF NOT EXISTS coaching_plans (
   created_at  TEXT NOT NULL
 );
 
+/* 成交群「送貨囉」貼文：解析欄位＋配對狀態。確認後才生成 deals 列。 */
+CREATE TABLE IF NOT EXISTS deal_reports (
+  id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+  reported_at         TEXT NOT NULL,
+  reported_by         TEXT NOT NULL DEFAULT '',
+  reported_by_user_id INTEGER,
+  year                INTEGER,
+  model_text          TEXT NOT NULL DEFAULT '',
+  color               TEXT NOT NULL DEFAULT '',
+  plate               TEXT NOT NULL DEFAULT '',
+  plate_norm          TEXT NOT NULL DEFAULT '',
+  deposit             TEXT NOT NULL DEFAULT '',
+  sale_price          INTEGER,
+  source_kind         TEXT NOT NULL DEFAULT '',
+  peer_dealer         TEXT NOT NULL DEFAULT '',
+  delivery_by         TEXT NOT NULL DEFAULT '',
+  delivery_uncertain  INTEGER NOT NULL DEFAULT 0,
+  note                TEXT NOT NULL DEFAULT '',
+  loan_status         TEXT NOT NULL DEFAULT '',
+  customer_ref        TEXT NOT NULL DEFAULT '',
+  staff_ref           TEXT NOT NULL DEFAULT '',
+  raw_text            TEXT NOT NULL DEFAULT '',
+  missing             TEXT NOT NULL DEFAULT '[]',
+  match_status        TEXT NOT NULL DEFAULT 'unmatched',
+  match_method        TEXT NOT NULL DEFAULT '',
+  match_confidence    TEXT NOT NULL DEFAULT '',
+  match_reasons       TEXT NOT NULL DEFAULT '[]',
+  vehicle_id          INTEGER,
+  lead_id             INTEGER,
+  contact_id          INTEGER,
+  staff_id            INTEGER,
+  candidates          TEXT NOT NULL DEFAULT '{}',
+  deal_id             INTEGER,
+  deal_created        INTEGER NOT NULL DEFAULT 0,
+  source_system       TEXT NOT NULL DEFAULT 'mock',
+  external_id         TEXT NOT NULL DEFAULT '',
+  created_at          TEXT NOT NULL,
+  confirmed_by        INTEGER,
+  confirmed_at        TEXT,
+  UNIQUE(source_system, external_id)
+);
+
+/* 估車群貼文（只有文字欄位；行照照片永遠不入庫） */
+CREATE TABLE IF NOT EXISTS appraisals (
+  id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+  reported_at         TEXT NOT NULL,
+  reported_by         TEXT NOT NULL DEFAULT '',
+  reported_by_user_id INTEGER,
+  model_text          TEXT NOT NULL DEFAULT '',
+  year                INTEGER,
+  trim                TEXT NOT NULL DEFAULT '',
+  color               TEXT NOT NULL DEFAULT '',
+  mileage_km          INTEGER,
+  book_quanwei        INTEGER,
+  book_tianshu        INTEGER,
+  mode                TEXT NOT NULL DEFAULT '',
+  customer_ask        INTEGER,
+  customer_ref        TEXT NOT NULL DEFAULT '',
+  lead_id             INTEGER,
+  contact_id          INTEGER,
+  raw_text            TEXT NOT NULL DEFAULT '',
+  source_system       TEXT NOT NULL DEFAULT 'mock',
+  external_id         TEXT NOT NULL DEFAULT '',
+  created_at          TEXT NOT NULL,
+  UNIQUE(source_system, external_id)
+);
+
+/* 內部群組的每一則貼文都先落這裡（稽核：哪一則解析成什麼、對到哪裡） */
+CREATE TABLE IF NOT EXISTS group_posts (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  kind          TEXT NOT NULL DEFAULT 'unknown',
+  at            TEXT NOT NULL,
+  sender        TEXT NOT NULL DEFAULT '',
+  text          TEXT NOT NULL DEFAULT '',
+  status        TEXT NOT NULL DEFAULT 'ignored',
+  ref_table     TEXT NOT NULL DEFAULT '',
+  ref_id        INTEGER,
+  note          TEXT NOT NULL DEFAULT '',
+  source_system TEXT NOT NULL DEFAULT 'mock',
+  external_id   TEXT NOT NULL DEFAULT '',
+  created_at    TEXT NOT NULL,
+  UNIQUE(source_system, external_id)
+);
+
+/* 員工在各系統的名字（LINE 暱稱／Super 8 帳號／車源表寫法）→ 同一個 user */
+CREATE TABLE IF NOT EXISTS staff_aliases (
+  id      INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  alias   TEXT NOT NULL UNIQUE,
+  system  TEXT NOT NULL DEFAULT ''
+);
+
 CREATE INDEX IF NOT EXISTS idx_leads_contact    ON leads(contact_id, opened_at);
+CREATE INDEX IF NOT EXISTS idx_reports_status   ON deal_reports(match_status, reported_at);
+CREATE INDEX IF NOT EXISTS idx_appraisal_lead   ON appraisals(lead_id);
+CREATE INDEX IF NOT EXISTS idx_posts_kind       ON group_posts(kind, status);
 CREATE INDEX IF NOT EXISTS idx_leads_stage      ON leads(stage, outcome);
 CREATE INDEX IF NOT EXISTS idx_fe_lead          ON funnel_events(lead_id, at);
 CREATE INDEX IF NOT EXISTS idx_fe_type_at       ON funnel_events(type, at);
@@ -242,6 +337,41 @@ const ADD_COLUMNS: ReadonlyArray<readonly [string, string, string]> = [
   ["actions",       "why",              "TEXT NOT NULL DEFAULT ''"],
   ["actions",       "measure",          "TEXT NOT NULL DEFAULT ''"],
   ["actions",       "owner_user_id",    "INTEGER"],
+  /* 2026-09-05 真實資料流（docs/DATA_FLOW.md）：訊息組 vs 業務、共用座位、車源表欄位、送貨囉欄位、訊息來源與涵蓋 */
+  ["users",         "job",              "TEXT NOT NULL DEFAULT ''"],
+  ["users",         "seat_shared",      "INTEGER NOT NULL DEFAULT 0"],
+  ["vehicles",      "cost_known",       "INTEGER NOT NULL DEFAULT 1"],
+  ["vehicles",      "plate",            "TEXT NOT NULL DEFAULT ''"],
+  ["vehicles",      "plate_norm",       "TEXT NOT NULL DEFAULT ''"],
+  ["vehicles",      "color",            "TEXT NOT NULL DEFAULT ''"],
+  ["vehicles",      "trim",             "TEXT NOT NULL DEFAULT ''"],
+  ["vehicles",      "mileage_km",       "INTEGER"],
+  ["vehicles",      "stock_in_at",      "TEXT"],
+  ["vehicles",      "cert",             "TEXT NOT NULL DEFAULT ''"],
+  ["vehicles",      "trade_price",      "INTEGER"],
+  ["vehicles",      "source",           "TEXT NOT NULL DEFAULT 'stock'"],
+  ["vehicles",      "peer_dealer",      "TEXT NOT NULL DEFAULT ''"],
+  ["vehicles",      "status_text",      "TEXT NOT NULL DEFAULT ''"],
+  ["conversations", "coverage",         "TEXT NOT NULL DEFAULT 'full'"],
+  ["conversations", "coverage_note",    "TEXT NOT NULL DEFAULT ''"],
+  ["messages",      "via",              "TEXT NOT NULL DEFAULT ''"],
+  ["visits",        "source",           "TEXT NOT NULL DEFAULT 'ledger'"],
+  ["visits",        "customer_ref",     "TEXT NOT NULL DEFAULT ''"],
+  ["visits",        "model_text",       "TEXT NOT NULL DEFAULT ''"],
+  ["visits",        "assigned_by",      "TEXT NOT NULL DEFAULT ''"],
+  ["visits",        "raw_text",         "TEXT NOT NULL DEFAULT ''"],
+  ["deals",         "plate",            "TEXT NOT NULL DEFAULT ''"],
+  ["deals",         "customer_ref",     "TEXT NOT NULL DEFAULT ''"],
+  ["deals",         "deposit",          "TEXT NOT NULL DEFAULT ''"],
+  ["deals",         "loan_status",      "TEXT NOT NULL DEFAULT ''"],
+  ["deals",         "delivery_by",      "TEXT NOT NULL DEFAULT ''"],
+  ["deals",         "reported_by",      "TEXT NOT NULL DEFAULT ''"],
+  ["deals",         "source_kind",      "TEXT NOT NULL DEFAULT 'stock'"],
+  ["deals",         "peer_dealer",      "TEXT NOT NULL DEFAULT ''"],
+  ["deals",         "cost_source",      "TEXT NOT NULL DEFAULT 'ledger'"],
+  ["deals",         "gp_is_estimate",   "INTEGER NOT NULL DEFAULT 0"],
+  ["deals",         "report_id",        "INTEGER"],
+  ["behaviors",     "chat_staff_id",    "INTEGER"],
 ];
 
 export function migrate(sql: SqlLike): { added: string[] } {

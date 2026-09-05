@@ -48,3 +48,7 @@ Super 8 瀏覽器擷取     ├─→ NormalizedBundle ─→ import.ts ─→ c
    會同時回 Worker 與 DO 兩邊的結果，之後換機房或換模型先打這支。
 3. 同一天重跑洞察會產生重複卡：`insightsLocal` 把同期間長度、同一天的舊洞察標成 `dismissed=2`（被取代），
    1 仍然代表使用者駁回。
+
+## 2026-09-05 晚：貼文解析與配對層
+`src/engine/posts.ts`（解析：送貨囉／估車／接待／LINE 匯出檔）→ `src/engine/reconcile.ts`（配對、確認、撤銷、群組貼文匯入）→ `deal_reports / appraisals / group_posts / staff_aliases` 四張新表（`src/model/schema.ts`）。
+匯入 bundle 時若帶 `deal_reports`／`appraisals` 原文，會先跑一次漏斗再配對（到店／議價訊號幫忙挑客戶）。所有重活仍在 DO 內（`db.js` 的 `reconcileLocal / ingestGroupLocal / reportActionLocal / rematchAllLocal`）。

@@ -1,6 +1,6 @@
 /* 對話與證據：左清單／中時間軸（事件插在訊息之間、證據高亮）／右 AI 分析（事實與假設分開）。 */
 import { api } from "../api.js";
-import { h, raw, esc, fmtDT, fmtD, ago, chipStage, chip, chipClaim, chipConf, bubble, eventMark, EVENT, CONF, STAGE, wan, toast, lossLabel, DRIVER, roleLabel, lostReason } from "../ui.js";
+import { h, raw, esc, fmtDT, fmtD, ago, chipStage, chip, chipClaim, chipConf, bubble, eventMark, EVENT, CONF, STAGE, wan, toast, lossLabel, DRIVER, roleLabel, lostReason, coverageChip, MATCH, nt } from "../ui.js";
 
 const FLAG = { price_dropoff: "價格後流失", high_intent: "高意圖", financing: "貸款未回", insights: "有洞察的" };
 
@@ -55,7 +55,7 @@ function threadHtml(d) {
   const items = [...d.messages.map((m) => ({ t: Date.parse(m.created_at), k: 0, m })), ...d.events.filter((e) => !["NEW_LEAD", "VEHICLE_INTEREST", "ACTIVE_DISCUSSION"].includes(e.type)).map((e) => ({ t: Date.parse(e.at), k: 1, e }))]
     .sort((a, b) => a.t - b.t || a.k - b.k);
   const L = d.lead;
-  return `<h3>${esc(L.pseudonym)} <span class="faint" style="letter-spacing:0;font-weight:400">${esc(L.display_name)} · ${esc(L.vehicle)} · 業務 ${esc(L.staff)}</span></h3>
+  return `<h3>${esc(L.pseudonym)} <span class="faint" style="letter-spacing:0;font-weight:400">${esc(L.display_name)} · ${esc(L.vehicle)} · 業務 ${esc(L.staff || "未指派")}</span> ${coverageChip(L.coverage, L.coverage_note)}</h3>
     <div class="thread">${items.map((x) => x.m ? bubble(x.m, { evidence: notes.get(x.m.id) || null }) : eventMark(x.e)).join("")}</div>`;
 }
 
@@ -75,10 +75,11 @@ function sideHtml(d) {
   if (fin) facts.push(`客戶問了貸款，業務${fin.detail?.resolved ? "有" : "沒有"}給具體答案。`);
   if (booked) facts.push(`${fmtD(booked.at)} 預約成立。`);
   if (noshow) facts.push(`預約時間過了沒有到店。`);
-  if (visit) facts.push(`${fmtD(visit.at)} 到店。`);
+  if (visit) facts.push(`${fmtD(visit.at)} 到店${visit.detail?.source === "reception" ? "（接待群紀錄）" : ""}。`);
   if (drop) facts.push(`報價後客戶${drop.detail?.pattern === "silent" ? "沒有再回覆" : drop.detail?.pattern === "objection_then_silent" ? "先異議、之後沉默" : "回覆明顯變慢"}（價格後流失 · ${CONF[drop.confidence]}）。`);
   if (fus) facts.push(`業務主動跟進 ${fus} 次。`);
-  if (sold) facts.push(`${fmtD(sold.at)} 成交${sold.detail?.gross_profit != null ? `，毛利 ${wan(sold.detail.gross_profit)}` : ""}。`);
+  if (sold) facts.push(`${fmtD(sold.at)} 成交${sold.detail?.gross_profit != null ? `，毛利 ${wan(sold.detail.gross_profit)}${sold.detail?.gp_estimate ? "（估算）" : ""}` : "，沒有成本所以毛利不算"}${sold.detail?.source_kind === "peer" ? "，同行的車" : ""}。`);
+  if (L.coverage && L.coverage !== "full") facts.push(`這段對話的訊息涵蓋不完整（${esc(L.coverage_note)}），回覆速度與跟進不列入評估。`);
   else if (lost) facts.push(`${lost.detail?.inferred ? `沉默 ${lost.detail.silent_days} 天，推定流失` : `${fmtD(lost.at)} 流失${lost.detail?.reason ? `（${lostReason(lost.detail.reason)}）` : ""}`}。`);
   else if (inactive) facts.push(`客戶已沉默 ${inactive.detail?.silent_days ?? "7+"} 天。`);
 
@@ -104,9 +105,14 @@ function sideHtml(d) {
   return `<div class="kv"><div>客戶</div><div><b>${esc(L.pseudonym)}</b> <span class="faint">${esc(L.display_name)}</span></div>
       <div>分級</div><div>${esc(L.grade)}</div><div>首次進線</div><div>${fmtD(L.first_contact_at || L.opened_at)}</div>
       <div>車款</div><div>${esc(L.vehicle || "—")}${L.list_price ? ` <span class="faint">${wan(L.list_price)}</span>` : ""}</div>
-      <div>業務</div><div>${esc(L.staff || "未指派")}${(d.roles || []).filter((r) => r.role !== "primary").map((r) => ` ${chip(`${roleLabel(r.role)} ${r.staff}`)}`).join("")}</div><div>階段</div><div>${chipStage(L.stage)} ${L.outcome ? chip({ sold: "已成交", lost: "已流失" }[L.outcome], L.outcome === "sold" ? "cyan" : "") : ""}</div></div>
+      <div>業務</div><div>${esc(L.staff || "未指派")}${(d.roles || []).filter((r) => r.role !== "primary").map((r) => ` ${chip(`${roleLabel(r.role)} ${r.staff}`, r.role === "chat_handler" ? "cyan" : "")}`).join("")}</div><div>階段</div><div>${chipStage(L.stage)} ${L.outcome ? chip({ sold: "已成交", lost: "已流失" }[L.outcome], L.outcome === "sold" ? "cyan" : "") : ""}</div>
+      <div>訊息涵蓋</div><div>${L.coverage && L.coverage !== "full" ? `${coverageChip(L.coverage, L.coverage_note)} <span class="faint">${esc(L.coverage_note)}</span>` : "完整"}</div></div>
     <div class="aibox linked"><h4>${chipClaim("fact")} 摘要</h4><p>${facts.join("")}</p></div>
     <div class="aibox"><h4>${chipClaim("hypothesis")} 異議與意圖</h4><p>${hypo.join("")}</p></div>
+    ${(d.appraisals || []).length ? `<div class="aibox"><h4>估車 ${chip((d.appraisals[0].mode === "trade_in" ? "車換車" : d.appraisals[0].mode === "sell" ? "純賣" : "—"))}</h4>
+      <p>${esc(d.appraisals[0].model_text || "舊車")}${d.appraisals[0].year ? ` ${d.appraisals[0].year}` : ""}${d.appraisals[0].trim ? ` ${esc(d.appraisals[0].trim)}` : ""}${d.appraisals[0].mileage_km ? ` · ${Math.round(d.appraisals[0].mileage_km / 10000 * 10) / 10} 萬公里` : ""}${d.appraisals[0].book_quanwei || d.appraisals[0].book_tianshu ? ` · 權威 ${wan(d.appraisals[0].book_quanwei)}／天書 ${wan(d.appraisals[0].book_tianshu)}` : ""}${d.appraisals[0].customer_ask ? ` · 客人想要 ${wan(d.appraisals[0].customer_ask)}` : ""}</p>
+      <p class="faint" style="margin-top:4px">估車群 ${fmtD(d.appraisals[0].reported_at)} · ${esc(d.appraisals[0].reported_by)}</p></div>` : ""}
+    ${(d.reports || []).length ? `<div class="aibox"><h4>送貨囉貼文</h4><ul>${d.reports.map((r) => `<li><a href="/reconcile?status=${r.match_status}" data-link>${fmtD(r.reported_at)} ${esc(r.reported_by)} · ${r.sale_price ? nt(r.sale_price) : "沒售價"} · ${MATCH[r.match_status] || r.match_status}</a>${r.plate ? "" : ' <span class="faint">車號空白</span>'}</li>`).join("")}</ul></div>` : ""}
     ${d.loss ? `<div class="aibox ${d.loss.driver === "process" ? "linked" : ""}"><h4>流失原因 ${d.loss.status === "suspected" ? chip("推定") : ""} ${chipConf(d.loss.confidence)} ${chip(DRIVER[d.loss.driver] || d.loss.driver)}</h4>
       <p><b>${esc(lossLabel(d.loss.primary_reason))}</b>${d.loss.secondary_reason ? ` · 副因 ${esc(lossLabel(d.loss.secondary_reason))}` : ""}${d.loss.alt_reason ? ` · 替代可能 ${esc(lossLabel(d.loss.alt_reason))}` : ""}</p>
       <p class="faint" style="margin-top:4px">${esc(d.loss.summary || "")}</p></div>` : ""}

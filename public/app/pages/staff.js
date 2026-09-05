@@ -1,7 +1,7 @@
 /* 員工效能：誰在產生結果、為什麼、強在哪、客戶在哪流失、哪部分真的是他做的、該教什麼。
    全部數字附樣本；沒達門檻顯示「資料不足」；對照只講「觀察到的關聯」。琥珀只給需關注與落後，青只給互動。 */
 import { api } from "../api.js";
-import { esc, pct, nt, num, chip, table, bindRows, pageHead, periodSeg, mval, fmtMin, fmtFeat, FEAT, poolGroup, heatStyle, wan, chipConf } from "../ui.js";
+import { esc, pct, nt, num, chip, table, bindRows, pageHead, periodSeg, mval, fmtMin, fmtFeat, FEAT, poolGroup, heatStyle, wan, chipConf, jobChip } from "../ui.js";
 import { createAction, metricKeyFor } from "../mgmt.js";
 
 const CMP_FEATS = ["first_response_min", "followup_24h_rate", "asked_after_price", "objection_clarified", "proposed_after_intent", "fin_answered", "postvisit_24h", "budget_clarified", "reactivated_by_staff", "escalated"];
@@ -21,7 +21,8 @@ export async function render(el, ctx) {
 
   /* ── AI 團隊簡報（規則版：每句都是算出來的） ── */
   const brief = [
-    `本期 ${num(t.leads)} 位新客戶、成交 ${t.commercial.sold} 台（前期 ${t.prev.sold}）、毛利 ${wan(t.commercial.gp)}；成交率 ${pct(t.funnel.close.rate)}（${t.funnel.close.k}/${t.funnel.close.n}），前期 ${pct(t.prev.close.rate)}。`,
+    `本期 ${num(t.leads)} 位新客戶、成交 ${t.commercial.sold} 台（前期 ${t.prev.sold}）、毛利 ${wan(t.commercial.gp)}（估算，成本知道的 ${t.commercial.gp_known} 台${t.commercial.gp_unknown ? `，${t.commercial.gp_unknown} 台沒有成本未計` : ""}）；成交率 ${pct(t.funnel.close.rate)}（${t.funnel.close.k}/${t.funnel.close.n}），前期 ${pct(t.prev.close.rate)}。`,
+    `訊息面指標（回覆、報價後續走、跟進）算「線上回訊息的人」，成交面指標（到店→成交、毛利）算「接待群指派的業務」；共用座位的人只算到團隊。`,
     r.top.length ? `表現最佳：${r.top.map((x) => `${x.name}（${x.reason.split("；")[0]}）`).join("、")}。` : "表現最佳：還沒有人達到樣本門檻。",
     r.watch.length ? `需要關注：${r.watch.map((w) => `${w.name}（${w.issue.text.split("（")[0]}）`).join("、")}。` : "需要關注：目前沒有人明確低於團隊基準。",
     r.compare.summary,
@@ -29,7 +30,7 @@ export async function render(el, ctx) {
 
   /* ── 表現最佳 ── */
   const topCards = r.top.map((x) => `<div class="pcard"><span class="rank">#${x.rank}</span>
-    <h4>${esc(x.name)} <span class="faint" style="font-weight:400;font-size:12px">${esc(x.team)}</span></h4>
+    <h4>${esc(x.name)} <span class="faint" style="font-weight:400;font-size:12px">${esc(x.team)}</span> ${jobChip(byId.get(x.staff_id)?.job, byId.get(x.staff_id)?.seat_shared)}</h4>
     <div class="why">關鍵：${esc(x.reason)}</div>
     <div class="g3"><div><span>成交</span> <b>${x.sold} 台</b></div><div><span>成交率</span> <b>${mval(x.close)}</b></div><div><span>影響成交</span> <b>${x.influenced} 台</b></div>
       <div><span>營收</span> <b>${nt(x.revenue)}</b></div><div><span>毛利</span> <b>${nt(x.gp)}</b></div><div><span>每台毛利</span> <b>${x.avg_gp == null ? "—" : nt(x.avg_gp)}</b></div>
@@ -38,8 +39,9 @@ export async function render(el, ctx) {
 
   /* ── 需要關注 ── */
   const watchCards = r.watch.map((w) => `<div class="pcard watch">
-    <h4>${esc(w.name)} <span class="faint" style="font-weight:400;font-size:12px">${esc(w.team)} · 成交排名 ${w.rank_closers ?? "資料不足"}</span></h4>
-    <div class="g3"><div><span>客戶</span> <b>${w.leads}</b></div><div><span>成交</span> <b>${w.sold} 台</b></div><div><span>成交率</span> <b>${mval(w.close)}</b></div>
+    <h4>${esc(w.name)} <span class="faint" style="font-weight:400;font-size:12px">${esc(w.team)} · 成交排名 ${w.rank_closers ?? "不適用"}</span> ${jobChip(byId.get(w.staff_id)?.job, byId.get(w.staff_id)?.seat_shared)}</h4>
+    ${byId.get(w.staff_id)?.context.chat_note ? `<div class="faint" style="font-size:12px">${esc(byId.get(w.staff_id).context.chat_note)}</div>` : ""}
+    <div class="g3"><div><span>客戶</span> <b>${byId.get(w.staff_id)?.job === "chat" ? byId.get(w.staff_id).context.chat_leads : w.leads}</b></div><div><span>成交</span> <b>${w.sold} 台</b></div><div><span>成交率</span> <b>${mval(w.close)}</b></div>
       <div><span>毛利</span> <b>${nt(w.gp)}</b></div><div><span>最常流失在</span> <b>${esc(w.lost_stage)}</b></div><div><span>流程面流失</span> <b>${w.evidence.process_losses} 位</b></div></div>
     <div class="why"><b style="color:var(--amber)">主要問題</b> ${esc(w.issue.text)}</div>
     <div class="why"><b>觀察到的模式</b> ${esc(w.pattern)}</div>
@@ -98,9 +100,9 @@ export async function render(el, ctx) {
 
   /* ── 團隊與財務貢獻 ── */
   const contribCols = [
-    { key: "name", label: "業務" }, { key: "sold", label: "直接成交", num: true, render: (s) => `${s.commercial.sold}` }, { key: "infl", label: "影響成交", num: true, render: (s) => `${s.commercial.influenced_sold}` },
-    { key: "gp", label: "直接毛利", num: true, render: (s) => nt(s.commercial.gp) }, { key: "igp", label: "影響毛利", num: true, render: (s) => nt(s.commercial.influenced_gp) },
-    { key: "sup", label: "支援", num: true, render: (s) => `${s.activity.supported}` }, { key: "in", label: "接手", num: true, render: (s) => `${s.activity.handoffs_in}` },
+    { key: "name", label: "員工", render: (s) => `${esc(s.name)} ${jobChip(s.job, s.seat_shared)}` }, { key: "sold", label: "直接成交", num: true, render: (s) => (s.job === "chat" ? '<span class="faint">—</span>' : `${s.commercial.sold}`) }, { key: "infl", label: "影響成交", num: true, render: (s) => `${s.commercial.influenced_sold}` },
+    { key: "gp", label: "直接毛利", num: true, render: (s) => (s.job === "chat" ? '<span class="faint">—</span>' : `${nt(s.commercial.gp)}${s.commercial.gp_unknown ? ` <span class="ins">${s.commercial.gp_unknown} 無成本</span>` : ""}`) }, { key: "igp", label: "影響毛利", num: true, render: (s) => nt(s.commercial.influenced_gp) },
+    { key: "sup", label: "支援／線上接待", num: true, render: (s) => `${s.activity.supported}` }, { key: "in", label: "接手", num: true, render: (s) => `${s.activity.handoffs_in}` },
     { key: "re", label: "回流", num: true, render: (s) => `${s.activity.reactivations}` }, { key: "mgr", label: "主管介入", num: true, render: (s) => `${s.activity.manager_interventions}` },
   ];
   const contrib = table(contribCols, r.staff, { rowHref: (s) => `/staff/${s.id}`, dense: true, empty: "沒有資料" });
@@ -111,7 +113,7 @@ export async function render(el, ctx) {
 
   /* ── 員工比較表 ── */
   const cmpCols = [
-    { key: "name", label: "業務" }, { key: "team", label: "組別" }, { key: "leads", label: "客戶", num: true, render: (s) => `${s.context.leads}` },
+    { key: "name", label: "員工" }, { key: "job", label: "性質", render: (s) => jobChip(s.job, s.seat_shared) }, { key: "team", label: "組別" }, { key: "leads", label: "客戶", num: true, render: (s) => (s.job === "chat" ? `${s.context.chat_leads} <span class="ins">線上</span>` : `${s.context.leads}`) },
     { key: "sold", label: "成交", num: true, render: (s) => `${s.commercial.sold}` }, { key: "close", label: "成交率", num: true, render: (s) => mval(s.funnel.close), cls: (s) => (s.funnel.close.ok && t.funnel.close.rate != null && s.funnel.close.rate != null && s.funnel.close.rate <= t.funnel.close.rate - 0.1 ? "warn" : "") },
     { key: "gp", label: "直接毛利", num: true, render: (s) => nt(s.commercial.gp) }, { key: "igp", label: "影響毛利", num: true, render: (s) => nt(s.commercial.influenced_gp) },
     { key: "pc", label: "報價後續走", num: true, render: (s) => mval(s.funnel.price_continue), cls: (s) => (s.funnel.price_continue.ok && t.funnel.price_continue.rate != null && s.funnel.price_continue.rate <= t.funnel.price_continue.rate - 0.1 ? "warn" : "") },

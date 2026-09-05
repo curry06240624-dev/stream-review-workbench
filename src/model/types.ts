@@ -33,8 +33,21 @@ export type LostReason =
   | "price" | "financing" | "competitor" | "no_response" | "changed_mind" | "vehicle_gone" | "other"
   | "vehicle_condition" | "vehicle_mismatch" | "trade_in" | "timing" | "family" | "no_stock" | "browsing";
 
-/** 一位員工在一個 lead 上的角色（歸因模型，見 docs/STAFF_EFFECTIVENESS.md §1） */
-export type LeadRole = "primary" | "supporting" | "manager" | "handoff_from" | "handoff_to" | "reactivation";
+/** 一位員工在一個 lead 上的角色（歸因模型，見 docs/STAFF_EFFECTIVENESS.md §1）
+ *  chat_handler＝訊息組：線上聊天由他回，到店後才交給業務（瑋瑋公司的實際流程，見 docs/DATA_FLOW.md） */
+export type LeadRole = "primary" | "supporting" | "manager" | "handoff_from" | "handoff_to" | "reactivation" | "chat_handler";
+
+/** 員工的工作性質：chat＝訊息組（回線上訊息）、sales＝業務（到店接待、成交）、both＝兩者都做、manager＝主管 */
+export type StaffJob = "chat" | "sales" | "both" | "manager";
+
+/** 一段對話的訊息涵蓋程度：full＝雙方訊息都在；partial＝有跡象顯示有電話或官方後台回覆不在紀錄裡；low＝幾乎只有客戶訊息 */
+export type Coverage = "full" | "partial" | "low";
+
+/** 成交的成本從哪來：ledger＝帳本直接給、sheet＝車源表的成本（估算）、accounting＝會計、none＝沒有（同行車、車號空白） */
+export type CostSource = "ledger" | "sheet" | "accounting" | "none";
+
+/** 成交群貼文（送貨囉）的配對狀態 */
+export type MatchStatus = "auto" | "suggested" | "unmatched" | "confirmed" | "rejected";
 
 /** 流失原因分類（引擎用的鍵；帳本的 LostReason 會對應進來） */
 export type LossReasonKey =
@@ -74,7 +87,7 @@ export type InsightKind =
 
 export type ActionStatus = "proposed" | "approved" | "dismissed" | "done";
 
-export type SourceSystem = "mock" | "super8_browser" | "super8_export" | "sheet" | "api";
+export type SourceSystem = "mock" | "super8_browser" | "super8_export" | "sheet" | "api" | "line_export";
 
 /* ── 實體 ─────────────────────────────────────────────── */
 
@@ -83,7 +96,12 @@ export interface Team { id: number; name: string; }
 export interface Staff {
   id: number; name: string; role: "admin" | "operator" | "agent";
   team_id: number | null;
+  job: StaffJob | "";               // 空字串＝依 role 推：agent→both、其他→manager
+  seat_shared: 0 | 1;               // Super 8 座位是借來／共用的：個人的訊息指標不可信，只算到團隊
 }
+
+/** 員工在各系統的名字：LINE 群暱稱（火箭、梨子）、Super 8 帳號名、車源表寫法。匯入時全部對回同一個 user。 */
+export interface StaffAlias { id: number; user_id: number; alias: string; system: "line" | "super8" | "sheet" | ""; }
 
 /** 客戶。主鍵是我們自己的 id；`external_key` 是對回瑋瑋表格的鍵（電話或 LINE 名稱），
  *  `pseudonym` 是去識別化後對外顯示的名字。真資料進來時 display_name 就存假名。 */
@@ -99,14 +117,22 @@ export interface Customer {
   source_system: SourceSystem;
 }
 
+/** 車輛主檔。欄位對齊瑋瑋公司的車源表（Google Sheet）：入庫時間／年份／車型／廠牌／車牌號碼／顏色／里程／認證狀況／版本／開價／調作價／成本。
+ *  同行的車（調車、不在車源表）source='peer'，成本通常不知道：cost_known=0，這台的毛利就不算。 */
 export interface Vehicle {
   id: number;
   brand: string; model: string; year: number | null;
   body_type: "sedan" | "suv" | "hatch" | "mpv" | "pickup" | "";
-  list_price: number;          // 元
-  cost: number;                // 進車成本，毛利＝售價－成本
-  stock_status: "in_stock" | "reserved" | "sold";
+  list_price: number;          // 元（車源表「開價」）
+  cost: number;                // 進車成本（車源表「成本」），毛利＝售價－成本；cost_known=0 時這個值沒有意義
+  cost_known: 0 | 1;
+  stock_status: "in_stock" | "reserved" | "sold" | "peer";
   external_id: string;
+  plate: string;               // 車牌號碼：成交群貼文對回車源表唯一的鍵
+  plate_norm: string;          // 去掉「-」與空白、全大寫，配對用
+  color: string; trim: string; mileage_km: number | null; stock_in_at: string | null; cert: string;
+  trade_price: number | null;  // 車源表「調作價」（欄位意義待瑋瑋確認）
+  source: "stock" | "peer"; peer_dealer: string; status_text: string;
 }
 
 /** 一段購車旅程。一個客戶可以有多個 lead（例如半年後又來），一個 lead 可跨多個對話。 */
@@ -131,6 +157,8 @@ export interface Conversation {
   status: "open" | "closed";
   last_message_at: string;
   external_id: string;
+  coverage: Coverage;          // 訊息涵蓋：不完整時引擎不准說「回覆太慢」「跟進不足」
+  coverage_note: string;
 }
 
 export interface Message {
@@ -143,6 +171,7 @@ export interface Message {
   text: string;
   created_at: string;
   external_id: string;
+  via: "super8" | "line_oa" | "call" | "bot" | "";   // 從哪個系統來：Super 8 看不到官方後台打的字與電話
 }
 
 export interface Appointment {
@@ -156,17 +185,22 @@ export interface Appointment {
   evidence_message_id: number | null;
 }
 
+/** 到店。真實來源是接待群貼文（客戶名／車款／到店時間／誰指派）：source='reception'。
+ *  有接待群資料時，對話裡推測的到店一律降為「不確定」，不進轉換率。 */
 export interface Visit {
   id: number;
   lead_id: number;
   appointment_id: number | null;
-  staff_id: number | null;
+  staff_id: number | null;     // 接待群「誰指派」的業務
   visited_at: string;
-  outcome: VisitOutcome;
+  outcome: VisitOutcome | "";
   note: string;
+  source: "ledger" | "reception" | "chat";
+  customer_ref: string; model_text: string; assigned_by: string; raw_text: string;
 }
 
-/** 成交／流失帳本。形狀刻意對齊「一張試算表的一列」，因為真實來源就是瑋瑋的表。 */
+/** 成交／流失帳本。真實來源是成交群的「送貨囉」貼文（見 DealReport）配對後產生；
+ *  毛利只有會計有正式數字，這裡的毛利是「售價－車源表成本」的估算（gp_is_estimate=1），沒有成本就不算（cost_source='none'）。 */
 export interface Deal {
   id: number;
   lead_id: number | null;
@@ -176,11 +210,55 @@ export interface Deal {
   status: "sold" | "lost";
   sale_price: number;
   cost: number;
-  gross_profit: number;
+  gross_profit: number;        // cost_source='none' 時為 0 且無意義，統計一律用 cost_source 過濾
   lost_reason: LostReason | "";
   closed_at: string;
   external_key: string;
   source_system: SourceSystem;
+  plate: string; customer_ref: string;
+  deposit: "cash" | "transfer" | "none" | "unknown" | "";
+  loan_status: "approved" | "rejected" | "none" | "";
+  delivery_by: string; reported_by: string;
+  source_kind: "stock" | "peer"; peer_dealer: string;
+  cost_source: CostSource; gp_is_estimate: 0 | 1;
+  report_id: number | null;    // 來自哪一則送貨囉貼文
+}
+
+/** 成交群「送貨囉」貼文：解析出的欄位＋配對狀態。老闆在「待確認配對」頁確認後才變成 Deal。 */
+export interface DealReport {
+  id: number;
+  reported_at: string; reported_by: string; reported_by_user_id: number | null;
+  year: number | null; model_text: string; color: string; plate: string; plate_norm: string;
+  deposit: Deal["deposit"]; sale_price: number | null;
+  source_kind: "stock" | "peer" | ""; peer_dealer: string;
+  delivery_by: string; delivery_uncertain: 0 | 1; note: string; loan_status: Deal["loan_status"];
+  customer_ref: string; staff_ref: string; raw_text: string;
+  missing: string[];           // 缺哪些必要欄位（車號、售價、客戶、業務）
+  match_status: MatchStatus; match_method: "plate" | "fuzzy" | "customer" | "manual" | "";
+  match_confidence: Confidence | ""; match_reasons: string[];
+  vehicle_id: number | null; lead_id: number | null; contact_id: number | null; staff_id: number | null;
+  candidates: { vehicles: Array<{ id: number; label: string; reason: string }>; leads: Array<{ id: number; label: string; reason: string }> };
+  deal_id: number | null; deal_created: 0 | 1;
+  source_system: SourceSystem; external_id: string; created_at: string;
+  confirmed_by: number | null; confirmed_at: string | null;
+}
+
+/** 估車群貼文：車型／年份／版本／顏色／里程／權威／天書／車換車 or 純賣／客人理想價格。行照照片永遠不入庫。 */
+export interface Appraisal {
+  id: number;
+  reported_at: string; reported_by: string; reported_by_user_id: number | null;
+  model_text: string; year: number | null; trim: string; color: string; mileage_km: number | null;
+  book_quanwei: number | null; book_tianshu: number | null;   // 元
+  mode: "trade_in" | "sell" | ""; customer_ask: number | null; customer_ref: string;
+  lead_id: number | null; contact_id: number | null; raw_text: string;
+  source_system: SourceSystem; external_id: string; created_at: string;
+}
+
+/** 內部群組的每一則貼文都先落這裡（稽核用），解析成功才連到 deal_reports／visits／appraisals */
+export interface GroupPost {
+  id: number; kind: "deal" | "reception" | "appraisal" | "unknown"; at: string; sender: string; text: string;
+  status: "parsed" | "unmatched" | "ignored"; ref_table: string; ref_id: number | null; note: string;
+  source_system: SourceSystem; external_id: string; created_at: string;
 }
 
 export interface FunnelEvent {

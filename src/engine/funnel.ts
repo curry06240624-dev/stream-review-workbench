@@ -18,6 +18,8 @@ interface Msg { id: number; role: string; text: string; at: number; }
 interface VehicleName { id: number; needles: string[]; }
 interface Ctx {
   lead: Row; contact: Row; msgs: Msg[]; appts: Row[]; visits: Row[]; deals: Row[];
+  /** 公司有接待群到店紀錄時，對話裡推測的到店一律「不確定」，不進轉換率 */
+  hasReception?: boolean;
 }
 export interface Detected {
   type: FunnelEventType; at: number; confidence: Confidence; source: EventSource;
@@ -155,12 +157,15 @@ export function detectEvents(ctx: Ctx, vehicles: VehicleName[], now: number): De
     }
   }
 
-  // 到店
+  // 到店：接待群貼文（或其他到店表）優先；只有對話提到看車時，公司若有接待群紀錄就降為「不確定」
   if (ctx.visits.length) {
-    for (const v of ctx.visits) { const vAt = Date.parse(String(v["visited_at"])); out.push(ev("STORE_VISIT", vAt, "CONFIRMED", "ledger", { outcome: v["outcome"] }, [{ message_id: nearest(msgs, vAt)?.id ?? null, note: "到店紀錄" }])); }
+    for (const v of ctx.visits) {
+      const vAt = Date.parse(String(v["visited_at"])); const src = String(v["source"] ?? "ledger");
+      out.push(ev("STORE_VISIT", vAt, "CONFIRMED", "ledger", { outcome: v["outcome"], source: src, assigned_staff_id: v["staff_id"] ?? null }, [{ message_id: nearest(msgs, vAt)?.id ?? null, note: src === "reception" ? "接待群貼文" : "到店紀錄" }]));
+    }
   } else if (bookedAt !== null) {
     const vs = staff.find((m) => m.at > bookedAt! && RE.visitStaff.test(m.text));
-    if (vs) out.push(ev("STORE_VISIT", vs.at, "STRONGLY_SUGGESTED", "rule", {}, [{ message_id: vs.id, note: "預約後業務提到今天看車" }]));
+    if (vs) out.push(ev("STORE_VISIT", vs.at, ctx.hasReception ? "UNCLEAR" : "STRONGLY_SUGGESTED", "rule", { source: "chat" }, [{ message_id: vs.id, note: ctx.hasReception ? "只有對話提到看車，接待群沒有這位客戶的到店紀錄" : "預約後業務提到今天看車" }]));
   }
 
   // FOLLOW_UP：沉默 ≥24h 後業務主動
@@ -191,7 +196,10 @@ export function detectEvents(ctx: Ctx, vehicles: VehicleName[], now: number): De
   // 成交/流失：帳本優先
   const soldDeal = ctx.deals.find((d) => d["status"] === "sold"), lostDeal = ctx.deals.find((d) => d["status"] === "lost");
   const soldTxt = staff.find((m) => RE.soldStaff.test(m.text)), lostTxt = cust.find((m) => RE.lostCust.test(m.text));
-  if (soldDeal) out.push(ev("SOLD", Date.parse(String(soldDeal["closed_at"])), "CONFIRMED", "ledger", { deal_id: soldDeal["id"], gross_profit: soldDeal["gross_profit"] }, [{ message_id: (soldTxt ?? last).id, note: "成交帳本" }]));
+  if (soldDeal) {
+    const gpKnown = String(soldDeal["cost_source"] ?? "ledger") !== "none";
+    out.push(ev("SOLD", Date.parse(String(soldDeal["closed_at"])), "CONFIRMED", "ledger", { deal_id: soldDeal["id"], gross_profit: gpKnown ? soldDeal["gross_profit"] : null, gp_estimate: !!Number(soldDeal["gp_is_estimate"] ?? 0), source_kind: soldDeal["source_kind"] ?? "stock" }, [{ message_id: (soldTxt ?? last).id, note: soldDeal["report_id"] ? "成交群貼文（已配對）" : "成交帳本" }]));
+  }
   else if (soldTxt) out.push(ev("SOLD", soldTxt.at, "STRONGLY_SUGGESTED", "rule", {}, [{ message_id: soldTxt.id, note: "業務說恭喜/過戶/交車" }]));
   else if (String(ctx.contact["display_name"] ?? "").includes("已購車")) out.push(ev("SOLD", last.at, "POSSIBLE", "rule", { via: "display_name" }, [{ message_id: last.id, note: "顯示名稱標了「已購車」" }]));
   if (lostDeal) out.push(ev("LOST", Date.parse(String(lostDeal["closed_at"])), "CONFIRMED", "ledger", { deal_id: lostDeal["id"], reason: lostDeal["lost_reason"] }, [{ message_id: (lostTxt ?? last).id, note: "流失帳本" }]));
@@ -258,6 +266,7 @@ export async function runFunnel(db: DbLike, opts: { now: string; leadIds?: numbe
   const leadRows = opts.leadIds?.length
     ? await db.all(`SELECT l.*, c.display_name FROM leads l JOIN contacts c ON c.id = l.contact_id WHERE l.id IN (${opts.leadIds.map(() => "?").join(",")})`, ...opts.leadIds)
     : await db.all("SELECT l.*, c.display_name FROM leads l JOIN contacts c ON c.id = l.contact_id");
+  const hasReception = !!(await db.first("SELECT 1 AS x FROM visits WHERE source = 'reception' LIMIT 1"));
   let total = 0;
   for (const lead of leadRows) {
     const lid = Number(lead["id"]);
@@ -270,6 +279,7 @@ export async function runFunnel(db: DbLike, opts: { now: string; leadIds?: numbe
       appts: await db.all("SELECT * FROM appointments WHERE lead_id = ? ORDER BY proposed_at", lid),
       visits: await db.all("SELECT * FROM visits WHERE lead_id = ? ORDER BY visited_at", lid),
       deals: await db.all("SELECT * FROM deals WHERE lead_id = ?", lid),
+      hasReception,
     };
     const events = detectEvents(ctx, vehicles, now);
     await db.run("DELETE FROM evidence WHERE event_id IN (SELECT id FROM funnel_events WHERE lead_id = ? AND source IN ('rule','ledger'))", lid);

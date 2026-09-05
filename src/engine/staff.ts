@@ -27,10 +27,15 @@ export function wilsonLow(k: number, n: number, z = 1.96): number {
   if (!n) return 0; const p = k / n; const d = 1 + (z * z) / n; const c = p + (z * z) / (2 * n); const s = z * Math.sqrt((p * (1 - p)) / n + (z * z) / (4 * n * n));
   return Math.max(0, (c - s) / d);
 }
-export interface Metric { rate: number | null; k: number; n: number; ok: boolean; low: number }
+/** na＝這個指標對這個人不適用（訊息組沒有到店→成交；純業務沒有回覆速度）；shared＝Super 8 座位共用，個人數字不可信，只算到團隊 */
+export interface Metric { rate: number | null; k: number; n: number; ok: boolean; low: number; na?: boolean; shared?: boolean }
 const M = (k: number, n: number, min: number): Metric => ({ rate: rate(k, n), k, n, ok: n >= min, low: n ? r3(wilsonLow(k, n)) : 0 });
-export interface NumMetric { value: number | null; n: number; ok: boolean }
+export interface NumMetric { value: number | null; n: number; ok: boolean; na?: boolean; shared?: boolean }
 const NM = (xs: number[], min: number, agg: "median" | "mean" = "median"): NumMetric => ({ value: agg === "median" ? median(xs) : mean(xs), n: xs.length, ok: xs.length >= min });
+const NA = <T extends Metric | NumMetric>(m: T): T => ({ ...m, ok: false, na: true });
+const SHARED = <T extends Metric | NumMetric>(m: T): T => ({ ...m, ok: false, shared: true });
+/** 毛利只認成本知道的成交 */
+const gpOf = (d: Row) => (String(d["cost_source"] ?? "ledger") === "none" ? 0 : num(d["gross_profit"]));
 
 export const RATE_FEATURES = ["followup_24h_rate", "asked_after_price", "objection_clarified", "proposed_after_intent", "fin_answered", "postvisit_24h", "budget_clarified", "opening_question", "reactivated_by_staff", "escalated"] as const;
 export const NUM_FEATURES: Record<string, "median" | "mean"> = { first_response_min: "median", median_response_min: "median", questions_per_msg: "mean", discount_pct: "mean", staff_msgs: "mean" };
@@ -38,10 +43,13 @@ export const BAND = (price: number | null): string => (price == null ? "未知" 
 
 export interface StaffMetrics {
   id: number; name: string; team: string;
-  context: { leads: number; open: number; closed: number; median_list_price: number | null; band: string; bands: Record<string, number>; first_seen: string | null; peer_note: string };
+  /** chat＝訊息組（線上回訊息）、sales＝業務（到店、成交）、both＝兩者；訊息面指標算訊息組、成交面指標算業務 */
+  job: string; seat_shared: boolean;
+  context: { leads: number; chat_leads: number; chat_note: string; open: number; closed: number; median_list_price: number | null; band: string; bands: Record<string, number>; first_seen: string | null; peer_note: string };
   activity: { first_response: NumMetric; response: NumMetric; followup_24h: Metric; stale: number; handoffs_out: number; handoffs_in: number; reactivations: number; reactivation_rate: Metric; supported: number; manager_interventions: number; cross_team_support: number; active_conversations: number };
   funnel: { priced: number; booked: number; visited: number; price_continue: Metric; appt: Metric; appt_visit: Metric; visit_sale: Metric; close: Metric; dropoff: Metric };
-  commercial: { sold: number; lost: number; revenue: number; gp: number; avg_price: number | null; avg_gp: NumMetric; avg_days: number | null; influenced_sold: number; influenced_gp: number; influenced_revenue: number; discount: NumMetric; below_cost: number; margin: number | null };
+  /** gp 只算成本知道的成交；gp_unknown＝沒有成本（同行車／車號空白）的成交筆數；gp_estimate＝其中車源表成本估算的筆數 */
+  commercial: { sold: number; lost: number; revenue: number; gp: number; gp_known: number; gp_unknown: number; gp_estimate: number; avg_price: number | null; avg_gp: NumMetric; avg_days: number | null; influenced_sold: number; influenced_gp: number; influenced_revenue: number; discount: NumMetric; below_cost: number; margin: number | null };
   behaviors: Record<string, Metric | NumMetric>;
   loss: { n: number; reasons: Array<{ key: string; label: string; k: number; rate: number | null }>; stages: Array<{ stage: string; label: string; k: number }>; driver: { customer: number; process: number; unclear: number } };
   prev: { sold: number; gp: number; close: Metric; leads: number };
@@ -52,7 +60,7 @@ export interface Issue { key: string; text: string; mine: number | null; team: n
 export interface Pattern { key: string; label: string; what: string; staff: Array<{ id: number; name: string; value: number | null; n: number }>; n_total: number; outcome: { with: Metric; without: Metric; lift: number | null } | null; evidence: Array<{ lead_id: number; message_id: number | null; contact: string; staff: string }>; confidence: string; claim: "correlation" }
 export interface StaffReport {
   period: { from: string; to: string; days: number }; prev: { from: string; to: string };
-  staff: StaffMetrics[]; team: { funnel: StaffMetrics["funnel"]; commercial: Pick<StaffMetrics["commercial"], "sold" | "lost" | "revenue" | "gp" | "avg_gp" | "margin" | "below_cost">; activity: Pick<StaffMetrics["activity"], "first_response" | "response" | "followup_24h">; behaviors: Record<string, Metric | NumMetric>; leads: number; loss: StaffMetrics["loss"]; prev: { sold: number; gp: number; leads: number; close: Metric } };
+  staff: StaffMetrics[]; team: { funnel: StaffMetrics["funnel"]; commercial: Pick<StaffMetrics["commercial"], "sold" | "lost" | "revenue" | "gp" | "gp_known" | "gp_unknown" | "gp_estimate" | "avg_gp" | "margin" | "below_cost">; activity: Pick<StaffMetrics["activity"], "first_response" | "response" | "followup_24h">; behaviors: Record<string, Metric | NumMetric>; leads: number; loss: StaffMetrics["loss"]; prev: { sold: number; gp: number; leads: number; close: Metric } };
   teams: Array<{ name: string; staff: number; leads: number; sold: number; revenue: number; gp: number; close: Metric; handoff_success: Metric; cross_support: number }>;
   rankings: Array<{ key: string; label: string; desc: string; rows: RankRow[] }>;
   top: Array<{ rank: number; staff_id: number; name: string; team: string; reason: string; strength: string; sold: number; close: Metric; revenue: number; gp: number; avg_gp: number | null; appts: number; visits: number; influenced: number; trend: { sold: number; close: number | null } }>;
@@ -73,14 +81,17 @@ export async function computeStaffReport(db: DbLike, opts: { days?: number; to?:
   const inP = (iso: unknown) => { const t = Date.parse(String(iso ?? "")); return t >= fromT && t < toT; };
   const inPrev = (iso: unknown) => { const t = Date.parse(String(iso ?? "")); return t >= pFromT && t < fromT; };
 
-  const users = await db.all("SELECT u.id, u.name, u.role, COALESCE(t.name,'') AS team FROM users u LEFT JOIN teams t ON t.id = u.team_id");
-  const agents = users.filter((u) => u["role"] === "agent");
+  const users = await db.all("SELECT u.id, u.name, u.role, COALESCE(u.job,'') AS job, COALESCE(u.seat_shared,0) AS seat_shared, COALESCE(t.name,'') AS team FROM users u LEFT JOIN teams t ON t.id = u.team_id");
+  const jobOf = (u: Row) => String(u["job"] || "") || (u["role"] === "agent" ? "both" : "manager");
+  const agents = users.filter((u) => u["role"] === "agent" || ["chat", "sales", "both"].includes(jobOf(u)));
   const userById = new Map(users.map((u) => [num(u["id"]), u]));
   const leads = await db.all(`SELECT l.id, l.staff_id, l.outcome, l.opened_at, l.closed_at, l.vehicle_id, v.list_price, COALESCE(v.brand||' '||v.model,'') AS vehicle, COALESCE(NULLIF(c.pseudonym,''), c.display_name) AS contact
                                FROM leads l LEFT JOIN vehicles v ON v.id = l.vehicle_id JOIN contacts c ON c.id = l.contact_id`);
   const events = await db.all(`SELECT lead_id, type, at FROM funnel_events WHERE confidence <> 'UNCLEAR' AND type IN ('PRICE_MENTIONED','APPOINTMENT_BOOKED','STORE_VISIT','NEGOTIATION','SOLD','HIGH_INTENT','CUSTOMER_INACTIVE','RE_ENGAGED')`);
-  const deals = await db.all("SELECT lead_id, staff_id, status, sale_price, cost, gross_profit, closed_at FROM deals");
-  const behaviors = await db.all("SELECT lead_id, features FROM behaviors");
+  const deals = await db.all("SELECT lead_id, staff_id, status, sale_price, cost, gross_profit, closed_at, COALESCE(cost_source,'ledger') AS cost_source, COALESCE(gp_is_estimate,0) AS gp_is_estimate, COALESCE(source_kind,'stock') AS source_kind FROM deals");
+  const behaviors = await db.all("SELECT lead_id, staff_id, chat_staff_id, features FROM behaviors");
+  /** 這位客戶在線上是誰回的（訊息組 vs 業務拆帳） */
+  const chatBy = new Map(behaviors.map((b) => [num(b["lead_id"]), num(b["chat_staff_id"]) || null]));
   const roles = await db.all("SELECT lead_id, user_id, role FROM lead_roles");
   const loss = await db.all("SELECT lead_id, primary_reason, secondary_reason, driver, stage, status FROM loss_analyses");
   const lastStaff = await db.all("SELECT cv.lead_id, MAX(m.created_at) AS at FROM messages m JOIN conversations cv ON cv.id = m.conversation_id WHERE m.sender_role = 'staff' GROUP BY cv.lead_id");
@@ -141,64 +152,84 @@ export async function computeStaffReport(db: DbLike, opts: { days?: number; to?:
   };
   const dealStats = (ds: Row[], leadSet: Row[]) => {
     const sold = ds.filter((d) => d["status"] === "sold"), lost = ds.filter((d) => d["status"] === "lost");
-    const revenue = sold.reduce((a, d) => a + num(d["sale_price"]), 0), gp = sold.reduce((a, d) => a + num(d["gross_profit"]), 0);
+    const known = sold.filter((d) => String(d["cost_source"] ?? "ledger") !== "none");
+    const revenue = sold.reduce((a, d) => a + num(d["sale_price"]), 0), gp = known.reduce((a, d) => a + num(d["gross_profit"]), 0);
+    const revenueKnown = known.reduce((a, d) => a + num(d["sale_price"]), 0);
     const daysArr = sold.map((d) => { const l = leadSet.find((x) => num(x["id"]) === num(d["lead_id"])); return l ? (Date.parse(String(d["closed_at"])) - Date.parse(String(l["opened_at"]))) / D : null; }).filter((x): x is number => x != null);
-    return { sold: sold.length, lost: lost.length, revenue, gp, avg_price: sold.length ? Math.round(revenue / sold.length) : null, avg_gp: NM(sold.map((d) => num(d["gross_profit"])), MIN_N.gp_per_deal, "mean"), avg_days: daysArr.length ? Math.round(mean(daysArr)!) : null, below_cost: sold.filter((d) => num(d["gross_profit"]) < 0).length, margin: revenue ? r3(gp / revenue) : null };
+    return { sold: sold.length, lost: lost.length, revenue, gp, gp_known: known.length, gp_unknown: sold.length - known.length, gp_estimate: known.filter((d) => num(d["gp_is_estimate"]) === 1).length,
+      avg_price: sold.length ? Math.round(revenue / sold.length) : null, avg_gp: NM(known.map((d) => num(d["gross_profit"])), MIN_N.gp_per_deal, "mean"), avg_days: daysArr.length ? Math.round(mean(daysArr)!) : null,
+      below_cost: known.filter((d) => num(d["gross_profit"]) < 0).length, margin: revenueKnown ? r3(gp / revenueKnown) : null };
   };
+  const mapAll = <T extends Record<string, Metric | NumMetric>>(o: T, f: (m: Metric | NumMetric) => Metric | NumMetric): T => Object.fromEntries(Object.entries(o).map(([k, m]) => [k, f(m)])) as T;
 
-  /* ── 每位業務 ── */
+  /* ── 每位員工：訊息面的指標看「他在線上回的客戶」，成交面的指標看「指派給他的客戶」；兩者都做的人兩組幾乎一樣 ── */
   const staff: StaffMetrics[] = [];
   for (const u of agents) {
-    const uid = num(u["id"]);
+    const uid = num(u["id"]); const job = jobOf(u); const shared = !!num(u["seat_shared"]);
     const mine = leads.filter((l) => num(l["staff_id"]) === uid);
+    const chatMine = leads.filter((l) => chatBy.get(num(l["id"])) === uid);
     const leadsP = mine.filter((l) => inP(l["opened_at"])), leadsPrev = mine.filter((l) => inPrev(l["opened_at"]));
+    const chatP = chatMine.filter((l) => inP(l["opened_at"]));
+    const chatSet = job === "chat" ? chatP : leadsP;                      // 訊息面指標的母體
+    const own = job === "chat" ? chatMine : mine;                          // 進行中／停滯用
     const dealsP = deals.filter((d) => num(d["staff_id"]) === uid && inP(d["closed_at"])), dealsPrev = deals.filter((d) => num(d["staff_id"]) === uid && inPrev(d["closed_at"]));
-    const feats = leadsP.map((l) => featBy.get(num(l["id"]))).filter((f): f is NonNullable<typeof f> => !!f);
+    const feats = chatSet.map((l) => featBy.get(num(l["id"]))).filter((f): f is NonNullable<typeof f> => !!f);
     const fr = feats.map((f) => f["first_response_min"]?.v).filter((v): v is number => v != null);
     const rp = feats.map((f) => f["median_response_min"]?.v).filter((v): v is number => v != null);
-    const beh = behaviorsOf(leadsP);
+    let beh = behaviorsOf(chatSet);
+    let firstResp = NM(fr, MIN_N.response), resp = NM(rp, MIN_N.response);
     const myRoles = roles.filter((r) => num(r["user_id"]) === uid);
     const roleLeads = (role: string) => myRoles.filter((r) => String(r["role"]) === role).map((r) => num(r["lead_id"])).filter((id) => { const l = leads.find((x) => num(x["id"]) === id); return !!l && inP(l["opened_at"]); });
     const supportedLeads = roleLeads("supporting");
-    const inactiveLeads = leadsP.filter((l) => has(num(l["id"]), "CUSTOMER_INACTIVE"));
+    const inactiveLeads = chatSet.filter((l) => has(num(l["id"]), "CUSTOMER_INACTIVE"));
     const reactLeads = roleLeads("reactivation");
     const managerOn = leadsP.filter((l) => (rolesBy.get(num(l["id"])) ?? []).some((r) => r.role === "manager")).length;
     const crossTeam = supportedLeads.filter((id) => { const l = leads.find((x) => num(x["id"]) === id); return !!l && teamOf(num(l["staff_id"])) !== String(u["team"]); }).length;
     const influencedIds = new Set(myRoles.map((r) => num(r["lead_id"])));
     const influenced = deals.filter((d) => d["status"] === "sold" && inP(d["closed_at"]) && influencedIds.has(num(d["lead_id"])));
-    const open = mine.filter((l) => !l["outcome"]);
+    const open = own.filter((l) => !l["outcome"]);
     const stale = open.filter((l) => (lastStaffAt.get(num(l["id"])) ?? 0) < toT - 14 * D).length;
     const activeConv = open.filter((l) => (lastAnyAt.get(num(l["id"])) ?? 0) >= toT - 30 * D).length;
-    const prices = leadsP.map((l) => num(l["list_price"])).filter((p) => p > 0);
+    const prices = (job === "chat" ? chatP : leadsP).map((l) => num(l["list_price"])).filter((p) => p > 0);
     const bands: Record<string, number> = {}; for (const p of prices) { const b = BAND(p); bands[b] = (bands[b] ?? 0) + 1; }
     const ds = dealStats(dealsP, mine);
     const prevF = funnelOf(leadsPrev);
+    let reactRate = M(reactLeads.length, inactiveLeads.length, MIN_N.reactivation);
+    let chatNote = "";
+    if (shared) { chatNote = "Super 8 座位共用，個人的訊息指標只算到團隊"; beh = mapAll(beh, SHARED); firstResp = SHARED(firstResp); resp = SHARED(resp); reactRate = SHARED(reactRate); }
+    if (job === "sales") { chatNote = "業務不回線上訊息，訊息面指標不適用"; beh = mapAll(beh, NA); firstResp = NA(firstResp); resp = NA(resp); reactRate = NA(reactRate); }
+    if (job === "chat") chatNote = "訊息組：線上回訊息，到店後交給業務；成交面指標不適用";
+    const fun = funnelOf(leadsP), funChat = funnelOf(chatSet);
+    const funnel: StaffMetrics["funnel"] = job === "chat"
+      ? { ...funChat, appt_visit: NA(funChat.appt_visit), visit_sale: NA(funChat.visit_sale), close: NA(funChat.close), dropoff: NA(funChat.dropoff) }
+      : fun;
     staff.push({
-      id: uid, name: String(u["name"]), team: String(u["team"]),
-      context: { leads: leadsP.length, open: leadsP.filter((l) => !l["outcome"]).length, closed: leadsP.filter((l) => !!l["outcome"]).length, median_list_price: median(prices), band: BAND(median(prices)), bands, first_seen: firstSeenBy.get(uid) ?? null, peer_note: "" },
-      activity: { first_response: NM(fr, MIN_N.response), response: NM(rp, MIN_N.response), followup_24h: beh["followup_24h_rate"] as Metric, stale, handoffs_out: roleLeads("handoff_from").length, handoffs_in: roleLeads("handoff_to").length,
-        reactivations: reactLeads.length, reactivation_rate: M(reactLeads.length, inactiveLeads.length, MIN_N.reactivation), supported: supportedLeads.length, manager_interventions: managerOn, cross_team_support: crossTeam, active_conversations: activeConv },
-      funnel: funnelOf(leadsP),
-      commercial: { ...ds, influenced_sold: influenced.length, influenced_gp: influenced.reduce((a, d) => a + num(d["gross_profit"]), 0), influenced_revenue: influenced.reduce((a, d) => a + num(d["sale_price"]), 0), discount: beh["discount_pct"] as NumMetric },
-      behaviors: beh, loss: lossOf(leadsP),
-      prev: { sold: dealsPrev.filter((d) => d["status"] === "sold").length, gp: dealsPrev.filter((d) => d["status"] === "sold").reduce((a, d) => a + num(d["gross_profit"]), 0), close: prevF.close, leads: leadsPrev.length },
+      id: uid, name: String(u["name"]), team: String(u["team"]), job, seat_shared: shared,
+      context: { leads: leadsP.length, chat_leads: chatP.length, chat_note: chatNote, open: (job === "chat" ? chatP : leadsP).filter((l) => !l["outcome"]).length, closed: (job === "chat" ? chatP : leadsP).filter((l) => !!l["outcome"]).length, median_list_price: median(prices), band: BAND(median(prices)), bands, first_seen: firstSeenBy.get(uid) ?? null, peer_note: "" },
+      activity: { first_response: firstResp, response: resp, followup_24h: beh["followup_24h_rate"] as Metric, stale, handoffs_out: roleLeads("handoff_from").length, handoffs_in: roleLeads("handoff_to").length,
+        reactivations: reactLeads.length, reactivation_rate: reactRate, supported: supportedLeads.length + roleLeads("chat_handler").length, manager_interventions: managerOn, cross_team_support: crossTeam, active_conversations: activeConv },
+      funnel,
+      commercial: { ...ds, avg_gp: job === "chat" ? NA(ds.avg_gp) : ds.avg_gp, influenced_sold: influenced.length, influenced_gp: influenced.reduce((a, d) => a + gpOf(d), 0), influenced_revenue: influenced.reduce((a, d) => a + num(d["sale_price"]), 0), discount: beh["discount_pct"] as NumMetric },
+      behaviors: beh, loss: lossOf(job === "chat" ? chatP : leadsP),
+      prev: { sold: dealsPrev.filter((d) => d["status"] === "sold").length, gp: dealsPrev.filter((d) => d["status"] === "sold").reduce((a, d) => a + gpOf(d), 0), close: prevF.close, leads: leadsPrev.length },
     });
   }
 
-  /* ── 團隊 ── */
+  /* ── 團隊（含訊息組在線上處理、還沒指派業務的客戶）── */
   const agentIds = new Set(agents.map((u) => num(u["id"])));
-  const allP = leads.filter((l) => inP(l["opened_at"]) && agentIds.has(num(l["staff_id"])));
-  const allPrev = leads.filter((l) => inPrev(l["opened_at"]) && agentIds.has(num(l["staff_id"])));
+  const belongs = (l: Row) => agentIds.has(num(l["staff_id"])) || agentIds.has(chatBy.get(num(l["id"])) ?? -1);
+  const allP = leads.filter((l) => inP(l["opened_at"]) && belongs(l));
+  const allPrev = leads.filter((l) => inPrev(l["opened_at"]) && belongs(l));
   const teamDealsP = deals.filter((d) => inP(d["closed_at"]));
   const tds = dealStats(teamDealsP, leads);
   const teamBeh = behaviorsOf(allP);
   const teamFeats = allP.map((l) => featBy.get(num(l["id"]))).filter((f): f is NonNullable<typeof f> => !!f);
   const team: StaffReport["team"] = {
     funnel: funnelOf(allP), leads: allP.length,
-    commercial: { sold: tds.sold, lost: tds.lost, revenue: tds.revenue, gp: tds.gp, avg_gp: tds.avg_gp, margin: tds.margin, below_cost: tds.below_cost },
+    commercial: { sold: tds.sold, lost: tds.lost, revenue: tds.revenue, gp: tds.gp, gp_known: tds.gp_known, gp_unknown: tds.gp_unknown, gp_estimate: tds.gp_estimate, avg_gp: tds.avg_gp, margin: tds.margin, below_cost: tds.below_cost },
     activity: { first_response: NM(teamFeats.map((f) => f["first_response_min"]?.v).filter((v): v is number => v != null), MIN_N.response), response: NM(teamFeats.map((f) => f["median_response_min"]?.v).filter((v): v is number => v != null), MIN_N.response), followup_24h: teamBeh["followup_24h_rate"] as Metric },
     behaviors: teamBeh, loss: lossOf(allP),
-    prev: { sold: deals.filter((d) => d["status"] === "sold" && inPrev(d["closed_at"])).length, gp: deals.filter((d) => d["status"] === "sold" && inPrev(d["closed_at"])).reduce((a, d) => a + num(d["gross_profit"]), 0), leads: allPrev.length, close: funnelOf(allPrev).close },
+    prev: { sold: deals.filter((d) => d["status"] === "sold" && inPrev(d["closed_at"])).length, gp: deals.filter((d) => d["status"] === "sold" && inPrev(d["closed_at"])).reduce((a, d) => a + gpOf(d), 0), leads: allPrev.length, close: funnelOf(allPrev).close },
   };
   // 同價位帶備註：客戶中位車價明顯偏離團隊的人，比較時要看同一價位帶
   const teamMedianPrice = median(allP.map((l) => num(l["list_price"])).filter((p) => p > 0));
@@ -230,10 +261,12 @@ export async function computeStaffReport(db: DbLike, opts: { days?: number; to?:
     { key: "team", label: "團隊貢獻", desc: "支援別人的案子＋接手交接＋回流（次數）", kind: "num", value: (s) => s.activity.supported + s.activity.handoffs_in + s.activity.reactivations, n: (s) => s.activity.supported + s.activity.handoffs_in + s.activity.reactivations, min: 1, fmt: "num" },
   ];
   const fmtV = (v: number | null, f: Dim["fmt"]) => (v == null ? "—" : f === "pct" ? pct(v) : f === "nt" ? `NT$ ${Math.round(v).toLocaleString("zh-TW")}` : f === "min" ? `${Math.round(v)} 分鐘` : String(Math.round(v)));
+  /** 不適用的維度不列（訊息組沒有毛利、純業務沒有回覆速度），不是「資料不足」 */
+  const naFor = (d: Dim, s: StaffMetrics) => d.kind === "rate" ? !!d.get!(s).na : d.key === "response" ? !!s.activity.first_response.na : (d.key === "gp" || d.key === "gp_per_deal") ? s.job === "chat" : false;
   const rankings = DIMS.map((d) => {
-    const rows: RankRow[] = staff.map((s) => {
+    const rows: RankRow[] = staff.filter((s) => !naFor(d, s)).map((s) => {
       if (d.kind === "rate") { const m = d.get!(s); return { staff_id: s.id, name: s.name, team: s.team, value: m.rate, display: `${pct(m.rate)}${d.extra ? ` · ${d.extra(s)}` : ""}`, k: m.k, n: m.n, ok: m.ok, rank: null, _sort: m.low } as RankRow & { _sort: number }; }
-      const v = d.value!(s), n = d.n!(s); return { staff_id: s.id, name: s.name, team: s.team, value: v, display: fmtV(v, d.fmt), k: n, n, ok: n >= (d.min ?? 1) && v != null, rank: null, _sort: v == null ? -Infinity : d.lowerIsBetter ? -v : v } as RankRow & { _sort: number };
+      const v = d.value!(s), n = d.n!(s); return { staff_id: s.id, name: s.name, team: s.team, value: v, display: fmtV(v, d.fmt), k: n, n, ok: n >= (d.min ?? 1) && v != null && !(d.key === "response" && s.activity.first_response.shared), rank: null, _sort: v == null ? -Infinity : d.lowerIsBetter ? -v : v } as RankRow & { _sort: number };
     });
     const ok = rows.filter((r) => r.ok).sort((a, b) => (b as RankRow & { _sort: number })._sort - (a as RankRow & { _sort: number })._sort);
     ok.forEach((r, i) => { r.rank = i + 1; });
@@ -292,7 +325,7 @@ export async function computeStaffReport(db: DbLike, opts: { days?: number; to?:
     if (!m || !tm || !m.ok || m.rate == null || tm.rate == null || m.rate > tm.rate - 0.15) return "";
     return `${label}的比例 ${pct(m.rate)}（${m.k}/${m.n}），團隊 ${pct(tm.rate)}`;
   };
-  const watchCands = staff.filter((s) => s.funnel.close.n >= MIN_N.close || s.context.leads >= MIN_N.close).map((s) => ({ s, flags: flagsOf(s) })).filter((x) => x.flags.length).sort((a, b) => b.flags.reduce((p, q) => p + q.severity, 0) - a.flags.reduce((p, q) => p + q.severity, 0));
+  const watchCands = staff.filter((s) => s.funnel.close.n >= MIN_N.close || s.context.leads >= MIN_N.close || s.context.chat_leads >= MIN_N.close).map((s) => ({ s, flags: flagsOf(s) })).filter((x) => x.flags.length).sort((a, b) => b.flags.reduce((p, q) => p + q.severity, 0) - a.flags.reduce((p, q) => p + q.severity, 0));
   const issues: Record<number, Issue[]> = Object.fromEntries(staff.map((s) => [s.id, flagsOf(s).map(({ affected, ...f }) => ({ ...f, affected: affected(s) }))]));
   const watchN = Math.min(3, Math.max(1, Math.round(staff.length * 0.25)));
   const watch = watchCands.slice(0, watchN).filter((x) => !topSorted.some((t) => t.id === x.s.id)).map(({ s, flags }) => {
@@ -312,7 +345,7 @@ export async function computeStaffReport(db: DbLike, opts: { days?: number; to?:
 
   /* ── 成功 vs 需關注：行為對照（觀察到的關聯）── */
   const topIds = topSorted.map((s) => s.id), watchIds = watch.map((w) => w.staff_id);
-  const poolLeads = (ids: number[]) => allP.filter((l) => ids.includes(num(l["staff_id"])));
+  const poolLeads = (ids: number[]) => allP.filter((l) => ids.includes(num(l["staff_id"])) || ids.includes(chatBy.get(num(l["id"])) ?? -1));
   const topBeh = behaviorsOf(poolLeads(topIds)), watchBeh = behaviorsOf(poolLeads(watchIds));
   const topFun = funnelOf(poolLeads(topIds)), watchFun = funnelOf(poolLeads(watchIds));
   const observations: Observation[] = [];

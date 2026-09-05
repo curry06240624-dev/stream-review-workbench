@@ -17,7 +17,7 @@ const LEAD_SELECT = `
   SELECT l.id, l.stage, l.outcome, l.opened_at, l.closed_at, l.source, l.staff_id, l.vehicle_id,
          c.id AS contact_id, c.pseudonym, c.display_name, c.grade, c.first_contact_at,
          COALESCE(u.name,'') AS staff, COALESCE(v.brand || ' ' || v.model,'') AS vehicle, COALESCE(v.body_type,'') AS body_type, v.list_price,
-         cv.id AS conversation_id, cv.last_message_at AS last_at, cv.unread,
+         cv.id AS conversation_id, cv.last_message_at AS last_at, cv.unread, cv.coverage, cv.coverage_note,
          (SELECT text FROM messages m WHERE m.conversation_id = cv.id ORDER BY m.created_at DESC, m.id DESC LIMIT 1) AS last_text,
          (SELECT sender_role FROM messages m WHERE m.conversation_id = cv.id ORDER BY m.created_at DESC, m.id DESC LIMIT 1) AS last_role,
          EXISTS (SELECT 1 FROM funnel_events e WHERE e.lead_id = l.id AND e.type='PRICE_DROP_OFF' AND e.confidence IN ('CONFIRMED','STRONGLY_SUGGESTED')) AS f_price_dropoff,
@@ -32,6 +32,7 @@ const shapeLead = (r: Row) => ({
   staff_id: r["staff_id"], vehicle_id: r["vehicle_id"], contact_id: r["contact_id"], pseudonym: r["pseudonym"] || r["display_name"], display_name: r["display_name"],
   grade: r["grade"], first_contact_at: r["first_contact_at"], staff: r["staff"], vehicle: r["vehicle"], body_type: r["body_type"], list_price: r["list_price"],
   conversation_id: r["conversation_id"], last_at: r["last_at"], unread: num(r["unread"]), last_text: r["last_text"], last_role: r["last_role"],
+  coverage: r["coverage"] || "full", coverage_note: r["coverage_note"] || "",
   flags: { price_dropoff: !!num(r["f_price_dropoff"]), high_intent: !!num(r["f_high_intent"]), financing_unresolved: !!num(r["f_financing"]) },
 });
 
@@ -97,8 +98,10 @@ export async function handleViews(url: URL, method: string, db: DbLike, me: Me):
     const roles = await db.all(`SELECT r.role, r.confidence, r.at, r.evidence_message_id, r.note, u.name AS staff FROM lead_roles r JOIN users u ON u.id = r.user_id WHERE r.lead_id = ? ORDER BY r.id`, id);
     const lossRow = await db.first("SELECT * FROM loss_analyses WHERE lead_id = ?", id);
     const lossEv = lossRow ? await db.all("SELECT message_id, note FROM evidence WHERE loss_id = ?", lossRow["id"]) : [];
+    const appraisals = await db.all("SELECT * FROM appraisals WHERE lead_id = ? ORDER BY reported_at DESC", id);
+    const reports = await db.all("SELECT id, reported_at, reported_by, plate, sale_price, match_status, match_confidence, source_kind, peer_dealer, loan_status FROM deal_reports WHERE lead_id = ? ORDER BY reported_at DESC", id);
     return J({ ok: true, lead, messages, events, insights: insights.map((i) => ({ ...i, evidence: insEvidence.filter((x) => x["insight_id"] === i["id"]) })), actions, appointments, visits, deals,
-      roles, loss: lossRow ? { ...lossRow, evidence: lossEv } : null });
+      roles, loss: lossRow ? { ...lossRow, evidence: lossEv } : null, appraisals, reports });
   }
 
   /* ── 需要注意 ── */
@@ -140,10 +143,11 @@ export async function handleViews(url: URL, method: string, db: DbLike, me: Me):
     const days = Math.min(90, Math.max(1, Number(q.get("days") || 30)));
     const from = new Date(Date.now() - days * D).toISOString();
     const rows = await db.all(`SELECT d.id, d.status, d.closed_at, d.sale_price, d.cost, d.gross_profit, d.lost_reason, d.lead_id,
-        c.pseudonym, c.display_name, COALESCE(u.name,'') AS staff, COALESCE(v.brand||' '||v.model,'') AS vehicle, l.opened_at
+        d.plate, d.deposit, d.loan_status, d.delivery_by, d.reported_by, d.source_kind, d.peer_dealer, d.cost_source, d.gp_is_estimate, d.report_id,
+        c.pseudonym, c.display_name, COALESCE(u.name,'') AS staff, COALESCE(v.brand||' '||v.model,'') AS vehicle, COALESCE(v.plate,'') AS vehicle_plate, l.opened_at
       FROM deals d JOIN contacts c ON c.id = d.contact_id LEFT JOIN users u ON u.id = d.staff_id LEFT JOIN vehicles v ON v.id = d.vehicle_id LEFT JOIN leads l ON l.id = d.lead_id
       WHERE d.closed_at >= ?${mine.replace("l.staff_id", "d.staff_id")} ORDER BY d.closed_at DESC LIMIT 200`, from);
-    const shaped = rows.map((r) => ({ ...r, contact: String(r["pseudonym"] || r["display_name"]), days: r["opened_at"] ? Math.round((Date.parse(String(r["closed_at"])) - Date.parse(String(r["opened_at"]))) / D) : null }));
+    const shaped = rows.map((r) => ({ ...r, contact: String(r["pseudonym"] || r["display_name"]), gp_known: String(r["cost_source"] ?? "ledger") !== "none", days: r["opened_at"] ? Math.round((Date.parse(String(r["closed_at"])) - Date.parse(String(r["opened_at"]))) / D) : null }));
     return J({ ok: true, rows: shaped, days });
   }
 
@@ -155,7 +159,7 @@ export async function handleViews(url: URL, method: string, db: DbLike, me: Me):
       const to = new Date(now - i * 7 * D).toISOString(), from = new Date(now - (i + 1) * 7 * D).toISOString();
       const ev = await db.all(`SELECT type, COUNT(*) AS n FROM funnel_events WHERE at >= ? AND at < ? AND confidence <> 'UNCLEAR' AND type IN ('NEW_LEAD','PRICE_MENTIONED','APPOINTMENT_BOOKED','STORE_VISIT','SOLD','PRICE_DROP_OFF') GROUP BY type`, from, to);
       const e = Object.fromEntries(ev.map((r) => [String(r["type"]), num(r["n"])]));
-      const d = await db.first(`SELECT SUM(CASE WHEN status='sold' THEN sale_price ELSE 0 END) AS rev, SUM(CASE WHEN status='sold' THEN gross_profit ELSE 0 END) AS gp, SUM(CASE WHEN status='sold' THEN 1 ELSE 0 END) AS sold FROM deals WHERE closed_at >= ? AND closed_at < ?`, from, to);
+      const d = await db.first(`SELECT SUM(CASE WHEN status='sold' THEN sale_price ELSE 0 END) AS rev, SUM(CASE WHEN status='sold' AND cost_source<>'none' THEN gross_profit ELSE 0 END) AS gp, SUM(CASE WHEN status='sold' THEN 1 ELSE 0 END) AS sold FROM deals WHERE closed_at >= ? AND closed_at < ?`, from, to);
       out.push({ week_end: to.slice(0, 10), leads: e["NEW_LEAD"] ?? 0, priced: e["PRICE_MENTIONED"] ?? 0, booked: e["APPOINTMENT_BOOKED"] ?? 0, visits: e["STORE_VISIT"] ?? 0, sold: num(d?.["sold"]), dropoff: e["PRICE_DROP_OFF"] ?? 0, revenue: num(d?.["rev"]), gp: num(d?.["gp"]) });
     }
     return J({ ok: true, weeks: out });

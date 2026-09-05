@@ -14,7 +14,7 @@ const TZ = 8 * 3600000;
 export const tw = (iso) => { const d = new Date(Date.parse(iso) + TZ); return { y: d.getUTCFullYear(), m: d.getUTCMonth() + 1, d: d.getUTCDate(), hh: String(d.getUTCHours()).padStart(2, "0"), mm: String(d.getUTCMinutes()).padStart(2, "0"), dow: "日一二三四五六"[d.getUTCDay()] }; };
 export const fmtDT = (iso) => { if (!iso) return "—"; const t = tw(iso); return `${t.m}/${String(t.d).padStart(2, "0")} ${t.hh}:${t.mm}`; };
 export const fmtD = (iso) => { if (!iso) return "—"; const t = tw(iso); return `${t.m}/${String(t.d).padStart(2, "0")}`; };
-export const ago = (iso, now = Date.now()) => { if (!iso) return "—"; const m = Math.round((now - Date.parse(iso)) / 60000); if (m < 60) return `${m} 分`; const hh = Math.round(m / 60); if (hh < 48) return `${hh} 小時`; return `${Math.round(hh / 24)} 天`; };
+export const ago = (iso, now = Date.now()) => { if (!iso) return "—"; const m = Math.round((now - Date.parse(iso)) / 60000); if (m < 0) return fmtD(iso); if (m < 60) return `${m} 分`; const hh = Math.round(m / 60); if (hh < 48) return `${hh} 小時`; return `${Math.round(hh / 24)} 天`; };
 
 /** 差異箭頭：正向保持中性（灰綠），只有「壞方向」才用琥珀。goodIsUp 表示數字變大是好事 */
 export function delta(cur, prev, { goodIsUp = true, fmt = pct } = {}) {
@@ -149,14 +149,27 @@ export const FEAT = {
 };
 export const fmtMin = (v) => (v == null ? "—" : v >= 120 ? `${Math.round(v / 60)} 小時` : `${Math.round(v)} 分鐘`);
 export const fmtFeat = (key, v) => { const u = FEAT[key]?.unit || "rate"; return v == null ? "—" : u === "min" ? fmtMin(v) : pct(v); };
-/** 指標（比例或數值）帶樣本；沒達門檻顯示「資料不足」但仍附 k/n */
+/** 指標（比例或數值）帶樣本；沒達門檻顯示「資料不足」但仍附 k/n；不適用（訊息組沒有到店→成交）與共用帳號另外標 */
 export function mval(m, fmt) {
   if (!m) return "—";
+  if (m.na) return '<span class="faint">不適用</span>';
   const isRate = "rate" in m, v = isRate ? m.rate : m.value;
   const val = fmt ? fmt(v) : isRate ? pct(v) : (v == null ? "—" : num(v));
   const n = isRate ? `${m.k}/${m.n}` : `n=${m.n}`;
+  if (m.shared) return `<span class="faint">共用帳號</span> <span class="ins">${n}</span>`;
   return m.ok ? `${val} <span class="ins">${n}</span>` : `<span class="faint">資料不足</span> <span class="ins">${n}</span>`;
 }
+/* ── 2026-09-05 真實資料流：訊息組／業務、涵蓋程度、同行車、估算毛利、配對狀態 ── */
+export const JOB = { chat: "訊息組", sales: "業務", both: "業務", manager: "主管", "": "" };
+export const jobChip = (job, shared) => `${job ? chip(JOB[job] || job, job === "chat" ? "cyan" : "") : ""}${shared ? ` ${chip("共用座位", "amber")}` : ""}`;
+export const COVERAGE = { full: "訊息完整", partial: "涵蓋不完整", low: "幾乎只有客戶訊息" };
+export const coverageChip = (c, note) => (c && c !== "full" ? `<span class="chip amber" title="${esc(note || "")}">${COVERAGE[c] || c}</span>` : "");
+export const SOURCE_KIND = { stock: "庫存", peer: "同行" };
+export const MATCH = { auto: "自動配對", suggested: "待確認", unmatched: "無法配對", confirmed: "已確認", rejected: "已拒絕" };
+export const DEPOSIT = { cash: "現金", transfer: "匯款", none: "沒有", unknown: "未知", "": "—" };
+export const LOAN = { approved: "過件", rejected: "倒件", none: "不用貸款", "": "—" };
+/** 毛利格：沒成本就寫「無成本」，車源表估算的加「估算」 */
+export const gpCell = (row) => (row.gp_known === false || row.cost_source === "none" ? '<span class="faint">無成本</span>' : `${nt(row.gross_profit)}${row.gp_is_estimate ? ' <span class="chip est">估算</span>' : ""}`);
 export const PRIO = { high: "緊急", medium: "中等", low: "低" };
 export const prioChip = (p) => chip(PRIO[p] || p, p === "high" ? "amber" : "");
 /** 一群員工的同一指標池化（比例 k/n 相加；數值取中位數） */
@@ -168,7 +181,7 @@ export function poolGroup(list, key) {
   return { value: vals.length ? (vals.length % 2 ? vals[mid] : (vals[mid - 1] + vals[mid]) / 2) : null, n: ms.reduce((a, m) => a + m.n, 0) };
 }
 export const heatStyle = (rate, flag) => { if (rate == null) return ""; const a = Math.min(0.55, 0.08 + rate * 0.6); return flag ? `background:rgba(233,164,69,${a.toFixed(2)})` : `background:rgba(154,166,180,${(a * 0.45).toFixed(2)})`; };
-export const roleLabel = (r) => ({ primary: "主要業務", supporting: "支援", manager: "主管介入", handoff_from: "交出", handoff_to: "接手", reactivation: "回流貢獻" }[r] || r);
+export const roleLabel = (r) => ({ primary: "主要業務", supporting: "支援", manager: "主管介入", handoff_from: "交出", handoff_to: "接手", reactivation: "回流貢獻", chat_handler: "訊息組" }[r] || r);
 export const LOSS = { price_resistance: "價格抗拒", financing: "貸款問題", vehicle_mismatch: "車款不符", vehicle_condition: "車況疑慮", trade_in: "舊車折抵談不攏", timing: "時機未到", family: "家人決定", bought_elsewhere: "別家買了", no_stock: "無車可賣", slow_response: "業務回覆太慢", weak_followup: "跟進不足", no_show: "預約爽約", stopped_replying: "客戶停止回覆", browsing: "隨便看看", negotiation_failed: "議價破局", other: "其他", unclear: "不明／證據不足" };
 export const lossLabel = (k) => LOSS[k] || k || "—";
 export const DRIVER = { customer: "客戶面", process: "流程面", unclear: "不明" };

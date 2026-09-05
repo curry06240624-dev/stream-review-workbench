@@ -7,9 +7,10 @@
  *   handoff_from / handoff_to
  *                 assignment_log 有紀錄；沒有帳本時，對話中發言業務由 A 換成 B、A 之後不再發言、B 的第一則像交接用語
  *   reactivation  RE_ENGAGED 前 7 天內有這位員工的 FOLLOW_UP；客戶自己回來的不記功
+ *   chat_handler  訊息組（users.job='chat'）：線上聊天由他回、不是結案負責人。訊息組→業務的移交不算交接（那是公司的正常流程）
  *
  * 「影響」的算法（直接 vs 影響）在 staff.ts；這裡只負責把角色算對、寫進 lead_roles。
- * 規則說明見 docs/STAFF_EFFECTIVENESS.md §1。
+ * 規則說明見 docs/STAFF_EFFECTIVENESS.md §1、docs/DATA_FLOW.md。
  */
 import type { DbLike } from "../adapters/import.ts";
 import type { LeadRole } from "../model/types.ts";
@@ -21,8 +22,11 @@ const num = (v: unknown) => Number(v ?? 0) || 0;
 export const RE_HANDOFF = /接手|休假|之後由我|由我為您服務|先幫您處理/;
 
 export interface RoleHit { user_id: number; role: LeadRole; confidence: "CONFIRMED" | "STRONGLY_SUGGESTED"; at: string; message_id: number | null; note: string }
+export interface UserInfo { name: string; role: string; job: string }
+/** 工作性質：沒設就依 role 推（agent＝兩者都做、其他＝主管） */
+export const jobOf = (u: { role: string; job?: string } | undefined) => (u ? (u.job || (u.role === "agent" ? "both" : "manager")) : "");
 
-export async function rolesForLead(db: DbLike, lead: Row, users: Map<number, { name: string; role: string }>): Promise<RoleHit[]> {
+export async function rolesForLead(db: DbLike, lead: Row, users: Map<number, UserInfo>): Promise<RoleHit[]> {
   const lid = num(lead["id"]);
   const hits: RoleHit[] = [];
   const deal = await db.first("SELECT staff_id, closed_at FROM deals WHERE lead_id = ? ORDER BY id LIMIT 1", lid);
@@ -33,21 +37,22 @@ export async function rolesForLead(db: DbLike, lead: Row, users: Map<number, { n
   const msgs = await db.all(
     `SELECT m.id, m.sender_user_id, m.text, m.created_at, m.msg_type FROM messages m JOIN conversations cv ON cv.id = m.conversation_id
       WHERE cv.lead_id = ? AND m.sender_role = 'staff' AND m.sender_user_id IS NOT NULL ORDER BY m.created_at, m.id`, lid);
+  const isChat = (uid: number) => jobOf(users.get(uid)) === "chat";
 
-  /* ── 交接：帳本優先 ── */
+  /* ── 交接：帳本優先（訊息組→業務的移交不算交接）── */
   const cvIds = (await db.all("SELECT id FROM conversations WHERE lead_id = ?", lid)).map((r) => num(r["id"]));
   const logs = cvIds.length ? await db.all(`SELECT * FROM assignment_log WHERE conversation_id IN (${cvIds.map(() => "?").join(",")}) ORDER BY created_at`, ...cvIds) : [];
   const pairs: Array<{ from: number; to: number; at: string; msg: number | null; conf: RoleHit["confidence"]; note: string }> = [];
   for (const g of logs) {
     const f = num(g["from_user_id"]), t = num(g["to_user_id"]);
-    if (f && t && f !== t) pairs.push({ from: f, to: t, at: String(g["created_at"]), msg: null, conf: "CONFIRMED", note: "指派紀錄" });
+    if (f && t && f !== t && !isChat(f)) pairs.push({ from: f, to: t, at: String(g["created_at"]), msg: null, conf: "CONFIRMED", note: "指派紀錄" });
   }
   if (!pairs.length) {
     for (let i = 1; i < msgs.length; i++) {
       const a = num(msgs[i - 1]!["sender_user_id"]), b = num(msgs[i]!["sender_user_id"]);
-      if (a === b) continue;
+      if (a === b || isChat(a)) continue;
       const aLater = msgs.slice(i + 1).some((m) => num(m["sender_user_id"]) === a);
-      if (!aLater && users.get(b)?.role === "agent" && RE_HANDOFF.test(String(msgs[i]!["text"]))) {
+      if (!aLater && users.get(b)?.role === "agent" && !isChat(b) && RE_HANDOFF.test(String(msgs[i]!["text"]))) {
         pairs.push({ from: a, to: b, at: String(msgs[i]!["created_at"]), msg: num(msgs[i]!["id"]), conf: "STRONGLY_SUGGESTED", note: "對話中換人發言、前手之後沒再出現、接手者第一則有交接用語" });
         break;
       }
@@ -58,7 +63,7 @@ export async function rolesForLead(db: DbLike, lead: Row, users: Map<number, { n
     hits.push({ user_id: p.to, role: "handoff_to", confidence: p.conf, at: p.at, message_id: p.msg, note: p.note });
   }
 
-  /* ── 支援／主管介入：非主要業務、結案前、實質訊息 ── */
+  /* ── 訊息組／支援／主管介入：非主要業務、結案前、實質訊息 ── */
   const seen = new Set<number>();
   for (const m of msgs) {
     const uid = num(m["sender_user_id"]);
@@ -68,7 +73,8 @@ export async function rolesForLead(db: DbLike, lead: Row, users: Map<number, { n
     if (pairs.some((p) => p.from === uid || p.to === uid)) continue;     // 交接雙方另外算
     const u = users.get(uid); if (!u) continue;
     seen.add(uid);
-    const isMgr = u.role === "admin" || u.role === "operator";
+    if (isChat(uid)) { hits.push({ user_id: uid, role: "chat_handler", confidence: "CONFIRMED", at: String(m["created_at"]), message_id: num(m["id"]), note: "訊息組回覆線上訊息" }); continue; }
+    const isMgr = jobOf(u) === "manager";
     hits.push({ user_id: uid, role: isMgr ? "manager" : "supporting", confidence: "CONFIRMED", at: String(m["created_at"]), message_id: num(m["id"]), note: isMgr ? "主管在結案前介入對話" : "非主要業務在結案前發過實質訊息" });
   }
 
@@ -94,7 +100,7 @@ export async function rolesForLead(db: DbLike, lead: Row, users: Map<number, { n
 
 /** 跑全部（或指定）lead，重寫 lead_roles */
 export async function computeRoles(db: DbLike, opts: { leadIds?: number[] }): Promise<{ leads: number; roles: number; by_role: Record<string, number> }> {
-  const users = new Map<number, { name: string; role: string }>((await db.all("SELECT id, name, role FROM users")).map((u) => [num(u["id"]), { name: String(u["name"]), role: String(u["role"]) }]));
+  const users = new Map<number, UserInfo>((await db.all("SELECT id, name, role, job FROM users")).map((u) => [num(u["id"]), { name: String(u["name"]), role: String(u["role"]), job: String(u["job"] ?? "") }]));
   const leads = opts.leadIds?.length
     ? await db.all(`SELECT * FROM leads WHERE id IN (${opts.leadIds.map(() => "?").join(",")})`, ...opts.leadIds)
     : await db.all("SELECT * FROM leads");

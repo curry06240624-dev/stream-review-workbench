@@ -47,6 +47,8 @@ const isQ = (t: string) => B.question.test(t);
 
 export interface LeadCtx {
   msgs: Msg[]; events: Row[]; visits: Row[]; deal: Row | null; roles: Row[]; listPrice: number; closedAt: number; now: number;
+  /** 對話涵蓋程度：不是 full 就不算回覆速度與沉默後跟進（回覆可能在電話或 LINE 官方後台）；毛利若是估算也標起來 */
+  coverage?: string;
 }
 
 /** 純函式：一個 lead 的行為特徵 */
@@ -57,12 +59,13 @@ export function extractFeatures(c: LeadCtx): Features {
   if (!msgs.length) return f;
   const ev = (t: string) => c.events.filter((e) => String(e["type"]) === t && String(e["confidence"]) !== "UNCLEAR");
   const evAt = (e: Row) => Date.parse(String(e["at"]));
+  const covered = !c.coverage || c.coverage === "full";
 
-  /* 回覆速度 */
+  /* 回覆速度（涵蓋不完整就不算：看不到的回覆不能當成沒回） */
   const c0 = cust[0];
-  if (c0) { const s0 = staff.find((m) => m.at > c0.at); if (s0) f["first_response_min"] = { v: Math.round((s0.at - c0.at) / MIN), msg: s0.id }; }
+  if (c0 && covered) { const s0 = staff.find((m) => m.at > c0.at); if (s0) f["first_response_min"] = { v: Math.round((s0.at - c0.at) / MIN), msg: s0.id }; }
   const lat: number[] = [];
-  for (let i = 0; i < cust.length; i++) {
+  for (let i = 0; i < cust.length && covered; i++) {
     const cm = cust[i]!, next = cust[i + 1];
     const s = staff.find((m) => m.at > cm.at && (!next || m.at < next.at));
     if (s) lat.push((s.at - cm.at) / MIN);
@@ -111,9 +114,9 @@ export function extractFeatures(c: LeadCtx): Features {
     else f["postvisit_24h"] = { v: 0, msg: null };
   }
 
-  /* 客戶沉默後的跟進：只看「業務講完一輪」之後客戶 24 小時沒回的情況 */
+  /* 客戶沉默後的跟進：只看「業務講完一輪」之後客戶 24 小時沒回的情況（涵蓋不完整就不算） */
   let silences = 0, followed = 0;
-  for (let i = 0; i < msgs.length; i++) {
+  for (let i = 0; i < msgs.length && covered; i++) {
     const m = msgs[i]!; if (m.role !== "staff" || m.at > c.closedAt) continue;
     const next = msgs[i + 1];
     const turnEnd = !next || next.role === "customer" || next.at - m.at >= 24 * H;
@@ -131,21 +134,30 @@ export function extractFeatures(c: LeadCtx): Features {
   f["escalated"] = { v: roleSet.has("manager") || roleSet.has("supporting") ? 1 : 0 };
   if (ev("CUSTOMER_INACTIVE").length) f["reactivated_by_staff"] = { v: roleSet.has("reactivation") ? 1 : 0 };
 
-  /* 毛利保護 */
+  /* 毛利保護（成本不知道的成交不算毛利率） */
   if (c.deal && String(c.deal["status"]) === "sold" && c.listPrice > 0) {
     const sp = num(c.deal["sale_price"]);
     f["discount_pct"] = { v: Math.round(((c.listPrice - sp) / c.listPrice) * 1000) / 1000 };
-    if (sp > 0) f["gp_margin"] = { v: Math.round((num(c.deal["gross_profit"]) / sp) * 1000) / 1000 };
+    if (sp > 0 && String(c.deal["cost_source"] ?? "ledger") !== "none") f["gp_margin"] = { v: Math.round((num(c.deal["gross_profit"]) / sp) * 1000) / 1000 };
   }
   return f;
+}
+
+/** 誰在線上回這位客戶：發最多文字訊息的員工（訊息組 vs 業務拆帳用） */
+export function chatStaffOf(msgs: Msg[]): number | null {
+  const cnt = new Map<number, number>();
+  for (const m of msgs) if (m.role === "staff" && m.uid && m.type === "text") cnt.set(m.uid, (cnt.get(m.uid) ?? 0) + 1);
+  let best: number | null = null, bestN = 0;
+  for (const [uid, n] of cnt) if (n > bestN) { best = uid; bestN = n; }
+  return best;
 }
 
 /** 跑全部（或指定）lead，重寫 behaviors */
 export async function computeBehaviors(db: DbLike, opts: { now: string; leadIds?: number[] }): Promise<{ leads: number }> {
   const now = Date.parse(opts.now);
   const leads = opts.leadIds?.length
-    ? await db.all(`SELECT l.*, v.list_price FROM leads l LEFT JOIN vehicles v ON v.id = l.vehicle_id WHERE l.id IN (${opts.leadIds.map(() => "?").join(",")})`, ...opts.leadIds)
-    : await db.all("SELECT l.*, v.list_price FROM leads l LEFT JOIN vehicles v ON v.id = l.vehicle_id");
+    ? await db.all(`SELECT l.*, v.list_price, (SELECT coverage FROM conversations cv WHERE cv.lead_id = l.id ORDER BY cv.id LIMIT 1) AS coverage FROM leads l LEFT JOIN vehicles v ON v.id = l.vehicle_id WHERE l.id IN (${opts.leadIds.map(() => "?").join(",")})`, ...opts.leadIds)
+    : await db.all("SELECT l.*, v.list_price, (SELECT coverage FROM conversations cv WHERE cv.lead_id = l.id ORDER BY cv.id LIMIT 1) AS coverage FROM leads l LEFT JOIN vehicles v ON v.id = l.vehicle_id");
   for (const l of leads) {
     const lid = num(l["id"]);
     const msgs: Msg[] = (await db.all(
@@ -158,10 +170,11 @@ export async function computeBehaviors(db: DbLike, opts: { now: string; leadIds?
       deal: await db.first("SELECT * FROM deals WHERE lead_id = ? ORDER BY id LIMIT 1", lid),
       roles: await db.all("SELECT role FROM lead_roles WHERE lead_id = ?", lid),
       listPrice: num(l["list_price"]), closedAt: l["closed_at"] ? Date.parse(String(l["closed_at"])) : Infinity, now,
+      coverage: String(l["coverage"] ?? "full"),
     };
     const feats = extractFeatures(ctx);
     await db.run("DELETE FROM behaviors WHERE lead_id = ?", lid);
-    await db.run("INSERT INTO behaviors (lead_id, staff_id, features, computed_at) VALUES (?,?,?,?)", lid, l["staff_id"] ?? null, JSON.stringify(feats), opts.now);
+    await db.run("INSERT INTO behaviors (lead_id, staff_id, chat_staff_id, features, computed_at) VALUES (?,?,?,?,?)", lid, l["staff_id"] ?? null, chatStaffOf(msgs), JSON.stringify(feats), opts.now);
   }
   return { leads: leads.length };
 }

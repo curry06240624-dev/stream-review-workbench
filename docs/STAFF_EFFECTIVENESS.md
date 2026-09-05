@@ -138,3 +138,10 @@
 3. 評測：流失原因 precision／recall 對生成器真值（門檻同 D-004），交接／回流角色的命中率。
 4. API：`GET /api/staff`（總表＋排名＋矩陣＋組合）、`GET /api/staff/:id`（檔案）、`GET /api/loss?days&by=`、Ask 意圖擴充。
 5. 前端：`/staff` 與 `/staff/:id`，照核准的參考畫面。
+
+## 2026-09-05 晚：訊息組 vs 業務、共用座位、估算毛利
+- 角色多一種 `chat_handler`（`users.job='chat'` 的人在結案前回過訊息）；訊息組→業務的移交不算交接。
+- 訊息面指標（首次回覆、回覆中位數、沉默後跟進、行為特徵、報價後續走、預約轉換）算在「線上回訊息的人」（`behaviors.chat_staff_id`＝發最多文字訊息的員工）；成交面指標算在 `leads.staff_id`（接待群指派的業務）。訊息組的到店→成交、成交率、毛利標「不適用」，不進排名；純業務的訊息面指標同樣不適用。
+- `users.seat_shared=1`：個人訊息面指標 `shared=true`（畫面「共用帳號」），只算到團隊。
+- 毛利只算 `deals.cost_source<>'none'` 的成交；`gp_is_estimate=1` 標「估算」。`commercial.gp_known / gp_unknown / gp_estimate` 三個數字每頁都帶。
+- 對話 `coverage` 不是 full：不算回覆速度與沉默後跟進；流失原因不判回覆太慢／跟進不足（`docs/DATA_FLOW.md` §2）。

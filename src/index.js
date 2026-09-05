@@ -229,6 +229,83 @@ async function route(request, env, db, url) {
     return J({ ok: true, action: row, progress });
   }
 
+  /* ── 待確認配對：成交群「送貨囉」貼文 → 車／客戶／業務 → 成交；LINE 群組匯出檔匯入；員工暱稱與工作性質 ── */
+  if (p === "/api/reconcile" && m === "GET") {
+    const me = await currentUser(request, db);
+    if (!me) return J({ ok: false, error: "not_logged_in" }, 401);
+    if (!canSeeAll(me.role)) return J({ ok: false, message: "待確認配對只開放給老闆與主管。" }, 403);
+    const status = url.searchParams.get("status") || undefined;
+    return J({ ok: true, ...(await db.reconcileLocal({ status, days: 30 })) });
+  }
+  const mRc = p.match(/^\/api\/reconcile\/(\d+)\/(confirm|reject|undo|rematch)$/);
+  if (mRc && m === "POST") {
+    const me = await currentUser(request, db);
+    if (!me) return J({ ok: false, error: "not_logged_in" }, 401);
+    if (!canSeeAll(me.role)) return J({ ok: false, error: "forbidden" }, 403);
+    const b = await request.json().catch(() => ({}));
+    const opt = (v) => (v === undefined ? undefined : v === null || v === "" ? null : Number(v));
+    try {
+      const r = await db.reportActionLocal({ id: Number(mRc[1]), action: mRc[2], overrides: { vehicle_id: opt(b.vehicle_id), lead_id: opt(b.lead_id), staff_id: opt(b.staff_id) }, by: me.id, now: now() });
+      return J({ ok: true, ...r });
+    } catch (e) { return J({ ok: false, message: String(e && e.message || e).slice(0, 200) }, 400); }
+  }
+  if (p === "/api/reconcile/rematch-all" && m === "POST") {
+    const me = await currentUser(request, db);
+    if (!me || !canSeeAll(me.role)) return J({ ok: false, error: "forbidden" }, 403);
+    return J({ ok: true, ...(await db.rematchAllLocal({ now: now() })) });
+  }
+  if (p === "/api/admin/import-group" && m === "POST") {
+    const me = await currentUser(request, db);
+    if (!me) return J({ ok: false, error: "not_logged_in" }, 401);
+    if (!canSeeAll(me.role)) return J({ ok: false, error: "forbidden" }, 403);
+    const b = await request.json().catch(() => ({}));
+    const kind = ["deal", "reception", "appraisal", "auto"].includes(b.kind) ? b.kind : "auto";
+    const text = String(b.text || ""); const posts = Array.isArray(b.posts) ? b.posts : null;
+    if (!text.trim() && !posts) return J({ ok: false, message: "貼上 LINE 匯出的聊天紀錄文字。" }, 400);
+    if (text.length > 2_000_000) return J({ ok: false, message: "檔案太大，一次最多 2 MB。" }, 400);
+    const t0 = Date.now();
+    const r = await db.ingestGroupLocal({ kind, text, posts, source_system: String(b.source_system || "line_export").slice(0, 30), now: now() });
+    return J({ ok: true, ms: Date.now() - t0, ...r });
+  }
+  if (p === "/api/staff-aliases" && (m === "GET" || m === "POST")) {
+    const me = await currentUser(request, db);
+    if (!me) return J({ ok: false, error: "not_logged_in" }, 401);
+    if (!canSeeAll(me.role)) return J({ ok: false, error: "forbidden" }, 403);
+    if (m === "GET") {
+      const rows = await db.all(`SELECT u.id, u.name, u.role, u.job, u.seat_shared, COALESCE(t.name,'') AS team FROM users u LEFT JOIN teams t ON t.id = u.team_id ORDER BY u.id`);
+      const al = await db.all("SELECT id, user_id, alias, system FROM staff_aliases ORDER BY id");
+      return J({ ok: true, staff: rows.map((u) => ({ ...u, aliases: al.filter((a) => a.user_id === u.id) })) });
+    }
+    if (me.role !== "admin") return J({ ok: false, error: "forbidden", message: "只有管理者可以改暱稱。" }, 403);
+    const b = await request.json().catch(() => ({}));
+    const uid = Number(b.user_id); const alias = String(b.alias || "").trim().slice(0, 40); const system = ["line", "super8", "sheet"].includes(b.system) ? b.system : "";
+    if (!uid || !alias) return J({ ok: false, message: "要有員工與暱稱。" }, 400);
+    const taken = await db.first("SELECT user_id FROM staff_aliases WHERE alias = ?", alias);
+    if (taken && taken.user_id !== uid) return J({ ok: false, message: "這個暱稱已經對到別人了。" }, 409);
+    await db.run("INSERT OR IGNORE INTO staff_aliases (user_id, alias, system) VALUES (?,?,?)", uid, alias, system);
+    await db.bust();
+    return J({ ok: true });
+  }
+  const mAl = p.match(/^\/api\/staff-aliases\/(\d+)$/);
+  if (mAl && m === "DELETE") {
+    const me = await currentUser(request, db);
+    if (!me || me.role !== "admin") return J({ ok: false, error: "forbidden" }, 403);
+    await db.run("DELETE FROM staff_aliases WHERE id = ?", Number(mAl[1]));
+    await db.bust();
+    return J({ ok: true });
+  }
+  const mMem = p.match(/^\/api\/members\/(\d+)$/);
+  if (mMem && m === "PATCH") {
+    const me = await currentUser(request, db);
+    if (!me || me.role !== "admin") return J({ ok: false, error: "forbidden", message: "只有管理者可以改工作性質。" }, 403);
+    const b = await request.json().catch(() => ({}));
+    const id = Number(mMem[1]);
+    if (b.job !== undefined) { const job = ["chat", "sales", "both", "manager", ""].includes(b.job) ? b.job : ""; await db.run("UPDATE users SET job = ? WHERE id = ?", job, id); }
+    if (b.seat_shared !== undefined) await db.run("UPDATE users SET seat_shared = ? WHERE id = ?", b.seat_shared ? 1 : 0, id);
+    await db.bust();
+    return J({ ok: true });
+  }
+
   /* ── 問 AI：規則判斷意圖 → 決定性分析 → AI 只講人話（事實包閘門），見 engine/ask.ts ── */
   if (p === "/api/ask" && m === "POST") {
     const me = await currentUser(request, db);
