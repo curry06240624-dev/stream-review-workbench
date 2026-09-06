@@ -408,6 +408,7 @@ const ADD_COLUMNS: ReadonlyArray<readonly [string, string, string]> = [
   ["deals",         "report_id",        "INTEGER"],
   ["deals",         "price_source",     "TEXT NOT NULL DEFAULT ''"],   // 售價從哪來：report／sheet_sell（調作價）／sheet_list（開價）
   ["deals",         "sheet_status",     "TEXT NOT NULL DEFAULT ''"],   // 車源表「目前狀況」原文（收訂(軒)…），車源表產生的才有
+  ["deals",         "delivered",        "INTEGER NOT NULL DEFAULT 1"],   // 0＝成交但還沒交車（車源表 收訂／送貸／過件；Curry：收訂就算成交）
   ["behaviors",     "chat_staff_id",    "INTEGER"],
 ];
 
@@ -436,13 +437,13 @@ export function migrate(sql: SqlLike): { added: string[] } {
   const ci = sql.exec("PRAGMA table_info(deals)").toArray().find((c) => c["name"] === "contact_id");
   if (ci && Number(ci["notnull"]) === 1) {
     if (hasTable("deals_new")) sql.exec("DROP TABLE deals_new");
-    const cols = "id, lead_id, contact_id, staff_id, vehicle_id, status, sale_price, cost, gross_profit, lost_reason, closed_at, external_key, source_system, plate, customer_ref, deposit, loan_status, delivery_by, reported_by, source_kind, peer_dealer, cost_source, gp_is_estimate, report_id, price_source, sheet_status";
+    const cols = "id, lead_id, contact_id, staff_id, vehicle_id, status, sale_price, cost, gross_profit, lost_reason, closed_at, external_key, source_system, plate, customer_ref, deposit, loan_status, delivery_by, reported_by, source_kind, peer_dealer, cost_source, gp_is_estimate, report_id, price_source, sheet_status, delivered";
     sql.exec(`CREATE TABLE deals_new (
       id INTEGER PRIMARY KEY AUTOINCREMENT, lead_id INTEGER REFERENCES leads(id), contact_id INTEGER REFERENCES contacts(id), staff_id INTEGER REFERENCES users(id), vehicle_id INTEGER REFERENCES vehicles(id),
       status TEXT NOT NULL, sale_price INTEGER NOT NULL DEFAULT 0, cost INTEGER NOT NULL DEFAULT 0, gross_profit INTEGER NOT NULL DEFAULT 0, lost_reason TEXT NOT NULL DEFAULT '', closed_at TEXT NOT NULL,
       external_key TEXT NOT NULL DEFAULT '', source_system TEXT NOT NULL DEFAULT 'mock', plate TEXT NOT NULL DEFAULT '', customer_ref TEXT NOT NULL DEFAULT '', deposit TEXT NOT NULL DEFAULT '', loan_status TEXT NOT NULL DEFAULT '',
       delivery_by TEXT NOT NULL DEFAULT '', reported_by TEXT NOT NULL DEFAULT '', source_kind TEXT NOT NULL DEFAULT 'stock', peer_dealer TEXT NOT NULL DEFAULT '', cost_source TEXT NOT NULL DEFAULT 'ledger', gp_is_estimate INTEGER NOT NULL DEFAULT 0,
-      report_id INTEGER, price_source TEXT NOT NULL DEFAULT '', sheet_status TEXT NOT NULL DEFAULT '')`);
+      report_id INTEGER, price_source TEXT NOT NULL DEFAULT '', sheet_status TEXT NOT NULL DEFAULT '', delivered INTEGER NOT NULL DEFAULT 1)`);
     sql.exec(`INSERT INTO deals_new (${cols}) SELECT ${cols} FROM deals`);
     sql.exec("DROP TABLE deals");
     sql.exec("ALTER TABLE deals_new RENAME TO deals");

@@ -9,7 +9,7 @@
 export interface Fields { [label: string]: string }
 export interface Post { at: string; sender: string; text: string }
 export type Deposit = "cash" | "transfer" | "none" | "unknown" | "";
-export type LoanStatus = "approved" | "rejected" | "none" | "";
+export type LoanStatus = "approved" | "rejected" | "none" | "pending" | "";   // pending＝送貸中（車源表 送貸）
 export interface DealReportParsed {
   year: number | null; model_text: string; color: string; plate: string; plate_norm: string;
   deposit: Deposit; sale_price: number | null;

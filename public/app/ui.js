@@ -167,7 +167,7 @@ export const coverageChip = (c, note) => (c && c !== "full" ? `<span class="chip
 export const SOURCE_KIND = { stock: "庫存", peer: "同行" };
 export const MATCH = { auto: "自動配對", suggested: "待確認", unmatched: "無法配對", confirmed: "已確認", rejected: "已拒絕" };
 export const DEPOSIT = { cash: "現金", transfer: "匯款", none: "沒有", unknown: "未知", "": "—" };
-export const LOAN = { approved: "過件", rejected: "倒件", none: "不用貸款", "": "—" };
+export const LOAN = { approved: "過件", pending: "送貸中", rejected: "倒件", none: "不用貸款", "": "—" };
 /** 毛利格：沒成本就寫「無成本」，車源表估算的加「估算」 */
 export const gpCell = (row) => (row.gp_known === false || row.cost_source === "none" ? '<span class="faint">無成本</span>' : `${nt(row.gross_profit)}${row.gp_is_estimate ? ' <span class="chip est">估算</span>' : ""}`);
 export const PRIO = { high: "緊急", medium: "中等", low: "低" };

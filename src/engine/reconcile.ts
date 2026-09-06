@@ -183,7 +183,7 @@ export async function applyReport(db: DbLike, id: number, ov: { vehicle_id?: num
   const existing = await db.first("SELECT * FROM deals WHERE lead_id = ? AND status = 'sold' ORDER BY id LIMIT 1", leadId);
   // 車源表先產生的成交／收訂（沒有客戶）對到同一台車 → 換成貼文的成交；原列存進快照，撤銷時放回去
   if (!existing && vehicleId) {
-    const sd = await db.first("SELECT * FROM deals WHERE vehicle_id = ? AND source_system = 'sheet' AND status IN ('sold','reserved') ORDER BY id LIMIT 1", vehicleId);
+    const sd = await db.first("SELECT * FROM deals WHERE vehicle_id = ? AND source_system = 'sheet' AND status = 'sold' ORDER BY id LIMIT 1", vehicleId);
     if (sd) { applied.sheet_deal = sd; await db.run("DELETE FROM deals WHERE id = ?", num(sd["id"])); }
   }
   let dealId: number, created = 0;

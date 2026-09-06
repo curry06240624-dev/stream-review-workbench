@@ -148,7 +148,7 @@ export async function handleViews(url: URL, method: string, db: DbLike, me: Me):
     const days = Math.min(90, Math.max(1, Number(q.get("days") || 30)));
     const from = new Date(Date.now() - days * D).toISOString();
     const rows = await db.all(`SELECT d.id, d.status, d.closed_at, d.sale_price, d.cost, d.gross_profit, d.lost_reason, d.lead_id,
-        d.plate, d.deposit, d.loan_status, d.delivery_by, d.reported_by, d.source_kind, d.peer_dealer, d.cost_source, d.gp_is_estimate, d.report_id, d.source_system, d.price_source, d.sheet_status,
+        d.plate, d.deposit, d.loan_status, d.delivery_by, d.reported_by, d.source_kind, d.peer_dealer, d.cost_source, d.gp_is_estimate, d.report_id, d.source_system, d.price_source, d.sheet_status, d.delivered,
         c.pseudonym, c.display_name, COALESCE(u.name,'') AS staff, COALESCE(v.brand||' '||v.model,'') AS vehicle, COALESCE(v.plate,'') AS vehicle_plate, v.sell_price AS vehicle_sell_price, l.opened_at
       FROM deals d LEFT JOIN contacts c ON c.id = d.contact_id LEFT JOIN users u ON u.id = d.staff_id LEFT JOIN vehicles v ON v.id = d.vehicle_id LEFT JOIN leads l ON l.id = d.lead_id
       WHERE d.closed_at >= ?${mine.replace("l.staff_id", "d.staff_id")} ORDER BY d.closed_at DESC LIMIT 200`, from);

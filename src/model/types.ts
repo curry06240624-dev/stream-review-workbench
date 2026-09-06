@@ -208,7 +208,7 @@ export interface Deal {
   contact_id: number | null;   // 車源表產生的成交／收訂沒有客戶，送貨囉貼文對上後才補
   staff_id: number | null;
   vehicle_id: number | null;
-  status: "sold" | "lost" | "reserved";   // reserved＝收訂中（車源表 收訂／送貸／過件，還沒交車）
+  status: "sold" | "lost";     // 收訂就算成交（Curry 2026-09-06）；還沒交車的 delivered=0
   sale_price: number;
   cost: number;
   gross_profit: number;        // cost_source='none' 時為 0 且無意義，統計一律用 cost_source 過濾
@@ -219,6 +219,7 @@ export interface Deal {
   plate: string; customer_ref: string;
   price_source: "" | "report" | "sheet_sell" | "sheet_list";   // 售價從哪來：送貨囉貼文／車源表調作價／車源表開價
   sheet_status: string;        // 車源表「目前狀況」原文（收訂(軒)…），只有車源表產生的才有
+  delivered: 0 | 1;            // 0＝成交但還沒交車（收訂／送貸／過件）
   deposit: "cash" | "transfer" | "none" | "unknown" | "";
   loan_status: "approved" | "rejected" | "none" | "";
   delivery_by: string; reported_by: string;
