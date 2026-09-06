@@ -317,13 +317,10 @@ CREATE TABLE IF NOT EXISTS staff_aliases (
 CREATE INDEX IF NOT EXISTS idx_leads_contact    ON leads(contact_id, opened_at);
 /* 2026-09-06：免費方案每天 500 萬列讀取，兩天撞頂兩次。原因是每個 lead 的查詢都在掃整張表：
    conversations 沒有 lead_id 索引（588 個 lead × 每次掃 588 列 × 漏斗／角色／行為／流失四趟）、deals／visits／evidence(loss_id)／assignment_log 也沒有。補齊後同一批分析少讀九成以上。 */
-CREATE INDEX IF NOT EXISTS idx_conv_lead        ON conversations(lead_id);
 CREATE INDEX IF NOT EXISTS idx_conv_contact     ON conversations(contact_id);
 CREATE INDEX IF NOT EXISTS idx_deals_lead       ON deals(lead_id);
 CREATE INDEX IF NOT EXISTS idx_deals_staff      ON deals(staff_id, status);
 CREATE INDEX IF NOT EXISTS idx_visits_lead      ON visits(lead_id, visited_at);
-CREATE INDEX IF NOT EXISTS idx_visits_source    ON visits(source);
-CREATE INDEX IF NOT EXISTS idx_evidence_loss    ON evidence(loss_id);
 CREATE INDEX IF NOT EXISTS idx_evidence_lead    ON evidence(lead_id);
 CREATE INDEX IF NOT EXISTS idx_assign_conv      ON assignment_log(conversation_id);
 CREATE INDEX IF NOT EXISTS idx_msg_sender       ON messages(sender_user_id);
@@ -331,11 +328,9 @@ CREATE INDEX IF NOT EXISTS idx_msg_conv_at      ON messages(conversation_id, cre
 CREATE INDEX IF NOT EXISTS idx_fe_lead_type     ON funnel_events(lead_id, type);
 CREATE INDEX IF NOT EXISTS idx_leads_staff      ON leads(staff_id, opened_at);
 CREATE INDEX IF NOT EXISTS idx_leads_vehicle    ON leads(vehicle_id);
-CREATE INDEX IF NOT EXISTS idx_vehicles_plate   ON vehicles(plate_norm);
 CREATE INDEX IF NOT EXISTS idx_contacts_name    ON contacts(display_name);
 CREATE INDEX IF NOT EXISTS idx_reports_lead     ON deal_reports(lead_id);
 CREATE INDEX IF NOT EXISTS idx_documents_sha    ON documents(sha);
-CREATE INDEX IF NOT EXISTS idx_actions_status   ON actions(status, kind);
 CREATE INDEX IF NOT EXISTS idx_reports_status   ON deal_reports(match_status, reported_at);
 CREATE INDEX IF NOT EXISTS idx_appraisal_lead   ON appraisals(lead_id);
 CREATE INDEX IF NOT EXISTS idx_posts_kind       ON group_posts(kind, status);
@@ -413,6 +408,15 @@ const ADD_COLUMNS: ReadonlyArray<readonly [string, string, string]> = [
   ["behaviors",     "chat_staff_id",    "INTEGER"],
 ];
 
+/** 索引的欄位是 ADD_COLUMNS 補上的 → 一定要在 ALTER 之後才能建（全新資料庫 2026-09-06 實測：先建索引會直接炸「no such column」） */
+const LATE_INDEXES = `
+CREATE INDEX IF NOT EXISTS idx_conv_lead        ON conversations(lead_id);
+CREATE INDEX IF NOT EXISTS idx_visits_source    ON visits(source);
+CREATE INDEX IF NOT EXISTS idx_evidence_loss    ON evidence(loss_id);
+CREATE INDEX IF NOT EXISTS idx_vehicles_plate   ON vehicles(plate_norm);
+CREATE INDEX IF NOT EXISTS idx_actions_status   ON actions(status, kind);
+`;
+
 export function migrate(sql: SqlLike): { added: string[] } {
   sql.exec(NEW_TABLES);
   const added: string[] = [];
@@ -423,6 +427,7 @@ export function migrate(sql: SqlLike): { added: string[] } {
       added.push(`${table}.${col}`);
     }
   }
+  sql.exec(LATE_INDEXES);
   // 舊資料的 sender_role 補值：out 是員工，in 是客戶
   sql.exec(`UPDATE messages SET sender_role = CASE direction WHEN 'out' THEN 'staff' ELSE 'customer' END
              WHERE sender_role = ''`);

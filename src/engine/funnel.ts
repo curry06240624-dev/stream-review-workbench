@@ -14,7 +14,7 @@ import type { Confidence, EventSource, FunnelEventType } from "../model/types.ts
 import type { DbLike } from "../adapters/import.ts";
 
 type Row = Record<string, unknown>;
-interface Msg { id: number; role: string; text: string; at: number; }
+interface Msg { id: number; role: string; text: string; at: number; type?: string; }
 interface VehicleName { id: number; needles: string[]; }
 interface Ctx {
   lead: Row; contact: Row; msgs: Msg[]; appts: Row[]; visits: Row[]; deals: Row[];
@@ -37,27 +37,31 @@ export const RULES = {
 };
 
 /* ── 語言規則（繁中、台灣車商語氣；改了要重跑 eval）── */
+/* 2026-09-06 依浦森汽車真對話補：員工報價寫「開79.8」「月繳大概1萬多」「總價要到80多」「$298,000」；
+   機器人車卡「2019年 MAZDA 3 開價$598,000」＋客戶按「我非常想立即知道這台車的資訊」才算報價；看車用「過來看」「給你地址」「現場」 */
 const RE = {
-  price:      /(\d{2,3})\s*萬|報價|含過戶|NT\$\s*\d/,
-  numWan:     /(\d{2,3})\s*萬/,
-  objection:  /太貴|貴了|超出預算|超出|便宜|沒那麼多|預算只有|有點高|不用這麼貴|以內的/,
+  price:      /(\d{1,3}(?:\.\d)?)\s*萬|開\s*\d{2,3}(?:\.\d)?(?!\d)|月繳|月付|總價|報價|含過戶|NT\$\s*\d|\$\s*\d{2,3},\d{3}|\d{2,3}多(?!少|久|台|人|次)/,
+  numWan:     /(\d{1,3}(?:\.\d)?)\s*萬|開\s*(\d{2,3}(?:\.\d)?)(?!\d)/,
+  cardPrice:  /開價\s*\$?\s*([\d,]{5,9})/,
+  cardClick:  /想立即知道|我要了解|我想了解/,
+  objection:  /太貴|貴了|超出預算|超出|便宜|沒那麼多|預算只有|有點高|不用這麼貴|以內的|太超出/,
   counter:    /(\d{2,3})\s*萬?\s*(可以嗎|我就簽|成交|就訂|好嗎)|含過戶\s*\d{2,3}|再少一點.*(馬上|就)訂|好啦.*\d+.*成交/,
-  financing:  /全額貸|利率|頭期|月付|自備款|分期|信用|貸款.*(嗎|多少|怎麼|幾成)/,
-  finOk:      /%|頭期\s*\d|月付大概|試算|貸款專員|沒問題|可以喔/,
-  finWeak:    /再問|再確認|問一下|應該可以/,
-  apptProp:   /約個時間|方便嗎|有空嗎|來店|來看車|留車|哪天有空|來看實車/,
+  financing:  /全額貸|利率|頭期|月付|月繳|自備款|自備|分期|信用|車貸|貸款.*(嗎|多少|怎麼|幾成|過)|貸款過嗎/,
+  finOk:      /%|頭期\s*\d|月付大概|月繳大概|月繳.*\d|試算|貸款專員|沒問題|可以喔|利率|全額貸|一萬多|萬多/,
+  finWeak:    /再問|再確認|問一下|應該可以|看個人條件/,
+  apptProp:   /約個時間|方便嗎|有空嗎|來店|來看車|留車|哪天有空|來看實車|過來看|現場看|來現場|給你地址|載你|可以看車/,   // 「有空來看看嗎」是跟進不是約時間，不放「來看看」
   apptTime:   /週[一二三四五六日]|禮拜|明天|後天|下午|早上|晚上|\d+\s*點/,
-  apptConfirm:/見|留好|等您|收到|幫您留/,
+  apptConfirm:/見|留好|等您|收到|幫您留|等你/,
   cancel:     /取消|先不看/,
   noShow:     /臨時有事|忘記|抱歉.*改天|改天/,
   resched:    /改下週|改時間|改約.*(下週|時間)|改到|同一時間/,
   noShowStaff:/沒關係.*(改約|什麼時候)|留到週末|有空跟我說|那改約/,
   schedInText:/(\d{1,2})\/(\d{1,2})\s*(\d{1,2}):(\d{2})/,
-  visitStaff: /今天.*(看的|看車|賞車)|謝謝您來|今天看的/,
-  highIntent: /急|就想決定|要交車|沒問題就訂|老客戶|這週就|這個月要|有現車(就|我就)|定下來|跟你買過|買過.*想換/,   // 光問「有現車嗎」不算急迫
+  visitStaff: /今天.*(看的|看車|賞車)|謝謝您來|今天看的|今天來|剛剛來|來過了/,
+  highIntent: /急|就想決定|要交車|沒問題就訂|老客戶|這週就|這個月要|有現車(就|我就)|定下來|跟你買過|買過.*想換|現金總價|月底前|這幾天要/,   // 光問「有現車嗎」不算急迫
   soldStaff:  /恭喜|過戶完成|交車/,
-  lostCust:   /跟朋友買|買了別家|先不換|預算不夠|不用了|之後再說|不好意思.*買了/,
-  laterPositiveCust: /成交|下訂|想看車|可以來看|我想看|過去看|考慮好了/,
+  lostCust:   /跟朋友買|買了別家|先不換|預算不夠|不用了|之後再說|不好意思.*買了|已經買了|買好了/,
+  laterPositiveCust: /成交|下訂|想看車|可以來看|我想看|過去看|考慮好了|過去看看/,
 };
 
 const median = (xs: number[]) => { if (!xs.length) return 0; const s = [...xs].sort((a, b) => a - b); const m = Math.floor(s.length / 2); return s.length % 2 ? s[m]! : (s[m - 1]! + s[m]!) / 2; };
@@ -69,22 +73,28 @@ export function detectEvents(ctx: Ctx, vehicles: VehicleName[], now: number): De
   const out: Detected[] = [];
   const msgs = ctx.msgs;
   if (!msgs.length) return out;
-  const cust = msgs.filter((m) => m.role === "customer");
+  const custAll = msgs.filter((m) => m.role === "customer");
+  const cust = custAll.filter((m) => m.type !== "menu");            // 客戶自己打的字；按選單的不算有來有往
   const staff = msgs.filter((m) => m.role === "staff");
+  const bots = msgs.filter((m) => m.role === "bot");
   const first = msgs[0]!, last = msgs[msgs.length - 1]!;
   const outcome = String(ctx.lead["outcome"] ?? "");
+  const displayName = String(ctx.contact["display_name"] ?? "");
 
-  // NEW_LEAD
-  const firstCust = cust[0] ?? first;
+  // NEW_LEAD（第一則客戶訊息，選單點擊也算進線）
+  const firstCust = custAll[0] ?? first;
   out.push(ev("NEW_LEAD", firstCust.at, "CONFIRMED", "rule", {}, [{ message_id: firstCust.id, note: "第一則客戶訊息" }]));
 
-  // VEHICLE_INTEREST
-  const vhit = msgs.find((m) => vehicles.some((v) => v.needles.some((n) => m.text.toLowerCase().includes(n))));
+  // VEHICLE_INTEREST：對話（含客戶按的車卡）提到車輛主檔裡的車款
+  const vhit = msgs.find((m) => m.role !== "bot" && vehicles.some((v) => v.needles.some((n) => m.text.toLowerCase().includes(n))));
   if (vhit) {
     const v = vehicles.find((v) => v.needles.some((n) => vhit.text.toLowerCase().includes(n)))!;
     out.push(ev("VEHICLE_INTEREST", vhit.at, "CONFIRMED", "rule", { vehicle_id: v.id }, [{ message_id: vhit.id, note: "訊息提到車輛主檔裡的車款" }]));
   } else if (ctx.lead["vehicle_id"]) {
     out.push(ev("VEHICLE_INTEREST", first.at, "POSSIBLE", "rule", { vehicle_id: ctx.lead["vehicle_id"] }, [{ message_id: first.id, note: "只有 lead 綁了車，對話裡沒提到" }]));
+  } else {
+    const card = custAll.find((m) => RE.cardClick.test(m.text));   // 「我要了解 2019年 MAZDA 3」：車不在主檔也算有興趣
+    if (card) out.push(ev("VEHICLE_INTEREST", card.at, "STRONGLY_SUGGESTED", "rule", { text: card.text.slice(0, 40) }, [{ message_id: card.id, note: "客戶按了車卡的「我要了解」" }]));
   }
 
   // ACTIVE_DISCUSSION
@@ -96,11 +106,21 @@ export function detectEvents(ctx: Ctx, vehicles: VehicleName[], now: number): De
   const hi = cust.slice(0, 4).find((m) => RE.highIntent.test(m.text));
   if (hi) out.push(ev("HIGH_INTENT", hi.at, "STRONGLY_SUGGESTED", "rule", { phrase: hi.text.match(RE.highIntent)?.[0] }, [{ message_id: hi.id, note: "客戶早期出現急迫用語" }]));
 
-  // PRICE_MENTIONED
-  const priceMsg = staff.find((m) => RE.price.test(m.text));
+  // PRICE_MENTIONED：業務報價，或機器人車卡有開價且客戶按了「我要了解」（10 分鐘內）
+  let priceMsg = staff.find((m) => RE.price.test(m.text));
+  let priceNote = "業務報價"; let priceConf: Confidence = "CONFIRMED"; let cardWan: number | null = null;
+  if (!priceMsg) {
+    for (const b of bots) {
+      const pm = b.text.match(RE.cardPrice); if (!pm) continue;
+      const click = custAll.find((m) => m.at >= b.at && m.at <= b.at + 10 * 60_000 && RE.cardClick.test(m.text));
+      if (click) { priceMsg = click; priceNote = `客戶點了有開價的車卡（$${pm[1]}）`; priceConf = "STRONGLY_SUGGESTED"; cardWan = Math.round(Number(pm[1]!.replace(/,/g, "")) / 10_000 * 10) / 10; break; }
+    }
+  }
   let objectionMsg: Msg | undefined, negMsg: Msg | undefined;
   if (priceMsg) {
-    out.push(ev("PRICE_MENTIONED", priceMsg.at, "CONFIRMED", "rule", { price_wan: Number(priceMsg.text.match(RE.numWan)?.[1] ?? 0) || null }, [{ message_id: priceMsg.id, note: "業務報價" }]));
+    const nm = priceMsg.text.match(RE.numWan);
+    const wan = cardWan ?? (nm ? Number(nm[1] ?? nm[2]) || null : null);
+    out.push(ev("PRICE_MENTIONED", priceMsg.at, priceConf, "rule", { price_wan: wan }, [{ message_id: priceMsg.id, note: priceNote }]));
     const custAfter = cust.filter((m) => m.at > priceMsg.at);
     objectionMsg = custAfter.find((m) => RE.objection.test(m.text) && !RE.counter.test(m.text));
     if (objectionMsg) out.push(ev("PRICE_OBJECTION", objectionMsg.at, "CONFIRMED", "rule", {}, [{ message_id: priceMsg.id, note: "報價" }, { message_id: objectionMsg.id, note: "客戶對價格表達異議、沒有出價" }]));
@@ -196,15 +216,17 @@ export function detectEvents(ctx: Ctx, vehicles: VehicleName[], now: number): De
   // 成交/流失：帳本優先
   const soldDeal = ctx.deals.find((d) => d["status"] === "sold"), lostDeal = ctx.deals.find((d) => d["status"] === "lost");
   const soldTxt = staff.find((m) => RE.soldStaff.test(m.text)), lostTxt = cust.find((m) => RE.lostCust.test(m.text));
+  const markedSold = displayName.includes("已購車"), markedDead = displayName.includes("❌");
   if (soldDeal) {
     const gpKnown = String(soldDeal["cost_source"] ?? "ledger") !== "none";
     out.push(ev("SOLD", Date.parse(String(soldDeal["closed_at"])), "CONFIRMED", "ledger", { deal_id: soldDeal["id"], gross_profit: gpKnown ? soldDeal["gross_profit"] : null, gp_estimate: !!Number(soldDeal["gp_is_estimate"] ?? 0), source_kind: soldDeal["source_kind"] ?? "stock" }, [{ message_id: (soldTxt ?? last).id, note: soldDeal["report_id"] ? "成交群貼文（已配對）" : "成交帳本" }]));
   }
   else if (soldTxt) out.push(ev("SOLD", soldTxt.at, "STRONGLY_SUGGESTED", "rule", {}, [{ message_id: soldTxt.id, note: "業務說恭喜/過戶/交車" }]));
-  else if (String(ctx.contact["display_name"] ?? "").includes("已購車")) out.push(ev("SOLD", last.at, "POSSIBLE", "rule", { via: "display_name" }, [{ message_id: last.id, note: "顯示名稱標了「已購車」" }]));
+  else if (markedSold) out.push(ev("SOLD", last.at, "STRONGLY_SUGGESTED", "rule", { via: "display_name" }, [{ message_id: last.id, note: "顯示名稱標了「已購車」（公司自己的標記）" }]));
   if (lostDeal) out.push(ev("LOST", Date.parse(String(lostDeal["closed_at"])), "CONFIRMED", "ledger", { deal_id: lostDeal["id"], reason: lostDeal["lost_reason"] }, [{ message_id: (lostTxt ?? last).id, note: "流失帳本" }]));
   else if (lostTxt) out.push(ev("LOST", lostTxt.at, "STRONGLY_SUGGESTED", "rule", {}, [{ message_id: lostTxt.id, note: "客戶明說不買了" }]));
-  else if (!soldDeal && !soldTxt && lastCust && now - lastCust.at >= RULES.LOST_SILENCE_D * D && !String(ctx.contact["display_name"] ?? "").includes("已購車")) {
+  else if (markedDead && !markedSold) out.push(ev("LOST", last.at, "STRONGLY_SUGGESTED", "rule", { via: "display_name" }, [{ message_id: last.id, note: "顯示名稱標了 ❌（公司自己標的無效客）" }]));
+  else if (!soldDeal && !soldTxt && lastCust && now - lastCust.at >= RULES.LOST_SILENCE_D * D && !markedSold) {
     out.push(ev("LOST", lastCust.at + RULES.LOST_SILENCE_D * D, "POSSIBLE", "rule", { silent_days: Math.round((now - lastCust.at) / D), inferred: true }, [{ message_id: lastCust.id, note: `最後一則客戶訊息後沉默 ${Math.round((now - lastCust.at) / D)} 天且未成交，推定流失` }]));
   }
 
@@ -271,9 +293,9 @@ export async function runFunnel(db: DbLike, opts: { now: string; leadIds?: numbe
   for (const lead of leadRows) {
     const lid = Number(lead["id"]);
     const msgs: Msg[] = (await db.all(
-      `SELECT m.id, m.sender_role, m.text, m.created_at FROM messages m JOIN conversations cv ON cv.id = m.conversation_id
+      `SELECT m.id, m.sender_role, m.text, m.created_at, m.msg_type FROM messages m JOIN conversations cv ON cv.id = m.conversation_id
         WHERE cv.lead_id = ? ORDER BY m.created_at, m.id`, lid))
-      .map((m) => ({ id: Number(m["id"]), role: String(m["sender_role"]), text: String(m["text"]), at: Date.parse(String(m["created_at"])) }));
+      .map((m) => ({ id: Number(m["id"]), role: String(m["sender_role"]), text: String(m["text"]), at: Date.parse(String(m["created_at"])), type: String(m["msg_type"] ?? "text") }));
     const ctx: Ctx = {
       lead, contact: { display_name: lead["display_name"] }, msgs,
       appts: await db.all("SELECT * FROM appointments WHERE lead_id = ? ORDER BY proposed_at", lid),

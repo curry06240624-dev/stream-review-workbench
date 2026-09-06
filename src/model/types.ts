@@ -18,7 +18,8 @@ export type Severity = "critical" | "high" | "medium" | "low";
 
 export type SenderRole = "customer" | "staff" | "bot" | "system";
 
-export type MsgType = "text" | "image" | "video" | "audio" | "file" | "location" | "sticker" | "unknown";
+/** menu＝客戶按 LINE 選單／快速回覆按鈕（「線上車庫」「我非常想立即知道這台車的資訊」），不是自己打的字：不算有來有往、不算回覆速度的起點 */
+export type MsgType = "text" | "image" | "video" | "audio" | "file" | "location" | "sticker" | "menu" | "unknown";
 
 export type LeadSource = "meta" | "ig" | "line_search" | "referral" | "walk_in" | "unknown";
 

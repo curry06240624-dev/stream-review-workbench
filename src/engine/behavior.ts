@@ -54,21 +54,22 @@ export interface LeadCtx {
 /** 純函式：一個 lead 的行為特徵 */
 export function extractFeatures(c: LeadCtx): Features {
   const f: Features = {};
-  const msgs = c.msgs, cust = msgs.filter((m) => m.role === "customer"), staff = msgs.filter((m) => m.role === "staff");
+  const msgs = c.msgs, custAll = msgs.filter((m) => m.role === "customer"), staff = msgs.filter((m) => m.role === "staff");
+  const cust = custAll.filter((m) => m.type !== "menu");            // 客戶自己打的字才算「在等回覆」；按選單的不算
   const staffTxt = staff.filter((m) => m.type === "text");
   if (!msgs.length) return f;
   const ev = (t: string) => c.events.filter((e) => String(e["type"]) === t && String(e["confidence"]) !== "UNCLEAR");
   const evAt = (e: Row) => Date.parse(String(e["at"]));
   const covered = !c.coverage || c.coverage === "full";
 
-  /* 回覆速度（涵蓋不完整就不算：看不到的回覆不能當成沒回） */
+  /* 回覆速度（涵蓋不完整就不算：看不到的回覆不能當成沒回）。超過 7 天才回的不算「回覆」，算沒回（真資料有隔一年才回的） */
   const c0 = cust[0];
-  if (c0 && covered) { const s0 = staff.find((m) => m.at > c0.at); if (s0) f["first_response_min"] = { v: Math.round((s0.at - c0.at) / MIN), msg: s0.id }; }
+  if (c0 && covered) { const s0 = staff.find((m) => m.at > c0.at); if (s0 && s0.at - c0.at <= 7 * D) f["first_response_min"] = { v: Math.round((s0.at - c0.at) / MIN), msg: s0.id }; else if (s0) f["first_response_missed"] = { v: 1, msg: s0.id }; }
   const lat: number[] = [];
   for (let i = 0; i < cust.length && covered; i++) {
     const cm = cust[i]!, next = cust[i + 1];
     const s = staff.find((m) => m.at > cm.at && (!next || m.at < next.at));
-    if (s) lat.push((s.at - cm.at) / MIN);
+    if (s && s.at - cm.at <= 7 * D) lat.push((s.at - cm.at) / MIN);
   }
   const med = median(lat); if (med != null) f["median_response_min"] = { v: Math.round(med), n: lat.length };
 

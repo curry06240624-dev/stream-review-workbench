@@ -43,7 +43,10 @@ export function detectCsvKind(headers: string[]): "sheet" | "accounting" | "rost
   if (has(["姓名", "名字", "員工"]) && (has(["暱稱", "LINE暱稱", "工作性質", "組別", "職務"]))) return "roster";
   return "unknown";
 }
-const STATUS_MAP: Array<[RegExp, string]> = [[/已售|售出|賣出|交車/, "sold"], [/已訂|訂金|保留|預訂/, "reserved"], [/調車|同行|外調/, "peer"], [/在庫|現車|整備|待售|上架/, "in_stock"]];
+/* 瑋瑋車源表的寫法（2026-09-06 真檔）：目前狀況「收訂(軒)」「送貸(軒)」「過件(安)」「扣牌中」，括號裡是業務暱稱；備註「售出 銷售獎金5000」 */
+const STATUS_MAP: Array<[RegExp, string]> = [[/已售|售出|賣出|交車/, "sold"], [/收訂|已訂|訂金|保留|預訂|送貸|過件|對保/, "reserved"], [/調車|同行|外調/, "peer"], [/在庫|現車|整備|待售|上架|扣牌/, "in_stock"]];
+/** 「收訂(軒)」→ 軒 */
+export const statusStaff = (s: string) => (s.match(/[（(]([^）)]{1,6})[）)]/)?.[1] ?? "").trim();
 /** 日期：2026/07/02、2026-7-2、7/2（當年）、20260702 → ISO（台灣 00:00） */
 export function parseDateTw(v: string): string | null {
   const s = toHalf(v).trim(); if (!s) return null;
@@ -62,14 +65,16 @@ export function sheetToVehicles(text: string): { vehicles: SheetVehicle[]; skipp
   const get = (r: Record<string, string>, k: keyof typeof SHEET) => (col[k] ? r[col[k]!] ?? "" : "");
   const out: SheetVehicle[] = []; let skipped = 0;
   for (const r of rows) {
-    const plate = get(r, "plate"), model = get(r, "model"), brand = get(r, "brand");
+    const plate = get(r, "plate"), model = get(r, "model"), brand = get(r, "brand"), year = parseYear(get(r, "year"));
     if (!plate && !model) { skipped++; continue; }
-    const statusText = get(r, "status"); const st = STATUS_MAP.find(([re]) => re.test(statusText))?.[1] ?? "in_stock";
-    const mile = parseMoney(get(r, "mileage").replace(/km|公里/gi, ""), 0);
+    if (!normalizePlate(plate) && (!brand || year == null)) { skipped++; continue; }          // 表尾的統計列（在庫／7天內…）沒車牌也沒廠牌年份
+    const statusText = get(r, "status"), note = get(r, "note");
+    const st = STATUS_MAP.find(([re]) => re.test(statusText))?.[1] ?? (/售出|已售/.test(note) ? "sold" : "in_stock");
+    const mile = parseMoney(get(r, "mileage").replace(/km|公里/gi, "").replace(/^[^\d]+/, ""), 0);   // 「里程221135」「里程16萬」
     out.push({
-      plate, plate_norm: normalizePlate(plate), year: parseYear(get(r, "year")), brand, model, color: get(r, "color"),
+      plate, plate_norm: normalizePlate(plate), year, brand, model, color: get(r, "color"),
       mileage_km: mile == null ? null : (mile < 100 ? mile * 10_000 : mile), list_price: parseMoney(get(r, "list_price"), 1000), cost: parseMoney(get(r, "cost"), 1000),
-      stock_status: st, status_text: statusText, stock_in_at: parseDateTw(get(r, "stock_in")), cert: get(r, "cert"), trim: get(r, "trim"), trade_price: parseMoney(get(r, "trade_price"), 1000), note: get(r, "note"),
+      stock_status: st, status_text: statusText, stock_in_at: parseDateTw(get(r, "stock_in")), cert: get(r, "cert"), trim: get(r, "trim"), trade_price: parseMoney(get(r, "trade_price"), 1000), note,
     });
   }
   return { vehicles: out, skipped, headers };
