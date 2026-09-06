@@ -33,7 +33,7 @@ const pickCol = (headers: string[], names: string[]) => headers.find((h) => name
 const SHEET = {
   plate: ["車牌號碼", "車牌", "車號", "牌照"], year: ["年份", "年式", "出廠年"], brand: ["廠牌", "品牌"], model: ["車型", "車款", "車種"], color: ["顏色", "車色"],
   mileage: ["里程", "里程數", "公里數"], list_price: ["開價", "售價", "定價", "賣價"], cost: ["成本", "進價", "收車價"], status: ["目前狀況", "狀態", "狀況", "車況"],
-  stock_in: ["入庫時間", "入庫日期", "入庫", "進庫日"], cert: ["認證狀況", "認證"], trim: ["版本", "等級", "車型等級"], sell_price: ["調作價", "實賣價", "實際售價", "底價"], note: ["備註", "待修備註"],
+  stock_in: ["入庫時間", "入庫日期", "入庫", "進庫日"], cert: ["認證狀況", "認證"], trim: ["版本", "等級", "車型等級"], sell_price: ["調作價", "實賣價", "實際售價", "底價"], note: ["備註", "備注", "說明"], repair_note: ["待修備註", "待修"],   // 備註寫「售出 銷售獎金5000」，待修備註是另一欄，分開抓
 };
 export type SheetVehicle = { plate: string; plate_norm: string; year: number | null; brand: string; model: string; color: string; mileage_km: number | null; list_price: number | null; cost: number | null; stock_status: string; status_text: string; stock_in_at: string | null; cert: string; trim: string; sell_price: number | null; note: string };
 export function detectCsvKind(headers: string[]): "sheet" | "accounting" | "roster" | "unknown" {
@@ -68,7 +68,7 @@ export function sheetToVehicles(text: string): { vehicles: SheetVehicle[]; skipp
     const plate = get(r, "plate"), model = get(r, "model"), brand = get(r, "brand"), year = parseYear(get(r, "year"));
     if (!plate && !model) { skipped++; continue; }
     if (!normalizePlate(plate) && (!brand || year == null)) { skipped++; continue; }          // 表尾的統計列（在庫／7天內…）沒車牌也沒廠牌年份
-    const statusText = get(r, "status"), note = get(r, "note");
+    const statusText = get(r, "status"), note = [get(r, "note"), get(r, "repair_note")].filter(Boolean).join(" / ");
     const st = STATUS_MAP.find(([re]) => re.test(statusText))?.[1] ?? (/售出|已售/.test(note) ? "sold" : "in_stock");
     const mile = parseMoney(get(r, "mileage").replace(/km|公里/gi, "").replace(/^[^\d]+/, ""), 0);   // 「里程221135」「里程16萬」
     out.push({

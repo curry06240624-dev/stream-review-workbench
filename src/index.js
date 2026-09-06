@@ -255,6 +255,12 @@ async function route(request, env, db, url) {
     if (!me || !canSeeAll(me.role)) return J({ ok: false, error: "forbidden" }, 403);
     return J({ ok: true, ...(await db.rematchAllLocal({ now: now() })) });
   }
+  /* ── 車源表 售出／收訂 → 成交／收訂中：重跑同步（匯入與上傳時會自動跑） ── */
+  if (p === "/api/admin/sheet-deals/sync" && m === "POST") {
+    const me = await currentUser(request, db);
+    if (!me || me.role !== "admin") return J({ ok: false, error: "forbidden" }, 403);
+    return J({ ok: true, ...(await db.sheetDealsSyncLocal({ now: now() })) });
+  }
   if (p === "/api/admin/import-group" && m === "POST") {
     const me = await currentUser(request, db);
     if (!me) return J({ ok: false, error: "not_logged_in" }, 401);

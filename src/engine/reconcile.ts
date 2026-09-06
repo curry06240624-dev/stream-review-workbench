@@ -179,8 +179,13 @@ export async function applyReport(db: DbLike, id: number, ov: { vehicle_id?: num
   const peer = str(r["source_kind"]) === "peer" || (!!v && str(v["source"]) === "peer");
   let cost = 0, costSource = "none", gp = 0, est = 0;
   if (v && num(v["cost_known"]) && !peer) { cost = num(v["cost"]); costSource = "sheet"; gp = price - cost; est = 1; }
-  const applied = { lead_prev_outcome: str(lead["outcome"]), lead_prev_closed_at: lead["closed_at"] ?? null, lead_prev_stage: str(lead["stage"]), vehicle_prev_status: v ? str(v["stock_status"]) : null };
+  const applied = { lead_prev_outcome: str(lead["outcome"]), lead_prev_closed_at: lead["closed_at"] ?? null, lead_prev_stage: str(lead["stage"]), vehicle_prev_status: v ? str(v["stock_status"]) : null, sheet_deal: null as Row | null };
   const existing = await db.first("SELECT * FROM deals WHERE lead_id = ? AND status = 'sold' ORDER BY id LIMIT 1", leadId);
+  // 車源表先產生的成交／收訂（沒有客戶）對到同一台車 → 換成貼文的成交；原列存進快照，撤銷時放回去
+  if (!existing && vehicleId) {
+    const sd = await db.first("SELECT * FROM deals WHERE vehicle_id = ? AND source_system = 'sheet' AND status IN ('sold','reserved') ORDER BY id LIMIT 1", vehicleId);
+    if (sd) { applied.sheet_deal = sd; await db.run("DELETE FROM deals WHERE id = ?", num(sd["id"])); }
+  }
   let dealId: number, created = 0;
   if (existing) {
     dealId = num(existing["id"]);
@@ -190,8 +195,8 @@ export async function applyReport(db: DbLike, id: number, ov: { vehicle_id?: num
   } else {
     const ins = await db.run(
       `INSERT INTO deals (lead_id, contact_id, staff_id, vehicle_id, status, sale_price, cost, gross_profit, lost_reason, closed_at, external_key, source_system,
-                          plate, customer_ref, deposit, loan_status, delivery_by, reported_by, source_kind, peer_dealer, cost_source, gp_is_estimate, report_id)
-       VALUES (?,?,?,?,'sold',?,?,?,'',?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+                          plate, customer_ref, deposit, loan_status, delivery_by, reported_by, source_kind, peer_dealer, cost_source, gp_is_estimate, report_id, price_source)
+       VALUES (?,?,?,?,'sold',?,?,?,'',?,?,?,?,?,?,?,?,?,?,?,?,?,?,'report')`,
       leadId, num(lead["contact_id"]), staffId, vehicleId, price, cost, gp, str(r["reported_at"]), `report:${id}`, str(r["source_system"]),
       str(r["plate"]), str(r["customer_ref"]), str(r["deposit"]), str(r["loan_status"]), str(r["delivery_by"]), str(r["reported_by"]), str(r["source_kind"]) || "stock", str(r["peer_dealer"]), costSource, est, id);
     dealId = ins.lastRowId; created = 1;
@@ -218,6 +223,8 @@ export async function unapplyReport(db: DbLike, id: number, next: "suggested" | 
   if (r["deal_id"]) {
     if (num(r["deal_created"])) {
       await db.run("DELETE FROM deals WHERE id = ?", num(r["deal_id"]));
+      const sd = applied?.["sheet_deal"] as Row | null | undefined;   // 車源表那筆放回去
+      if (sd) { const cols = Object.keys(sd).filter((k) => k !== "id"); await db.run(`INSERT INTO deals (${cols.join(", ")}) VALUES (${cols.map(() => "?").join(",")})`, ...cols.map((k) => sd[k])); }
       if (leadId && applied) {
         await db.run("UPDATE leads SET outcome = ?, closed_at = ?, stage = ? WHERE id = ?", str(applied["lead_prev_outcome"]), applied["lead_prev_closed_at"] ?? null, str(applied["lead_prev_stage"]) || "new", leadId);
         await db.run("UPDATE conversations SET status = ? WHERE lead_id = ?", str(applied["lead_prev_outcome"]) ? "closed" : "open", leadId);

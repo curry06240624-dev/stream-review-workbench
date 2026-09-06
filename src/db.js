@@ -18,6 +18,7 @@ import { computeStaffReport } from "./engine/staff.ts";
 import { buildCoachingPlan, computeDecisions, metricSnapshot, actionProgress } from "./engine/coaching.ts";
 import { ingestPosts, matchReport, applyReport, unapplyReport, reconcileSummary } from "./engine/reconcile.ts";
 import { parseLineExport } from "./engine/posts.ts";
+import { syncSheetDeals } from "./engine/sheetdeals.ts";
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS users (
@@ -264,8 +265,11 @@ export class AppDB extends DurableObject {
         inserted++;
       }
     }
-    return { inserted, updated, total: opts.vehicles.length };
+    const sheet = await syncSheetDeals(this, { now: opts.now });
+    return { inserted, updated, total: opts.vehicles.length, sheet_deals: sheet };
   }
+  /** 車源表 售出／收訂 → 成交／收訂中（重跑用；匯入 bundle 與上傳車源表時會自動跑） */
+  async sheetDealsSyncLocal(opts) { this.bust(); return syncSheetDeals(this, { now: opts.now }); }
   /** 會計月成本表 → deals.cost（正式成本，cost_source='accounting'）：車號＋成交日 ±3 天 */
   async accountingCostLocal(opts) {
     this.bust(); let matched = 0; const unmatched = [];

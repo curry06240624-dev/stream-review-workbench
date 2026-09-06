@@ -205,10 +205,10 @@ export interface Visit {
 export interface Deal {
   id: number;
   lead_id: number | null;
-  contact_id: number;
+  contact_id: number | null;   // 車源表產生的成交／收訂沒有客戶，送貨囉貼文對上後才補
   staff_id: number | null;
   vehicle_id: number | null;
-  status: "sold" | "lost";
+  status: "sold" | "lost" | "reserved";   // reserved＝收訂中（車源表 收訂／送貸／過件，還沒交車）
   sale_price: number;
   cost: number;
   gross_profit: number;        // cost_source='none' 時為 0 且無意義，統計一律用 cost_source 過濾
@@ -217,6 +217,8 @@ export interface Deal {
   external_key: string;
   source_system: SourceSystem;
   plate: string; customer_ref: string;
+  price_source: "" | "report" | "sheet_sell" | "sheet_list";   // 售價從哪來：送貨囉貼文／車源表調作價／車源表開價
+  sheet_status: string;        // 車源表「目前狀況」原文（收訂(軒)…），只有車源表產生的才有
   deposit: "cash" | "transfer" | "none" | "unknown" | "";
   loan_status: "approved" | "rejected" | "none" | "";
   delivery_by: string; reported_by: string;

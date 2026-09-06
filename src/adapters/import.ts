@@ -19,6 +19,7 @@ import { createUser } from "../auth.js";
 import { normalizePlate } from "../engine/posts.ts";
 import { ingestPosts } from "../engine/reconcile.ts";
 import { runFunnel } from "../engine/funnel.ts";
+import { syncSheetDeals } from "../engine/sheetdeals.ts";
 
 type Row = Record<string, unknown>;
 export interface DbLike {
@@ -254,5 +255,9 @@ export async function importBundle(db: DbLike, b: NormalizedBundle, opts: { rese
     rep.posts = { deal_reports: r1?.deal_reports ?? 0, auto: r1?.auto ?? 0, suggested: r1?.suggested ?? 0, unmatched: r1?.unmatched ?? 0, appraisals: r2?.appraisals ?? 0, unparsed: (r1?.unparsed.length ?? 0) + (r2?.unparsed.length ?? 0) };
     for (const w of [...(r1?.warnings ?? []), ...(r2?.warnings ?? [])].slice(0, 10)) if (!rep.warnings.includes(w)) rep.warnings.push(w);
   }
+  /* ── 車源表的 售出／收訂／送貸／過件 → 成交／收訂中（沒有客戶；貼文對上同一台車後會換成貼文的成交）── */
+  const sd = await syncSheetDeals(db, { now: opts.now });
+  if (sd.created || sd.updated || sd.removed) rep.counts["sheet_deals"] = sd.created + sd.updated;
+  for (const n of sd.unresolved_staff) rep.warnings.push(`車源表狀態裡的業務「${n}」對不到員工，請在資料與設定頁加暱稱後再同步`);
   return rep;
 }
