@@ -113,7 +113,7 @@ async function route(request, env, db, url) {
     const days = Math.min(90, Math.max(1, Number(url.searchParams.get("days") || 7)));
     const to = url.searchParams.get("to") || undefined;
     const t0 = Date.now();
-    const a = await computeAnalytics(db, { to, days });
+    const a = await db.analyticsLocal({ to, days });        // 在 DO 裡算＋快取：免費方案每日列讀取有限
     return J({ ok: true, ms: Date.now() - t0, ...a });
   }
 

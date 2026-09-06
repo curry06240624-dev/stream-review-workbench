@@ -175,6 +175,8 @@ export class AppDB extends DurableObject {
   bust() { this._cache = new Map(); }
   reportCached(days, to) { const bucket = to ?? new Date().toISOString().slice(0, 13); return this.cached(`report:${days ?? 30}:${bucket}`, 30 * 60_000, () => computeStaffReport(this, { days, to })); }
   async importLocal(bundle, opts) { this.bust(); return importBundle(this, bundle, opts); }
+  /** 分析數字（總覽／成交／漏斗／需要注意都靠它）：每頁載入會叫好幾次，每次讀幾萬列 → 同參數同一小時回快取 */
+  analyticsLocal(opts) { const bucket = opts.to ?? new Date().toISOString().slice(0, 13); return this.cached(`analytics:${opts.days ?? 7}:${bucket}`, 30 * 60_000, () => computeAnalytics(this, { to: opts.to, days: opts.days })); }
   async funnelLocal(opts) { this.bust(); return runFunnel(this, opts); }
   /** 員工效能／流失原因的三段分析：角色（歸因）→ 行為特徵（要先有角色）→ 流失原因。全部規則、可重跑。 */
   async analyzeLocal(opts) {

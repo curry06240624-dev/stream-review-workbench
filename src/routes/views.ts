@@ -12,6 +12,11 @@ const num = (v: unknown) => Number(v ?? 0) || 0;
 const J = (o: unknown, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" } });
 const canSeeAll = (r: string) => r === "admin" || r === "operator";
 const S = (v: unknown, n = 80) => String(v ?? "").trim().slice(0, n);
+/** 分析數字優先走 DO 端的快取版（免費方案列讀取有限）；沒有那個方法（測試用的假 db）才在這裡算 */
+const analytics = (db: DbLike, opts: { days: number; to?: string }) => {
+  const local = (db as unknown as { analyticsLocal?: (o: { days: number; to?: string }) => Promise<Awaited<ReturnType<typeof computeAnalytics>>> }).analyticsLocal;
+  return local ? local.call(db, opts) : computeAnalytics(db, opts);
+};
 
 const LEAD_SELECT = `
   SELECT l.id, l.stage, l.outcome, l.opened_at, l.closed_at, l.source, l.staff_id, l.vehicle_id,
@@ -106,7 +111,7 @@ export async function handleViews(url: URL, method: string, db: DbLike, me: Me):
 
   /* ── 需要注意 ── */
   if (p === "/api/attention") {
-    const a = await computeAnalytics(db, { days: 7 });
+    const a = await analytics(db, { days: 7 });
     const items = canSeeAll(me.role) ? a.attention : a.attention.filter((x) => x.staff === me.name);
     const counts: Record<string, number> = {};
     for (const x of items) counts[x.kind] = (counts[x.kind] ?? 0) + 1;
@@ -122,7 +127,7 @@ export async function handleViews(url: URL, method: string, db: DbLike, me: Me):
   if (p === "/api/appointments") {
     const days = Math.min(30, Math.max(1, Number(q.get("days") || 7)));
     const now = Date.now(); const nowIso = new Date(now).toISOString();
-    const a = await computeAnalytics(db, { days });
+    const a = await analytics(db, { days });
     const base = `SELECT ap.id, ap.lead_id, ap.scheduled_for, ap.status, ap.status_at, c.pseudonym, c.display_name, COALESCE(u.name,'') AS staff, COALESCE(v.brand||' '||v.model,'') AS vehicle,
                     EXISTS (SELECT 1 FROM visits vi WHERE vi.lead_id = ap.lead_id AND vi.visited_at >= ap.scheduled_for) AS visited
                FROM appointments ap JOIN leads l ON l.id = ap.lead_id JOIN contacts c ON c.id = l.contact_id LEFT JOIN users u ON u.id = ap.staff_id LEFT JOIN vehicles v ON v.id = l.vehicle_id`;
