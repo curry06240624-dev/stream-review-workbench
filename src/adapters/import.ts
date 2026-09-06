@@ -116,6 +116,13 @@ export async function importBundle(db: DbLike, b: NormalizedBundle, opts: { rese
       staffId.set(alias, id); bump("aliases");
     }
   }
+  /* reset 時把不在這份 bundle 裡的非管理員帳號一起清掉（連同登入 session）：
+     不然換一批資料（模擬→真實）後，舊員工還留在員工效能與車款表上，全是 0。管理員帳號永遠保留。 */
+  if (opts.reset) {
+    const keep = new Set(b.staff.map((s) => s.email));
+    const stale = (await db.all("SELECT id, email FROM users WHERE role <> 'admin'")).filter((u) => !keep.has(String(u["email"])));
+    for (const u of stale) { await db.run("DELETE FROM sessions WHERE user_id = ?", u["id"]); await db.run("DELETE FROM users WHERE id = ?", u["id"]); bump("staff_removed"); }
+  }
   const sid = (name: string | null | undefined): number | null => (name && staffId.get(name)) || null;
 
   /* ── 車輛（對齊車源表）── */
