@@ -53,7 +53,9 @@ const RE_PHONE = /09\d{2}[- ]?\d{3}[- ]?\d{3}/g;
 export function scrubMessage(m: BundleMessage): { text: string; type: string; note: string } {
   const type = m.type ?? "text";
   if (type !== "text" && RE_ID_PHOTO.test(m.text)) return { text: "[證件照片，已略過]", type, note: "id_photo" };
-  let text = m.text.replace(RE_ID_NUMBER, "[身分證字號已抹掉]");
+  if (RE_ID_NUMBER.test(m.text)) { RE_ID_NUMBER.lastIndex = 0; return { text: "[客戶傳來的證件資料（身分證字號、姓名、生日），已整則抹掉]", type, note: "id_text" }; }
+  RE_ID_NUMBER.lastIndex = 0;
+  let text = m.text;
   if (m.role === "customer") text = text.replace(RE_PHONE, "[電話已抹掉]");
   return { text, type, note: "" };
 }
@@ -185,7 +187,7 @@ export async function importBundle(db: DbLike, b: NormalizedBundle, opts: { rese
     if (cov.coverage !== "full") bump(`coverage_${cov.coverage}`);
     for (const m of msgs) {
       const dir = m.role === "customer" ? "in" : "out";
-      const sc = scrubMessage(m); if (sc.note) bump("id_photos_dropped");
+      const sc = scrubMessage(m); if (sc.note) bump(sc.note === "id_photo" ? "id_photos_dropped" : "id_texts_scrubbed");
       await db.run(
         `INSERT INTO messages (conversation_id, direction, sender_user_id, text, created_at, sender_role, msg_type, external_id, via)
          VALUES (?,?,?,?,?,?,?,?,?)`,

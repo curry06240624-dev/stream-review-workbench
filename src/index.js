@@ -516,14 +516,17 @@ async function route(request, env, db, url) {
        注意：它繞過的是「證明你是誰」，不是「你能看到什麼」——
        登入後的權限一律照 role 走，跟正常登入完全同一條路。 ── */
   /* 前端探測有沒有示範模式：GET 永遠 200，不再用 403 當訊號（會在 console 留紅字） */
-  if (p === "/api/demo-login" && m === "GET") return J({ ok: true, demo: env.DEMO_MODE === "on" });
+  /* 示範模式：可切換的身分＝資料庫裡現有的帳號（模擬資料是阿哲／小婷／阿凱，真資料換成瑋瑋公司的員工），不再寫死四個 */
+  if (p === "/api/demo-login" && m === "GET") {
+    if (env.DEMO_MODE !== "on") return J({ ok: true, demo: false });
+    const accounts = await db.all("SELECT email, name, role FROM users WHERE role IN ('admin','operator','agent') ORDER BY CASE role WHEN 'admin' THEN 0 WHEN 'operator' THEN 1 ELSE 2 END, id LIMIT 16");
+    return J({ ok: true, demo: true, accounts });
+  }
   if (p === "/api/demo-login" && m === "POST") {
     if (env.DEMO_MODE !== "on") return J({ ok: false, error: "not_found" }, 404);
     const b = await request.json().catch(() => ({}));
-    const ALLOWED = ["boss@test.local", "operator@test.local", "agent1@test.local", "agent2@test.local"];
     const email = String(b.email || "").trim().toLowerCase();
-    if (!ALLOWED.includes(email)) return J({ ok: false, error: "not_demo_account" }, 403);
-    const u = await db.first("SELECT * FROM users WHERE email = ?", email);
+    const u = await db.first("SELECT * FROM users WHERE email = ? AND role IN ('admin','operator','agent')", email);
     if (!u) return J({ ok: false, error: "no_user", message: "示範帳號還沒建立。" }, 404);
     const s = await issueSession(db, u.id);
     return J({ ok: true, user: { email: u.email, name: u.name, role: u.role } }, 200,

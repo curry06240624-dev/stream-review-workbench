@@ -89,13 +89,15 @@ function paintWho() {
   const roleLabel = { admin: "管理者", operator: "運營", agent: "業務" }[me.role] || me.role;
   w.innerHTML = `<b>${esc(me.name)}</b> · ${esc(roleLabel)}`;
   if (me.demo) {
-    w.innerHTML += `<select id="switch"><option value="">切換示範身分…</option><option value="boss@test.local">老闆（管理者）</option><option value="operator@test.local">阿哲（運營）</option><option value="agent1@test.local">小婷（業務）</option><option value="agent2@test.local">阿凱（業務）</option></select>`;
+    const RL = { admin: "管理者", operator: "運營", agent: "業務" };
+    const opts = (me.demoAccounts || []).filter((a) => a.email !== me.email).map((a) => `<option value="${esc(a.email)}">${esc(a.name)}（${esc(RL[a.role] || a.role)}）</option>`).join("");
+    w.innerHTML += `<select id="switch"><option value="">切換示範身分…</option>${opts}</select>`;
     document.getElementById("switch").onchange = (e) => e.target.value && switchUser(e.target.value);
   }
 }
 
 (async () => {
   me = await ensureLogin(); if (!me) return;
-  const d = await api("/api/demo-login"); me.demo = !!d.demo;   // GET 探測：正式環境 demo=false
+  const d = await api("/api/demo-login"); me.demo = !!d.demo; me.demoAccounts = d.accounts || [];   // GET 探測：正式環境 demo=false；示範模式回現有帳號清單
   paintWho(); setupCommandBar(); await render();
 })();
