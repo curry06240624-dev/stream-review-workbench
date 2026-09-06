@@ -19,6 +19,7 @@ import { buildCoachingPlan, computeDecisions, metricSnapshot, actionProgress } f
 import { ingestPosts, matchReport, applyReport, unapplyReport, reconcileSummary } from "./engine/reconcile.ts";
 import { parseLineExport } from "./engine/posts.ts";
 import { syncSheetDeals } from "./engine/sheetdeals.ts";
+import { vehicleKey, VANISHED_TEXT } from "./engine/csv.ts";
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS users (
@@ -265,8 +266,24 @@ export class AppDB extends DurableObject {
         inserted++;
       }
     }
+    // 車源表是「現在在庫」清單：賣掉的車會被刪掉。跟上一份比，消失的車推定已交車（車回到表上，sheetdeals 會撤銷）
+    const vanished = [];
+    if (Array.isArray(opts.prevKeys) && opts.prevKeys.length) {
+      const nowKeys = new Set(opts.vehicles.map(vehicleKey));
+      for (const k of opts.prevKeys.filter((x) => !nowKeys.has(x))) {
+        const row = await this.first(`SELECT id, brand, model, plate, stock_status FROM vehicles WHERE source = 'stock' AND stock_status IN ('in_stock','reserved')
+          AND (plate_norm = ? OR (plate_norm = '' AND LOWER(REPLACE(brand || '|' || model || '|' || COALESCE(year,'') || '|' || color, ' ', '')) = ?))`, k, k);
+        if (!row) continue;
+        await this.run("UPDATE vehicles SET stock_status = 'sold', status_text = ? WHERE id = ?", VANISHED_TEXT, row.id);
+        vanished.push({ id: row.id, plate: row.plate, name: `${row.brand} ${row.model}`, was: row.stock_status });
+      }
+    }
     const sheet = await syncSheetDeals(this, { now: opts.now });
-    return { inserted, updated, total: opts.vehicles.length, sheet_deals: sheet };
+    return { inserted, updated, total: opts.vehicles.length, sheet_deals: sheet, vanished };
+  }
+  /** 上一份處理過的車源表（不含這一份），拿來比對消失的車 */
+  async prevSheetDocLocal(currentId) {
+    return this.first("SELECT id, name, kv_key FROM documents WHERE kind = 'sheet_csv' AND status = 'parsed' AND deleted_at IS NULL AND id <> ? ORDER BY processed_at DESC, id DESC LIMIT 1", currentId);
   }
   /** 車源表 售出／收訂 → 成交／收訂中（重跑用；匯入 bundle 與上傳車源表時會自動跑） */
   async sheetDealsSyncLocal(opts) { this.bust(); return syncSheetDeals(this, { now: opts.now }); }

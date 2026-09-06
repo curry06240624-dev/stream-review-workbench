@@ -45,6 +45,11 @@ export function detectCsvKind(headers: string[]): "sheet" | "accounting" | "rost
 }
 /* 瑋瑋車源表的寫法（2026-09-06 真檔）：「調作價」＝實賣價（談完真正賣給客戶的價格，Curry 確認），在庫車也會先填；目前狀況「收訂(軒)」「送貸(軒)」「過件(安)」「扣牌中」，括號裡是業務暱稱；備註「售出 銷售獎金5000」 */
 const STATUS_MAP: Array<[RegExp, string]> = [[/已售|售出|賣出|交車/, "sold"], [/收訂|已訂|訂金|保留|預訂|送貸|過件|對保/, "reserved"], [/調車|同行|外調/, "peer"], [/在庫|現車|整備|待售|上架|扣牌/, "in_stock"]];
+/** 車源表快照比對用的鍵：有車牌用車牌，沒有就 廠牌|車型|年份|顏色（去空白、小寫）。db.js 的 SQL 端要算出一樣的東西 */
+export const vehicleKey = (v: { plate_norm: string; brand: string; model: string; year: number | null; color: string }) =>
+  v.plate_norm || `${v.brand}|${v.model}|${v.year ?? ""}|${v.color}`.replace(/\s+/g, "").toLowerCase();
+/** 車源表把賣掉的車直接刪掉：跟上一份比對，消失的車就標這個（車回到表上會撤銷） */
+export const VANISHED_TEXT = "車源表已移除（推定已交車）";
 /** 「收訂(軒)」→ 軒 */
 export const statusStaff = (s: string) => (s.match(/[（(]([^）)]{1,6})[）)]/)?.[1] ?? "").trim();
 /** 日期：2026/07/02、2026-7-2、7/2（當年）、20260702 → ISO（台灣 00:00） */

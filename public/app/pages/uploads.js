@@ -10,7 +10,10 @@ function resultText(d) {
   const r = d.result || {};
   switch (d.kind) {
     case "line_export": return r.posts == null ? (r.message || "") : `貼文 ${r.posts}：送貨囉 ${r.deal_reports ?? 0}（自動 ${r.auto ?? 0}／待確認 ${r.suggested ?? 0}／無法配對 ${r.unmatched ?? 0}）、到店 ${r.visits ?? 0}、估車 ${r.appraisals ?? 0}、重複略過 ${r.duplicates ?? 0}${r.unparsed ? `、看不懂 ${r.unparsed}` : ""}`;
-    case "sheet_csv": return r.inserted == null ? (r.message || "") : `車輛 新增 ${r.inserted}、更新 ${r.updated}${r.no_cost ? `、${r.no_cost} 台沒成本` : ""}${r.no_plate ? `、${r.no_plate} 台沒車牌` : ""}`;
+    case "sheet_csv": return r.inserted == null ? (r.message || "") : `車輛 新增 ${r.inserted}、更新 ${r.updated}${r.no_cost ? `、${r.no_cost} 台沒成本` : ""}${r.no_plate ? `、${r.no_plate} 台沒車牌` : ""}`
+      + (r.sheet_deals ? `；成交同步 新增 ${r.sheet_deals.created}／更新 ${r.sheet_deals.updated}${r.sheet_deals.removed ? `／撤銷 ${r.sheet_deals.removed}` : ""}${(r.sheet_deals.unresolved_staff || []).length ? `（業務對不到：${r.sheet_deals.unresolved_staff.join("、")}）` : ""}` : "")
+      + ((r.vanished || []).length ? `；${r.vanished.length} 台從車源表消失 → 推定已交車：${r.vanished.map((v) => v.plate || v.name).join("、")}` : "")
+      + (r.prev_sheet ? ` · 比對上一份「${r.prev_sheet}」` : " · 第一份車源表，沒有上一份可比");
     case "accounting_csv": return r.matched == null ? (r.message || "") : `正式成本對到 ${r.matched}／${r.total} 筆${r.unmatched_n ? `，${r.unmatched_n} 筆沒對到（${(r.unmatched || []).slice(0, 3).map((u) => `${u.plate} ${u.why}`).join("；")}）` : ""}`;
     case "bundle": return r.counts ? `匯入${r.reset ? "（重灌）" : ""}：${Object.entries(r.counts).map(([k, v]) => `${k} ${v}`).join("、")}` : (r.message || "");
     default: return r.message || "";

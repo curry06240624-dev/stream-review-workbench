@@ -7,7 +7,7 @@
  * 上傳者可以留備註說這是什麼。刪除只有管理者能按。
  */
 import { parseLineExport, detectKind } from "./posts.ts";
-import { csvObjects, detectCsvKind, sheetToVehicles, accountingToCosts } from "./csv.ts";
+import { csvObjects, detectCsvKind, sheetToVehicles, vehicleKey, accountingToCosts } from "./csv.ts";
 
 export type DocKind = "line_export" | "bundle" | "sheet_csv" | "accounting_csv" | "roster_csv" | "csv" | "excel" | "pdf" | "image" | "text" | "json" | "other";
 export const KIND_LABEL: Record<DocKind, string> = {
@@ -77,8 +77,15 @@ export async function processDocument(db: any, kv: KVNamespace, doc: Record<stri
     if (kind === "sheet_csv") {
       const { vehicles, skipped, headers } = sheetToVehicles(decodeText(buf));
       if (!vehicles.length) return { status: "needs_me", result: { message: "車源表沒有讀到任何一台車（欄位名對不上？）", headers } };
-      const r = await db.vehiclesUpsertLocal({ vehicles, now: opts.now });
-      return { status: "parsed", result: { ...r, skipped, headers, no_plate: vehicles.filter((v) => !v.plate_norm).length, no_cost: vehicles.filter((v) => v.cost == null).length } };
+      // 車源表是「現在在庫」清單，賣掉的車會被刪掉：拿上一份（上傳箱留著每一份）比對，消失的車推定已交車，車回到表上就撤銷
+      let prevKeys: string[] | null = null, prevName: string | null = null;
+      const prev = await db.prevSheetDocLocal(Number(doc["id"]));
+      if (prev) {
+        const pbuf = await kv.get(String(prev["kv_key"]), "arrayBuffer");
+        if (pbuf) { prevKeys = sheetToVehicles(decodeText(pbuf)).vehicles.map(vehicleKey); prevName = String(prev["name"]); }
+      }
+      const r = await db.vehiclesUpsertLocal({ vehicles, now: opts.now, prevKeys });
+      return { status: "parsed", result: { ...r, prev_sheet: prevName, skipped, headers, no_plate: vehicles.filter((v) => !v.plate_norm).length, no_cost: vehicles.filter((v) => v.cost == null).length } };
     }
     if (kind === "accounting_csv") {
       const { rows, skipped, headers } = accountingToCosts(decodeText(buf));

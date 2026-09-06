@@ -40,7 +40,8 @@ export async function syncSheetDeals(db: DbLike, opts: { now: string }): Promise
     const vid = num(v["id"]), st = str(v["stock_status"]);
     const mine: Row | null = await db.first("SELECT * FROM deals WHERE vehicle_id = ? AND source_system = 'sheet' ORDER BY id LIMIT 1", vid);
     if (st !== "sold" && st !== "reserved") {
-      if (mine && !num(mine["delivered"])) { await db.run("DELETE FROM deals WHERE id = ?", num(mine["id"])); rep.removed++; }
+      // 還沒交車就變回在庫（訂金退了／貸款沒過），或「車源表已移除」推定錯了、車又回到表上 → 那筆撤銷
+      if (mine && (!num(mine["delivered"]) || str(mine["sheet_status"]).startsWith("車源表已移除"))) { await db.run("DELETE FROM deals WHERE id = ?", num(mine["id"])); rep.removed++; }
       continue;
     }
     const other = await db.first("SELECT id FROM deals WHERE vehicle_id = ? AND status = 'sold' AND source_system <> 'sheet' LIMIT 1", vid);

@@ -31,7 +31,7 @@ export interface Analytics {
     sold: number; lost: number; revenue: number; gross_profit: number; avg_gp: number | null; gp_margin: number | null; below_cost: number;
     gp_known: number; gp_unknown: number; gp_estimate: number; peer_sold: number; revenue_known: number;
     prev_sold: number; prev_revenue: number; prev_gross_profit: number;
-    undelivered: number; undelivered_amount: number; sheet_sold: number;   // 本期成交裡還沒交車的（收訂／送貸／過件）；來自車源表的
+    undelivered: number; undelivered_amount: number; sheet_sold: number; sheet_vanished: number;   // 本期成交裡還沒交車的（收訂／送貸／過件）；來自車源表的；其中從車源表消失推定的
     lost_reasons: Array<{ reason: string; n: number }>;
     by_staff: Array<{ staff: string; sold: number; revenue: number; gross_profit: number; gp_unknown: number }>;
   };
@@ -124,11 +124,12 @@ export async function computeAnalytics(db: DbLike, opts: { to?: string; days?: n
   const sold = num(dl?.["sold"]), revenue = num(dl?.["revenue"]), gp = num(dl?.["gp"]), gpKnown = num(dl?.["gp_known"]);
   const rs = await db.first("SELECT COUNT(*) AS n, COALESCE(SUM(sale_price),0) AS amount FROM deals WHERE status = 'sold' AND delivered = 0 AND closed_at >= ? AND closed_at < ?", ...P);   // 成交但還沒交車
   const sheetSold = num((await db.first("SELECT COUNT(*) AS n FROM deals WHERE status = 'sold' AND source_system = 'sheet' AND closed_at >= ? AND closed_at < ?", ...P))?.["n"]);
+  const sheetVanished = num((await db.first("SELECT COUNT(*) AS n FROM deals WHERE status = 'sold' AND source_system = 'sheet' AND sheet_status LIKE '車源表已移除%' AND closed_at >= ? AND closed_at < ?", ...P))?.["n"]);
   const deals: Analytics["deals"] = {
     sold, lost: num(dl?.["lost"]), revenue, gross_profit: gp, avg_gp: gpKnown ? Math.round(gp / gpKnown) : null, gp_margin: rate(gp, num(dl?.["revenue_known"])), below_cost: num(dl?.["below"]),
     gp_known: gpKnown, gp_unknown: num(dl?.["gp_unknown"]), gp_estimate: num(dl?.["gp_est"]), peer_sold: num(dl?.["peer"]), revenue_known: num(dl?.["revenue_known"]),
     prev_sold: num(pdl?.["sold"]), prev_revenue: num(pdl?.["revenue"]), prev_gross_profit: num(pdl?.["gp"]),
-    undelivered: num(rs?.["n"]), undelivered_amount: num(rs?.["amount"]), sheet_sold: sheetSold,
+    undelivered: num(rs?.["n"]), undelivered_amount: num(rs?.["amount"]), sheet_sold: sheetSold, sheet_vanished: sheetVanished,
     lost_reasons: (await db.all(`SELECT lost_reason AS reason, COUNT(*) AS n FROM deals WHERE status='lost' AND closed_at >= ? AND closed_at < ? GROUP BY lost_reason ORDER BY n DESC`, ...P)).map((r) => ({ reason: String(r["reason"] || "unknown"), n: num(r["n"]) })),
     by_staff: (await db.all(`SELECT COALESCE(u.name,'未指派') AS staff, COUNT(*) AS sold, SUM(d.sale_price) AS revenue, SUM(CASE WHEN d.cost_source<>'none' THEN d.gross_profit ELSE 0 END) AS gp, SUM(CASE WHEN d.cost_source='none' THEN 1 ELSE 0 END) AS unk FROM deals d LEFT JOIN users u ON u.id = d.staff_id WHERE d.status='sold' AND d.closed_at >= ? AND d.closed_at < ? GROUP BY staff ORDER BY gp DESC`, ...P)).map((r) => ({ staff: String(r["staff"]), sold: num(r["sold"]), revenue: num(r["revenue"]), gross_profit: num(r["gp"]), gp_unknown: num(r["unk"]) })),
   };
