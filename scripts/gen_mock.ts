@@ -133,7 +133,7 @@ const CAR_SPECS: CarSpec[] = [
   { brand: "Kia",    model: "Sportage",      year: 2021, body: "suv",   price: 84,  costRatio: 0.90 },
   { brand: "Luxgen", model: "URX",           year: 2020, body: "suv",   price: 55,  costRatio: 0.80 },
 ];
-/* 車源表欄位：車牌／顏色／版本／里程／入庫時間／認證／調作價（照瑋瑋公司的 Google Sheet） */
+/* 車源表欄位：車牌／顏色／版本／里程／入庫時間／認證／調作價（照瑋瑋公司的 Google Sheet）。調作價＝實賣價：比開價低 6–18%，但一定高於成本 */
 const COLORS = ["白", "黑", "銀", "灰", "珍珠白", "藍", "紅"];
 const TRIMS = ["低階", "中階", "高階", "旗艦"];
 const CERTS = ["SAVE", "SUM", "", "第三方"];
@@ -144,14 +144,14 @@ const VEHICLES: BundleVehicle[] = CAR_SPECS.map((c, i) => ({
   list_price: c.price * 10_000, cost: Math.round(c.price * 10_000 * c.costRatio),
   stock_status: "in_stock",
   plate: platePick(), color: pick(COLORS), trim: pick(TRIMS), mileage_km: int(2, 11) * 10_000 + int(0, 999) * 10,
-  stock_in_at: iso(NOW - int(SPAN_DAYS + 10, SPAN_DAYS + 120) * D), cert: pick(CERTS), trade_price: Math.round(c.price * 10_000 * (c.costRatio + 0.03)), source: "stock", status_text: "在庫",
+  stock_in_at: iso(NOW - int(SPAN_DAYS + 10, SPAN_DAYS + 120) * D), cert: pick(CERTS), sell_price: Math.max(Math.round(c.price * 10_000 * c.costRatio * 1.04), Math.round(c.price * 10_000 * (1 - int(6, 18) / 100))), source: "stock", status_text: "在庫",
 }));
 /** 同行的車（調車）：不在車源表、沒有成本。送貨囉貼文會出現它們，這就是「同行/庫存：誠鑫」那種情況。 */
 const PEER_DEALERS = ["誠鑫", "尚億", "永達", "鑫富"];
 const PEER_CARS: BundleVehicle[] = [
-  { key: "P1", brand: "Mercedes-Benz", model: "C300", year: 2016, body_type: "sedan", list_price: 780_000, cost: null, stock_status: "peer", plate: "", color: "白", trim: "", mileage_km: 98_000, stock_in_at: null, cert: "", trade_price: null, source: "peer", peer_dealer: "誠鑫", status_text: "同行" },
-  { key: "P2", brand: "Toyota", model: "Camry", year: 2018, body_type: "sedan", list_price: 620_000, cost: null, stock_status: "peer", plate: "", color: "銀", trim: "", mileage_km: 76_000, stock_in_at: null, cert: "", trade_price: null, source: "peer", peer_dealer: "尚億", status_text: "同行" },
-  { key: "P3", brand: "Lexus", model: "RX300", year: 2019, body_type: "suv", list_price: 1_480_000, cost: null, stock_status: "peer", plate: "", color: "黑", trim: "", mileage_km: 54_000, stock_in_at: null, cert: "", trade_price: null, source: "peer", peer_dealer: "永達", status_text: "同行" },
+  { key: "P1", brand: "Mercedes-Benz", model: "C300", year: 2016, body_type: "sedan", list_price: 780_000, cost: null, stock_status: "peer", plate: "", color: "白", trim: "", mileage_km: 98_000, stock_in_at: null, cert: "", sell_price: null, source: "peer", peer_dealer: "誠鑫", status_text: "同行" },
+  { key: "P2", brand: "Toyota", model: "Camry", year: 2018, body_type: "sedan", list_price: 620_000, cost: null, stock_status: "peer", plate: "", color: "銀", trim: "", mileage_km: 76_000, stock_in_at: null, cert: "", sell_price: null, source: "peer", peer_dealer: "尚億", status_text: "同行" },
+  { key: "P3", brand: "Lexus", model: "RX300", year: 2019, body_type: "suv", list_price: 1_480_000, cost: null, stock_status: "peer", plate: "", color: "黑", trim: "", mileage_km: 54_000, stock_in_at: null, cert: "", sell_price: null, source: "peer", peer_dealer: "永達", status_text: "同行" },
 ];
 const carByTag = (tag: string) => { const idx = CAR_SPECS.map((c, i) => c.tag === tag ? i : -1).filter((i) => i >= 0); return VEHICLES[pick(idx)]!; };
 const anyCar = () => pick(VEHICLES);

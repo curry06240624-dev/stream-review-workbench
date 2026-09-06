@@ -132,7 +132,7 @@ export interface Vehicle {
   plate: string;               // 車牌號碼：成交群貼文對回車源表唯一的鍵
   plate_norm: string;          // 去掉「-」與空白、全大寫，配對用
   color: string; trim: string; mileage_km: number | null; stock_in_at: string | null; cert: string;
-  trade_price: number | null;  // 車源表「調作價」（欄位意義待瑋瑋確認）
+  sell_price: number | null;   // 車源表「調作價」＝實賣價：談完後真正賣給客戶的價格（Curry 2026-09-06 確認）；開價只是掛牌價。在庫車的估算毛利＝調作價－成本
   source: "stock" | "peer"; peer_dealer: string; status_text: string;
 }
 

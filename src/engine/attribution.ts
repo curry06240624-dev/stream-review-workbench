@@ -6,7 +6,7 @@
  *   manager       admin／operator 在結案前發過訊息
  *   handoff_from / handoff_to
  *                 assignment_log 有紀錄；沒有帳本時，對話中發言業務由 A 換成 B、A 之後不再發言、B 的第一則像交接用語
- *   reactivation  RE_ENGAGED 前 7 天內有這位員工的 FOLLOW_UP；客戶自己回來的不記功
+ *   reactivation  RE_ENGAGED 前 48 小時內有這位員工的 FOLLOW_UP；客戶自己回來的、隔一週才回的不記功
  *   chat_handler  訊息組（users.job='chat'）：線上聊天由他回、不是結案負責人。訊息組→業務的移交不算交接（那是公司的正常流程）
  *
  * 「影響」的算法（直接 vs 影響）在 staff.ts；這裡只負責把角色算對、寫進 lead_roles。
@@ -78,13 +78,13 @@ export async function rolesForLead(db: DbLike, lead: Row, users: Map<number, Use
     hits.push({ user_id: uid, role: isMgr ? "manager" : "supporting", confidence: "CONFIRMED", at: String(m["created_at"]), message_id: num(m["id"]), note: isMgr ? "主管在結案前介入對話" : "非主要業務在結案前發過實質訊息" });
   }
 
-  /* ── 回流貢獻：RE_ENGAGED 前 7 天內有這位員工的跟進 ── */
+  /* ── 回流貢獻：客戶沉默後回來，而且回來前 48 小時內有這位員工的跟進（隔一週才回的不算被叫回來，模擬資料的標準答案也是 48 小時內） ── */
   const reeng = await db.all("SELECT at FROM funnel_events WHERE lead_id = ? AND type = 'RE_ENGAGED' ORDER BY at", lid);
   for (const r of reeng) {
     const rAt = Date.parse(String(r["at"]));
     const fu = await db.first(
       `SELECT x.message_id, m.sender_user_id FROM funnel_events e JOIN evidence x ON x.event_id = e.id JOIN messages m ON m.id = x.message_id
-        WHERE e.lead_id = ? AND e.type = 'FOLLOW_UP' AND e.at < ? AND e.at >= ? ORDER BY e.at DESC LIMIT 1`, lid, r["at"], new Date(rAt - 7 * D).toISOString());
+        WHERE e.lead_id = ? AND e.type = 'FOLLOW_UP' AND e.at < ? AND e.at >= ? ORDER BY e.at DESC LIMIT 1`, lid, r["at"], new Date(rAt - 2 * D).toISOString());
     const uid = num(fu?.["sender_user_id"]);
     if (!uid) continue;
     const progressed = await db.first(`SELECT 1 FROM funnel_events WHERE lead_id = ? AND at >= ? AND type IN ('APPOINTMENT_PROPOSED','APPOINTMENT_BOOKED','STORE_VISIT','NEGOTIATION','SOLD') LIMIT 1`, lid, r["at"]);
@@ -92,7 +92,7 @@ export async function rolesForLead(db: DbLike, lead: Row, users: Map<number, Use
     const negative = /跟朋友買|買了別家|別家買|先不換|預算不夠|不用了|之後再說|不買了|算了/.test(String(back?.["text"] ?? ""));
     if (!progressed || negative) continue;                                   // 回來只是為了說不買，不算救回
     if (!hits.some((h) => h.user_id === uid && h.role === "reactivation")) {
-      hits.push({ user_id: uid, role: "reactivation", confidence: "CONFIRMED", at: String(r["at"]), message_id: num(fu!["message_id"]) || null, note: "客戶回流前 7 天內有這位員工的主動跟進" });
+      hits.push({ user_id: uid, role: "reactivation", confidence: "CONFIRMED", at: String(r["at"]), message_id: num(fu!["message_id"]) || null, note: "客戶回流前 48 小時內有這位員工的主動跟進" });
     }
   }
   return hits;

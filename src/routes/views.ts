@@ -21,7 +21,7 @@ const analytics = (db: DbLike, opts: { days: number; to?: string }) => {
 const LEAD_SELECT = `
   SELECT l.id, l.stage, l.outcome, l.opened_at, l.closed_at, l.source, l.staff_id, l.vehicle_id,
          c.id AS contact_id, c.pseudonym, c.display_name, c.grade, c.first_contact_at,
-         COALESCE(u.name,'') AS staff, COALESCE(v.brand || ' ' || v.model,'') AS vehicle, COALESCE(v.body_type,'') AS body_type, v.list_price,
+         COALESCE(u.name,'') AS staff, COALESCE(v.brand || ' ' || v.model,'') AS vehicle, COALESCE(v.body_type,'') AS body_type, v.list_price, v.sell_price,
          cv.id AS conversation_id, cv.last_message_at AS last_at, cv.unread, cv.coverage, cv.coverage_note,
          (SELECT text FROM messages m WHERE m.conversation_id = cv.id ORDER BY m.created_at DESC, m.id DESC LIMIT 1) AS last_text,
          (SELECT sender_role FROM messages m WHERE m.conversation_id = cv.id ORDER BY m.created_at DESC, m.id DESC LIMIT 1) AS last_role,
@@ -35,7 +35,7 @@ const LEAD_SELECT = `
 const shapeLead = (r: Row) => ({
   id: num(r["id"]), stage: r["stage"], outcome: r["outcome"], opened_at: r["opened_at"], closed_at: r["closed_at"], source: r["source"],
   staff_id: r["staff_id"], vehicle_id: r["vehicle_id"], contact_id: r["contact_id"], pseudonym: r["pseudonym"] || r["display_name"], display_name: r["display_name"],
-  grade: r["grade"], first_contact_at: r["first_contact_at"], staff: r["staff"], vehicle: r["vehicle"], body_type: r["body_type"], list_price: r["list_price"],
+  grade: r["grade"], first_contact_at: r["first_contact_at"], staff: r["staff"], vehicle: r["vehicle"], body_type: r["body_type"], list_price: r["list_price"], sell_price: r["sell_price"],
   conversation_id: r["conversation_id"], last_at: r["last_at"], unread: num(r["unread"]), last_text: r["last_text"], last_role: r["last_role"],
   coverage: r["coverage"] || "full", coverage_note: r["coverage_note"] || "",
   flags: { price_dropoff: !!num(r["f_price_dropoff"]), high_intent: !!num(r["f_high_intent"]), financing_unresolved: !!num(r["f_financing"]) },
@@ -149,7 +149,7 @@ export async function handleViews(url: URL, method: string, db: DbLike, me: Me):
     const from = new Date(Date.now() - days * D).toISOString();
     const rows = await db.all(`SELECT d.id, d.status, d.closed_at, d.sale_price, d.cost, d.gross_profit, d.lost_reason, d.lead_id,
         d.plate, d.deposit, d.loan_status, d.delivery_by, d.reported_by, d.source_kind, d.peer_dealer, d.cost_source, d.gp_is_estimate, d.report_id,
-        c.pseudonym, c.display_name, COALESCE(u.name,'') AS staff, COALESCE(v.brand||' '||v.model,'') AS vehicle, COALESCE(v.plate,'') AS vehicle_plate, l.opened_at
+        c.pseudonym, c.display_name, COALESCE(u.name,'') AS staff, COALESCE(v.brand||' '||v.model,'') AS vehicle, COALESCE(v.plate,'') AS vehicle_plate, v.sell_price AS vehicle_sell_price, l.opened_at
       FROM deals d JOIN contacts c ON c.id = d.contact_id LEFT JOIN users u ON u.id = d.staff_id LEFT JOIN vehicles v ON v.id = d.vehicle_id LEFT JOIN leads l ON l.id = d.lead_id
       WHERE d.closed_at >= ?${mine.replace("l.staff_id", "d.staff_id")} ORDER BY d.closed_at DESC LIMIT 200`, from);
     const shaped = rows.map((r) => ({ ...r, contact: String(r["pseudonym"] || r["display_name"]), gp_known: String(r["cost_source"] ?? "ledger") !== "none", days: r["opened_at"] ? Math.round((Date.parse(String(r["closed_at"])) - Date.parse(String(r["opened_at"]))) / D) : null }));

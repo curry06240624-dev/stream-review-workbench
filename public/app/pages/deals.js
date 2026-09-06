@@ -22,7 +22,7 @@ export async function render(el, ctx) {
     { key: "plate", label: "車號", render: (x) => (x.plate || x.vehicle_plate ? `<span class="mono" style="font-size:12px">${esc(x.plate || x.vehicle_plate)}</span>` : '<span class="faint">空白</span>') },
     { key: "source_kind", label: "來源", render: (x) => (x.source_kind === "peer" ? chip(`同行${x.peer_dealer ? " · " + esc(x.peer_dealer) : ""}`, "amber") : chip("庫存")) },
     { key: "staff", label: "業務", render: (x) => esc(x.staff || "未指派") },
-    { key: "sale_price", label: "售價", num: true, render: (x) => nt(x.sale_price) }, { key: "cost", label: "成本", num: true, render: (x) => (x.gp_known ? nt(x.cost) : '<span class="faint">—</span>') },
+    { key: "sale_price", label: "售價", num: true, render: (x) => `${nt(x.sale_price)}${x.vehicle_sell_price && x.sale_price && x.sale_price < x.vehicle_sell_price ? ` ${chip("低於調作價 " + nt(x.vehicle_sell_price), "amber")}` : ""}` }, { key: "cost", label: "成本", num: true, render: (x) => (x.gp_known ? nt(x.cost) : '<span class="faint">—</span>') },
     { key: "gross_profit", label: "毛利", num: true, render: (x) => gpCell(x), cls: (x) => (x.gp_known && x.gross_profit < 0 ? "warn" : "") },
     { key: "margin", label: "毛利率", num: true, render: (x) => (x.gp_known && x.sale_price ? pct(x.gross_profit / x.sale_price, 1) : "—") },
     { key: "loan_status", label: "貸款", render: (x) => LOAN[x.loan_status] || "—" },

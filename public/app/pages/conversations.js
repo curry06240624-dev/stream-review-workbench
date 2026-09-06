@@ -104,7 +104,7 @@ function sideHtml(d) {
 
   return `<div class="kv"><div>客戶</div><div><b>${esc(L.pseudonym)}</b> <span class="faint">${esc(L.display_name)}</span></div>
       <div>分級</div><div>${esc(L.grade)}</div><div>首次進線</div><div>${fmtD(L.first_contact_at || L.opened_at)}</div>
-      <div>車款</div><div>${esc(L.vehicle || "—")}${L.list_price ? ` <span class="faint">${wan(L.list_price)}</span>` : ""}</div>
+      <div>車款</div><div>${esc(L.vehicle || "—")}${L.list_price ? ` <span class="faint">開價 ${wan(L.list_price)}</span>` : ""}${L.sell_price ? ` <span class="faint">調作價 ${wan(L.sell_price)}</span>` : ""}</div>
       <div>業務</div><div>${esc(L.staff || "未指派")}${(d.roles || []).filter((r) => r.role !== "primary").map((r) => ` ${chip(`${roleLabel(r.role)} ${r.staff}`, r.role === "chat_handler" ? "cyan" : "")}`).join("")}</div><div>階段</div><div>${chipStage(L.stage)} ${L.outcome ? chip({ sold: "已成交", lost: "已流失" }[L.outcome], L.outcome === "sold" ? "cyan" : "") : ""}</div>
       <div>訊息涵蓋</div><div>${L.coverage && L.coverage !== "full" ? `${coverageChip(L.coverage, L.coverage_note)} <span class="faint">${esc(L.coverage_note)}</span>` : "完整"}</div></div>
     <div class="aibox linked"><h4>${chipClaim("fact")} 摘要</h4><p>${facts.join("")}</p></div>

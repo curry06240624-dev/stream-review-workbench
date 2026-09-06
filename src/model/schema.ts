@@ -382,7 +382,8 @@ const ADD_COLUMNS: ReadonlyArray<readonly [string, string, string]> = [
   ["vehicles",      "mileage_km",       "INTEGER"],
   ["vehicles",      "stock_in_at",      "TEXT"],
   ["vehicles",      "cert",             "TEXT NOT NULL DEFAULT ''"],
-  ["vehicles",      "trade_price",      "INTEGER"],
+  ["vehicles",      "trade_price",      "INTEGER"],   // 舊欄位（2026-09-06 前叫這個），留著不用
+  ["vehicles",      "sell_price",       "INTEGER"],   // 車源表「調作價」＝實賣價
   ["vehicles",      "source",           "TEXT NOT NULL DEFAULT 'stock'"],
   ["vehicles",      "peer_dealer",      "TEXT NOT NULL DEFAULT ''"],
   ["vehicles",      "status_text",      "TEXT NOT NULL DEFAULT ''"],

@@ -33,9 +33,9 @@ const pickCol = (headers: string[], names: string[]) => headers.find((h) => name
 const SHEET = {
   plate: ["車牌號碼", "車牌", "車號", "牌照"], year: ["年份", "年式", "出廠年"], brand: ["廠牌", "品牌"], model: ["車型", "車款", "車種"], color: ["顏色", "車色"],
   mileage: ["里程", "里程數", "公里數"], list_price: ["開價", "售價", "定價", "賣價"], cost: ["成本", "進價", "收車價"], status: ["目前狀況", "狀態", "狀況", "車況"],
-  stock_in: ["入庫時間", "入庫日期", "入庫", "進庫日"], cert: ["認證狀況", "認證"], trim: ["版本", "等級", "車型等級"], trade_price: ["調作價", "調車價"], note: ["備註", "待修備註"],
+  stock_in: ["入庫時間", "入庫日期", "入庫", "進庫日"], cert: ["認證狀況", "認證"], trim: ["版本", "等級", "車型等級"], sell_price: ["調作價", "實賣價", "實際售價", "底價"], note: ["備註", "待修備註"],
 };
-export type SheetVehicle = { plate: string; plate_norm: string; year: number | null; brand: string; model: string; color: string; mileage_km: number | null; list_price: number | null; cost: number | null; stock_status: string; status_text: string; stock_in_at: string | null; cert: string; trim: string; trade_price: number | null; note: string };
+export type SheetVehicle = { plate: string; plate_norm: string; year: number | null; brand: string; model: string; color: string; mileage_km: number | null; list_price: number | null; cost: number | null; stock_status: string; status_text: string; stock_in_at: string | null; cert: string; trim: string; sell_price: number | null; note: string };
 export function detectCsvKind(headers: string[]): "sheet" | "accounting" | "roster" | "unknown" {
   const has = (names: string[]) => !!pickCol(headers, names);
   if (has(SHEET.plate) && (has(["成交日", "成交日期", "交車日", "日期"]) && has(SHEET.cost)) && !has(SHEET.stock_in)) return "accounting";
@@ -43,7 +43,7 @@ export function detectCsvKind(headers: string[]): "sheet" | "accounting" | "rost
   if (has(["姓名", "名字", "員工"]) && (has(["暱稱", "LINE暱稱", "工作性質", "組別", "職務"]))) return "roster";
   return "unknown";
 }
-/* 瑋瑋車源表的寫法（2026-09-06 真檔）：目前狀況「收訂(軒)」「送貸(軒)」「過件(安)」「扣牌中」，括號裡是業務暱稱；備註「售出 銷售獎金5000」 */
+/* 瑋瑋車源表的寫法（2026-09-06 真檔）：「調作價」＝實賣價（談完真正賣給客戶的價格，Curry 確認），在庫車也會先填；目前狀況「收訂(軒)」「送貸(軒)」「過件(安)」「扣牌中」，括號裡是業務暱稱；備註「售出 銷售獎金5000」 */
 const STATUS_MAP: Array<[RegExp, string]> = [[/已售|售出|賣出|交車/, "sold"], [/收訂|已訂|訂金|保留|預訂|送貸|過件|對保/, "reserved"], [/調車|同行|外調/, "peer"], [/在庫|現車|整備|待售|上架|扣牌/, "in_stock"]];
 /** 「收訂(軒)」→ 軒 */
 export const statusStaff = (s: string) => (s.match(/[（(]([^）)]{1,6})[）)]/)?.[1] ?? "").trim();
@@ -74,7 +74,7 @@ export function sheetToVehicles(text: string): { vehicles: SheetVehicle[]; skipp
     out.push({
       plate, plate_norm: normalizePlate(plate), year, brand, model, color: get(r, "color"),
       mileage_km: mile == null ? null : (mile < 100 ? mile * 10_000 : mile), list_price: parseMoney(get(r, "list_price"), 1000), cost: parseMoney(get(r, "cost"), 1000),
-      stock_status: st, status_text: statusText, stock_in_at: parseDateTw(get(r, "stock_in")), cert: get(r, "cert"), trim: get(r, "trim"), trade_price: parseMoney(get(r, "trade_price"), 1000), note,
+      stock_status: st, status_text: statusText, stock_in_at: parseDateTw(get(r, "stock_in")), cert: get(r, "cert"), trim: get(r, "trim"), sell_price: parseMoney(get(r, "sell_price"), 1000), note,
     });
   }
   return { vehicles: out, skipped, headers };

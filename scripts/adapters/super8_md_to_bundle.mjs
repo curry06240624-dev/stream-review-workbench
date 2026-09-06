@@ -117,7 +117,7 @@ for (const [name, msgsN] of [...staffSeen.entries()].sort((a, b) => b[1] - a[1])
 let vehicles = [], sheetNote = "";
 if (csvPath) {
   const { vehicles: vs, skipped } = sheetToVehicles(readFileSync(csvPath, "utf8"));
-  vehicles = vs.map((v, i) => ({ key: v.plate_norm ? `sheet:${v.plate_norm}` : `sheet:row${i + 1}`, brand: v.brand, model: v.model, year: v.year ?? 0, body_type: "", list_price: v.list_price ?? 0, cost: v.cost, stock_status: v.stock_status, plate: v.plate, color: v.color, trim: v.trim, mileage_km: v.mileage_km, stock_in_at: v.stock_in_at, cert: v.cert, trade_price: v.trade_price, source: v.stock_status === "peer" ? "peer" : "stock", status_text: v.status_text }));
+  vehicles = vs.map((v, i) => ({ key: v.plate_norm ? `sheet:${v.plate_norm}` : `sheet:row${i + 1}`, brand: v.brand, model: v.model, year: v.year ?? 0, body_type: "", list_price: v.list_price ?? 0, cost: v.cost, stock_status: v.stock_status, plate: v.plate, color: v.color, trim: v.trim, mileage_km: v.mileage_km, stock_in_at: v.stock_in_at, cert: v.cert, sell_price: v.sell_price, source: v.stock_status === "peer" ? "peer" : "stock", status_text: v.status_text }));
   const reps = [...new Set(vs.map((v) => statusStaff(v.status_text)).filter(Boolean))];
   sheetNote = `車源表 ${vs.length} 台（略過 ${skipped} 列）；狀態括號裡的業務：${reps.join("、") || "—"}`;
 }

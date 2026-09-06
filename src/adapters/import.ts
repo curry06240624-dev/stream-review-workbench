@@ -123,10 +123,10 @@ export async function importBundle(db: DbLike, b: NormalizedBundle, opts: { rese
   for (const v of b.vehicles) {
     const costKnown = v.cost != null ? 1 : 0;
     const r = await db.run(
-      `INSERT INTO vehicles (brand, model, year, body_type, list_price, cost, cost_known, stock_status, external_id, plate, plate_norm, color, trim, mileage_km, stock_in_at, cert, trade_price, source, peer_dealer, status_text)
+      `INSERT INTO vehicles (brand, model, year, body_type, list_price, cost, cost_known, stock_status, external_id, plate, plate_norm, color, trim, mileage_km, stock_in_at, cert, sell_price, source, peer_dealer, status_text)
        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       v.brand, v.model, v.year, v.body_type, v.list_price, v.cost ?? 0, costKnown, v.stock_status, v.key,
-      v.plate ?? "", normalizePlate(v.plate), v.color ?? "", v.trim ?? "", v.mileage_km ?? null, v.stock_in_at ?? null, v.cert ?? "", v.trade_price ?? null,
+      v.plate ?? "", normalizePlate(v.plate), v.color ?? "", v.trim ?? "", v.mileage_km ?? null, v.stock_in_at ?? null, v.cert ?? "", v.sell_price ?? null,
       v.source ?? (v.stock_status === "peer" ? "peer" : "stock"), v.peer_dealer ?? "", v.status_text ?? "");
     vehId.set(v.key, r.lastRowId); bump("vehicles");
   }

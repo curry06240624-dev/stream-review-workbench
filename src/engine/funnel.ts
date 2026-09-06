@@ -199,18 +199,24 @@ export function detectEvents(ctx: Ctx, vehicles: VehicleName[], now: number): De
     }
   }
 
-  // 不活躍 / 回流
+  // 不活躍 / 回流：到店也算客戶的動作（剛來看過車的人不是「沉默」），沉默從客戶最後一則訊息或最後一次到店起算
+  const visitTimes = ctx.visits.map((v) => Date.parse(String(v["visited_at"]))).filter((t) => Number.isFinite(t));
+  const lastActivityBefore = (t: number, floor: number) => Math.max(floor, ...visitTimes.filter((v) => v > floor && v < t));
   for (let i = 1; i < cust.length; i++) {
-    const gap = cust[i]!.at - cust[i - 1]!.at;
+    const since = lastActivityBefore(cust[i]!.at, cust[i - 1]!.at);
+    const gap = cust[i]!.at - since;
     if (gap >= RULES.INACTIVE_D * D) {
-      out.push(ev("CUSTOMER_INACTIVE", cust[i - 1]!.at + RULES.INACTIVE_D * D, "CONFIRMED", "rule", { silent_days: Math.round(gap / D) }, [{ message_id: cust[i - 1]!.id, note: "此則之後客戶沉默超過 7 天" }]));
+      out.push(ev("CUSTOMER_INACTIVE", since + RULES.INACTIVE_D * D, "CONFIRMED", "rule", { silent_days: Math.round(gap / D) }, [{ message_id: cust[i - 1]!.id, note: since === cust[i - 1]!.at ? "此則之後客戶沉默超過 7 天" : "到店之後客戶沉默超過 7 天" }]));
       out.push(ev("RE_ENGAGED", cust[i]!.at, "CONFIRMED", "rule", { after_days: Math.round(gap / D) }, [{ message_id: cust[i]!.id, note: "沉默後客戶再度發訊" }]));
     }
   }
   const lastCust = cust[cust.length - 1];
   const saidLost = cust.some((m) => RE.lostCust.test(m.text));
-  if (lastCust && now - lastCust.at >= RULES.INACTIVE_D * D && outcome !== "sold" && !saidLost) {
-    out.push(ev("CUSTOMER_INACTIVE", lastCust.at + RULES.INACTIVE_D * D, "CONFIRMED", "rule", { silent_days: Math.round((now - lastCust.at) / D) }, [{ message_id: lastCust.id, note: "最後一則客戶訊息，之後沉默超過 7 天" }]));
+  if (lastCust) {
+    const since = lastActivityBefore(now, lastCust.at);
+    if (now - since >= RULES.INACTIVE_D * D && outcome !== "sold" && !saidLost) {
+      out.push(ev("CUSTOMER_INACTIVE", since + RULES.INACTIVE_D * D, "CONFIRMED", "rule", { silent_days: Math.round((now - since) / D) }, [{ message_id: lastCust.id, note: since === lastCust.at ? "最後一則客戶訊息，之後沉默超過 7 天" : "最後一次到店之後沉默超過 7 天" }]));
+    }
   }
 
   // 成交/流失：帳本優先

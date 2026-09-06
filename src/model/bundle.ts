@@ -27,7 +27,7 @@ export interface BundleVehicle {
   cost: number | null;
   stock_status: "in_stock" | "reserved" | "sold" | "peer";
   plate?: string; color?: string; trim?: string; mileage_km?: number | null; stock_in_at?: string | null; cert?: string;
-  trade_price?: number | null; source?: "stock" | "peer"; peer_dealer?: string; status_text?: string;
+  sell_price?: number | null; source?: "stock" | "peer"; peer_dealer?: string; status_text?: string;
 }
 export interface BundleCustomer {
   key: string; display_name: string; pseudonym: string; phone: string; grade: string;

@@ -48,7 +48,9 @@ export async function render(el, ctx) {
   const vehCols = [
     { key: "name", label: "車款" }, { key: "body_type", label: "車型", render: (r) => esc(bodyType(r.body_type)) }, { key: "inquiries", label: "詢問", num: true }, { key: "priced", label: "報價", num: true },
     { key: "dropped", label: "流失", num: true }, { key: "booked", label: "預約", num: true }, { key: "sold", label: "成交", num: true },
-    { key: "inquiry_to_sold", label: "詢問→成交", num: true, render: (r) => pct(r.inquiry_to_sold) }, { key: "gross_profit", label: "毛利", num: true, render: (r) => nt(r.gross_profit) },
+    { key: "inquiry_to_sold", label: "詢問→成交", num: true, render: (r) => pct(r.inquiry_to_sold) }, { key: "gross_profit", label: "成交毛利", num: true, render: (r) => nt(r.gross_profit) },
+    { key: "sell_price", label: "調作價", num: true, render: (r) => (r.sell_price ? nt(r.sell_price) : '<span class="faint">—</span>') },
+    { key: "est_gp", label: "在庫估算毛利", num: true, render: (r) => (r.est_gp == null ? '<span class="faint">—</span>' : nt(r.est_gp)), cls: (r) => (r.est_gp != null && r.est_gp < 0 ? "warn" : "") },
   ];
   const vehRows = (a.vehicles || []).slice(0, 10);
 

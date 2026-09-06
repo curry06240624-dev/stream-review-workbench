@@ -20,7 +20,7 @@
 | fin_answered | 客戶問貸款 | 回覆給了數字（頭期／月付／利率／試算）或轉專員；「問一下專員」不算 |
 | postvisit_24h | 到店沒當場買 | 到店後第一則業務訊息在 24h 內 |
 | budget_clarified / opening_question | 每個客戶 | 報價前就問預算；第一句就是問題 |
-| reactivated_by_staff | 客戶沉默 ≥7 天 | 回流前 7 天內有這位業務的跟進，且回來之後有往下走 |
+| reactivated_by_staff | 客戶沉默 ≥7 天 | 回流前 48 小時內有這位業務的跟進，且回來之後有往下走 |
 | escalated | 每個客戶 | 主管或同事介入過 |
 | discount_pct / gp_margin | 成交 | 折讓佔定價、毛利率（守住毛利） |
 

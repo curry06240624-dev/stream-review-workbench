@@ -255,12 +255,12 @@ export class AppDB extends DurableObject {
       const costKnown = v.cost == null ? 0 : 1;
       if (ex) {
         await this.run(`UPDATE vehicles SET brand = COALESCE(NULLIF(?,''), brand), model = COALESCE(NULLIF(?,''), model), year = COALESCE(?, year), color = COALESCE(NULLIF(?,''), color), mileage_km = COALESCE(?, mileage_km),
-            list_price = COALESCE(?, list_price), cost = CASE WHEN ? = 1 THEN ? ELSE cost END, cost_known = CASE WHEN ? = 1 THEN 1 ELSE cost_known END, stock_status = ?, status_text = ?, stock_in_at = COALESCE(?, stock_in_at), cert = COALESCE(NULLIF(?,''), cert), trim = COALESCE(NULLIF(?,''), trim), trade_price = COALESCE(?, trade_price), plate = COALESCE(NULLIF(?,''), plate), plate_norm = COALESCE(NULLIF(?,''), plate_norm) WHERE id = ?`,
-          v.brand, v.model, v.year, v.color, v.mileage_km, v.list_price, costKnown, v.cost ?? 0, costKnown, v.stock_status, v.status_text, v.stock_in_at, v.cert, v.trim, v.trade_price, v.plate, v.plate_norm, Number(ex.id));
+            list_price = COALESCE(?, list_price), cost = CASE WHEN ? = 1 THEN ? ELSE cost END, cost_known = CASE WHEN ? = 1 THEN 1 ELSE cost_known END, stock_status = ?, status_text = ?, stock_in_at = COALESCE(?, stock_in_at), cert = COALESCE(NULLIF(?,''), cert), trim = COALESCE(NULLIF(?,''), trim), sell_price = COALESCE(?, sell_price), plate = COALESCE(NULLIF(?,''), plate), plate_norm = COALESCE(NULLIF(?,''), plate_norm) WHERE id = ?`,
+          v.brand, v.model, v.year, v.color, v.mileage_km, v.list_price, costKnown, v.cost ?? 0, costKnown, v.stock_status, v.status_text, v.stock_in_at, v.cert, v.trim, v.sell_price, v.plate, v.plate_norm, Number(ex.id));
         updated++;
       } else {
-        await this.run(`INSERT INTO vehicles (brand, model, year, body_type, list_price, cost, cost_known, stock_status, external_id, plate, plate_norm, color, trim, mileage_km, stock_in_at, cert, trade_price, source, peer_dealer, status_text)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, v.brand || "", v.model || "", v.year, "", v.list_price ?? 0, v.cost ?? 0, costKnown, v.stock_status, `sheet:${v.plate_norm || `${v.brand}-${v.model}-${v.year ?? ""}-${v.color}`}`, v.plate, v.plate_norm, v.color, v.trim, v.mileage_km, v.stock_in_at, v.cert, v.trade_price, v.stock_status === "peer" ? "peer" : "stock", "", v.status_text);
+        await this.run(`INSERT INTO vehicles (brand, model, year, body_type, list_price, cost, cost_known, stock_status, external_id, plate, plate_norm, color, trim, mileage_km, stock_in_at, cert, sell_price, source, peer_dealer, status_text)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, v.brand || "", v.model || "", v.year, "", v.list_price ?? 0, v.cost ?? 0, costKnown, v.stock_status, `sheet:${v.plate_norm || `${v.brand}-${v.model}-${v.year ?? ""}-${v.color}`}`, v.plate, v.plate_norm, v.color, v.trim, v.mileage_km, v.stock_in_at, v.cert, v.sell_price, v.stock_status === "peer" ? "peer" : "stock", "", v.status_text);
         inserted++;
       }
     }

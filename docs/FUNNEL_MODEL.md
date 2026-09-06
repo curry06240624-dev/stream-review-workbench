@@ -25,7 +25,7 @@
 | STORE_VISIT | 到店表；文字備援：預約後業務「今天…看的／謝謝您來」 | 同上 |
 | FOLLOW_UP | 客戶沉默 ≥24h 後業務主動發訊 | CONFIRMED（detail.gap_hours） |
 | HIGH_INTENT | 客戶早期出現「這週／今天／馬上／急／現車／就想決定／要交車／老客戶」 | STRONGLY_SUGGESTED |
-| CUSTOMER_INACTIVE | 距最後一則客戶訊息 ≥7 天且未成交 | CONFIRMED（是事實） |
+| CUSTOMER_INACTIVE | 距最後一則客戶訊息 ≥7 天且未成交 | CONFIRMED（是事實） 到店也算客戶動作：沉默從最後一則客戶訊息或最後一次到店起算（2026-09-06） |
 | RE_ENGAGED | 沉默 ≥7 天後客戶再度發訊 | CONFIRMED |
 | SOLD / LOST | 成交表（ledger）；文字備援：業務「恭喜／過戶完成／交車」→SOLD、客戶「跟朋友買／買了別家／先不換／預算不夠」→LOST；**顯示名稱含「已購車」→SOLD POSSIBLE**（這是真資料的訊號） | ledger CONFIRMED，文字 STRONGLY_SUGGESTED |
 
