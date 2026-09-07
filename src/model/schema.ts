@@ -419,6 +419,10 @@ CREATE INDEX IF NOT EXISTS idx_visits_source    ON visits(source);
 CREATE INDEX IF NOT EXISTS idx_evidence_loss    ON evidence(loss_id);
 CREATE INDEX IF NOT EXISTS idx_vehicles_plate   ON vehicles(plate_norm);
 CREATE INDEX IF NOT EXISTS idx_actions_status   ON actions(status, kind);
+CREATE INDEX IF NOT EXISTS idx_fe_type_at      ON funnel_events(type, at, confidence);   -- 分析頁每種事件數本期／前期各一句（2 萬個 lead、30 萬個事件時沒這個要掃全表）
+CREATE INDEX IF NOT EXISTS idx_conv_assigned   ON conversations(assigned_to);
+CREATE INDEX IF NOT EXISTS idx_leads_opened    ON leads(opened_at);
+CREATE INDEX IF NOT EXISTS idx_leads_stage     ON leads(stage, outcome);
 `;
 
 export function migrate(sql: SqlLike): { added: string[] } {
