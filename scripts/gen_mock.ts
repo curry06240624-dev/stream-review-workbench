@@ -31,7 +31,7 @@ const chance = (p: number) => rnd() < p;
 
 /* ── 時間 ─────────────────────────────────────────────── */
 const MIN = 60_000, H = 60 * MIN, D = 24 * H, TZ = 8 * H;
-const NOW = Date.parse("2026-09-04T12:00:00Z");
+const NOW = Date.parse(process.env["MOCK_NOW"] || "2026-09-04T12:00:00Z");   // MOCK_NOW 可改基準日（給外人試的模擬站要「以今天為準」）
 const SPAN_DAYS = 120;                                          // 四個月歷史：30 天窗口有前期可比、每人樣本才夠
 const iso = (t: number) => new Date(t).toISOString();
 const localHour = (t: number) => new Date(t + TZ).getUTCHours();
@@ -594,9 +594,10 @@ const bundle: NormalizedBundle = {
   teams: ["管理", "業務一組", "業務二組", "訊息組"], staff: STAFF, vehicles: [...VEHICLES, ...PEER_CARS],
   customers, leads, conversations, appointments, visits, deals, assignments, deal_reports: dealReports, appraisals,
 };
-mkdirSync("data/mock", { recursive: true });
-writeFileSync("data/mock/bundle.json", JSON.stringify(bundle, null, 1));
-writeFileSync("data/mock/truth.json", JSON.stringify(truth, null, 1));
+const OUT = process.env["MOCK_OUT"] || "data/mock";   // MOCK_OUT 換輸出資料夾（門檻用的 data/mock 不要被蓋掉）
+mkdirSync(OUT, { recursive: true });
+writeFileSync(`${OUT}/bundle.json`, JSON.stringify(bundle, null, 1));
+writeFileSync(`${OUT}/truth.json`, JSON.stringify(truth, null, 1));
 
 const msgs = conversations.reduce((a, c) => a + c.messages.length, 0);
 const sold = deals.filter((d) => d.status === "sold"), lost = deals.filter((d) => d.status === "lost");

@@ -2,3 +2,4 @@
 .wrangler/
 data/real/
 node_modules/
+data/mock_demo/
