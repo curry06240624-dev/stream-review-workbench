@@ -32,11 +32,12 @@ const RE = {
   loanSent:   /送貸|進件|送件|對保|已送|送銀行/,
 };
 const NOT_TYPED = new Set(["menu", "image", "video", "sticker", "audio", "file", "location"]);
+const MENU_LIKE = /^[^\u4e00-\u9fffA-Za-z0-9]*(?:回選單|一年加油金|瑋瑋中古車品牌理念|我要諮詢哪裡瑕疵|貸款|售後保固|想了解月繳款|線上車庫|本週新進車款|出清專區|國產車|進口車|露營車|[1-4])\s*$/;   // 匯出裡沒標成選單的按鈕文字（跟 funnel.ts 同一份）
 
 export interface GradeOut { grade: Grade; reason: string; tags: string[] }
 
 export function gradeOf(msgs: Array<{ role: string; type: string; text: string }>, events: string[], hasDeal: boolean, hasVehicle: boolean): GradeOut {
-  const cust = msgs.filter((m) => m.role === "customer" && !NOT_TYPED.has(m.type) && !m.text.startsWith("["));
+  const cust = msgs.filter((m) => m.role === "customer" && !NOT_TYPED.has(m.type) && !m.text.startsWith("[") && !MENU_LIKE.test(m.text));
   const staff = msgs.filter((m) => m.role === "staff");
   const custText = cust.map((m) => m.text).join("\n"), humanText = [...cust, ...staff].map((m) => m.text).join("\n");
   const human = cust.length >= 1 && staff.length >= 1;

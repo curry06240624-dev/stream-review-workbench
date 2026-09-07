@@ -73,7 +73,8 @@ export async function computeAnalytics(db: DbLike, opts: { to?: string; days?: n
   const prev_leads = num((await db.first("SELECT COUNT(*) AS n FROM leads WHERE opened_at >= ? AND opened_at < ?", ...Q))?.["n"]);
   // 新進線裡「客戶自己打過字」的（只按選單／貼圖的不算）：瑋瑋的人講的「進線」多半是這個；兩個數字都給
   const typedQ = `SELECT COUNT(*) AS n FROM leads l WHERE l.opened_at >= ? AND l.opened_at < ? AND EXISTS (SELECT 1 FROM messages m JOIN conversations cv ON cv.id = m.conversation_id
-      WHERE cv.lead_id = l.id AND m.sender_role = 'customer' AND COALESCE(m.msg_type,'text') NOT IN ('menu','sticker','image','video','audio','file','location'))`;
+      WHERE cv.lead_id = l.id AND m.sender_role = 'customer' AND COALESCE(m.msg_type,'text') NOT IN ('menu','sticker','image','video','audio','file','location')
+        AND m.text NOT IN ('回選單','一年加油金','瑋瑋中古車品牌理念','我要諮詢哪裡瑕疵','貸款','售後保固','想了解月繳款','線上車庫','❤️國產車','❤️進口車','🚎露營車','1','2','3','4'))`;   // 沒標成選單的按鈕文字（跟 funnel.ts menuLike 同一份）
   const typed_leads = num((await db.first(typedQ, ...P))?.["n"]), prev_typed_leads = num((await db.first(typedQ, ...Q))?.["n"]);
   const stages = (await db.all("SELECT stage, COUNT(*) AS n FROM leads GROUP BY stage")).map((r) => ({ stage: String(r["stage"]), n: num(r["n"]) }));
 
