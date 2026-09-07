@@ -88,7 +88,7 @@ export type InsightKind =
 
 export type ActionStatus = "proposed" | "approved" | "dismissed" | "done";
 
-export type SourceSystem = "mock" | "super8_browser" | "super8_export" | "sheet" | "api" | "line_export";
+export type SourceSystem = "mock" | "super8_browser" | "super8_export" | "sheet" | "api" | "line_export" | "line_oa_export";
 
 /* ── 實體 ─────────────────────────────────────────────── */
 

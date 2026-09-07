@@ -16,6 +16,17 @@ import { handleViews } from "./routes/views.ts";
 import { answer as askAnswer } from "./engine/ask.ts";
 import { detectDocKind, processDocument, checklist, KIND_LABEL, AUTO_KINDS, PROCESSABLE, MAX_FILE_BYTES } from "./engine/documents.ts";
 
+/** 大量 lead 的分批：body 帶 { batch, cursor } 就依 lead id 往後掃一批（正式站一個請求的 CPU 有上限，2 萬個 lead 要切著跑）；帶 lead_ids 就只跑那些；都沒有＝全部 */
+async function batchLeadIds(db, b) {
+  if (Array.isArray(b.lead_ids)) return { leadIds: b.lead_ids.map(Number), next: null, done: true, empty: !b.lead_ids.length };
+  if (!b.batch) return { leadIds: undefined, next: null, done: true, empty: false };
+  const n = Math.min(5000, Math.max(1, Number(b.batch)));
+  const rows = await db.all("SELECT id FROM leads WHERE id > ? ORDER BY id LIMIT ?", Number(b.cursor || 0), n);
+  const ids = rows.map((r) => Number(r.id));
+  return { leadIds: ids, next: ids.length ? ids[ids.length - 1] : null, done: ids.length < n, empty: !ids.length };
+}
+
+
 export { AppDB };
 
 const J = (o, s = 200, headers = {}) => new Response(JSON.stringify(o), {
@@ -73,8 +84,9 @@ async function route(request, env, db, url) {
     if (!me) return J({ ok: false, error: "not_logged_in" }, 401);
     if (me.role !== "admin") return J({ ok: false, error: "forbidden" }, 403);
     const b = await request.json().catch(() => ({}));
-    const r = await db.analyzeLocal({ now: b.now || now(), leadIds: Array.isArray(b.lead_ids) ? b.lead_ids.map(Number) : undefined });
-    return J({ ok: true, ...r });
+    const sel = await batchLeadIds(db, b); if (sel.empty) return J({ ok: true, leads: 0, next_cursor: null, done: true });
+    const r = await db.analyzeLocal({ now: b.now || now(), leadIds: sel.leadIds });
+    return J({ ok: true, ...r, leads: sel.leadIds ? sel.leadIds.length : r.roles?.leads, next_cursor: sel.next, done: sel.done });
   }
   if (p === "/api/admin/analyze/dump" && m === "GET") {
     const me = await currentUser(request, db);
@@ -89,8 +101,9 @@ async function route(request, env, db, url) {
     if (me.role !== "admin") return J({ ok: false, error: "forbidden" }, 403);
     const b = await request.json().catch(() => ({}));
     const t0 = Date.now();
-    const r = await db.funnelLocal({ now: b.now || now(), leadIds: Array.isArray(b.lead_ids) ? b.lead_ids.map(Number) : undefined });
-    return J({ ok: true, ...r, ms: Date.now() - t0 });
+    const sel = await batchLeadIds(db, b); if (sel.empty) return J({ ok: true, leads: 0, next_cursor: null, done: true, ms: 0 });
+    const r = await db.funnelLocal({ now: b.now || now(), leadIds: sel.leadIds });
+    return J({ ok: true, ...r, next_cursor: sel.next, done: sel.done, ms: Date.now() - t0 });
   }
   if (p === "/api/admin/funnel/events" && m === "GET") {
     const me = await currentUser(request, db);

@@ -17,7 +17,7 @@ const isIso = (s) => typeof s === "string" && !Number.isNaN(Date.parse(s));
 const arr = (k, required = true) => { const v = b[k]; if (v === undefined) { if (required) err(`缺 ${k} 陣列`); return []; } if (!Array.isArray(v)) { err(`${k} 要是陣列`); return []; } return v; };
 
 /* ── 頂層 ── */
-const SYSTEMS = ["mock", "super8_browser", "super8_export", "sheet", "api", "line_export"];
+const SYSTEMS = ["mock", "super8_browser", "super8_export", "sheet", "api", "line_export", "line_oa_export"];
 if (!SYSTEMS.includes(b.source_system)) err(`source_system 要是 ${SYSTEMS.join("|")}，現在是 ${JSON.stringify(b.source_system)}`);
 if (!isIso(b.generated_at)) err("generated_at 要是 ISO 時間");
 const teams = new Set(arr("teams"));

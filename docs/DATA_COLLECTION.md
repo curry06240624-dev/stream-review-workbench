@@ -150,3 +150,24 @@ POST /api/admin/funnel/run  →  POST /api/admin/analyze  →  POST /api/insight
 
 「目前狀況」欄寫 `收訂(軒)`／`送貸(軒)`／`過件(安)` 就算成交（標「未交車」），備註寫「售出」＝已交車；售價用調作價（沒填用開價）。
 所以請訊息組維持這個寫法：括號裡放業務暱稱、交車後把備註改成「售出」（或狀態寫 已售）。詳見 `DATA_FLOW.md`「車源表 → 成交／收訂中」。
+
+## LINE 官方帳號後台匯出（2026-09-06 拿到，全量）
+
+LINE Official Account Manager › 聊天 › 匯出 → zip，一段對話一個 CSV（54,497 個檔、441 MB、547 萬則、2024-01 起）。
+格式：前三行 Account name／Time zone,'+09:00'／Downloaded on，表頭 `Sender type,Sender name,Date,Time,Message`，訊息可多行。
+**時間是 +09:00（日本），不是台灣**，轉的時候要減一小時。
+
+誰在說話（Sender type / Sender name）：
+- `User`＝客戶。179 萬則裡 63 萬則是按選單（線上車庫／🚘國產／🚓熱銷車款…）→ `msg_type='menu'`。
+- `Account / Auto-response`＝加好友自動回覆 → bot。
+- `Account / Unknown`＝透過 Messaging API 送的（Super 8）：機器人車卡、群發、**還有 Super 8 客服打的字**（API 不帶人名）→
+  同一分鐘同一段文字出現在 ≥50 段＝群發（bot）；同一段文字在 ≥30 段出現過＝模板（bot）；其餘＝客服（staff，人名未知 → 「Super 8 客服（未署名）」）。
+- `Account / 人名`＝直接在 LINE 後台打字的人（陳昱孝 26 萬則多在 2024–2025；2026 年幾乎沒人用後台，都走 Super 8）。
+  後台使用者：張、Ash、W ♡、歆語❁、00、阿軒、SHINN、軍、謝、L🌵、Y.T Lin、侑、奕鴻、黎、綠化。**阿軒 很可能就是車源表的「軒」**（先當暱稱對起來，待確認）。
+- 媒體只有佔位：「您收到一則影片訊息」「You sent a photo.」→ 只留類型。
+
+轉檔：`py scripts/adapters/line_oa_csv_to_bundles.py <解壓資料夾> <輸出資料夾> --since 2026-03-10 --chunk 500`
+→ `part-001.json…`（每批 500 段）＋ `oa.map.json`（客戶#NNNNN ↔ 顯示名稱，只留本機）。
+匯入：`node scripts/import_parts.mjs <輸出資料夾> <url> --reset`；分析：`node scripts/run_pipeline.mjs <url> --batch=800`。
+範圍：最後一則客戶訊息在 180 天內的 22,323 段（281 萬則）。全量 54k 段要的話把 --since 拿掉，匯入時間×2。
+限制：2026 年的客服回覆幾乎全是「未署名」，**員工效能要靠 Super 8 全量匯出（帶客服名）才算得出來**；跟 Super 8 那 40 段對回 16 段（名字唯一才對）。
