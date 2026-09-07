@@ -36,6 +36,7 @@ await batches("/api/admin/analyze", "分析");
 const sd = await api("/api/admin/sheet-deals/sync", {}); console.log("車源表成交同步：", JSON.stringify(sd));
 if (!NO_INS) { const i = await api("/api/insights/run", { days: DAYS }); console.log("洞察＋簡報：", JSON.stringify({ ok: i.ok, persisted: i.persisted, narrate: i.narrate, brief: i.brief, ms: i.ms, err: i.body })); }
 const a = await api(`/api/analytics?days=${DAYS}`);
+for (const d of [7, 14, 30]) if (d !== DAYS) await api(`/api/analytics?days=${d}`);   // 暖快取：第一次算要好幾秒，老闆打開就直接有
 if (a.ok) {
   console.log("階段：", JSON.stringify(a.funnel?.stages));
   console.log(`本期 leads ${a.funnel?.leads}（前期 ${a.funnel?.prev_leads}）；事件：`, JSON.stringify(a.funnel?.events));

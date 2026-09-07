@@ -44,8 +44,9 @@ const RE = {
   numWan:     /(\d{1,3}(?:\.\d)?)\s*萬|開\s*(\d{2,3}(?:\.\d)?)(?!\d)/,
   cardPrice:  /開價\s*\$?\s*([\d,]{5,9})/,
   cardClick:  /想立即知道|我要了解|我想了解/,
-  objection:  /太貴|貴了|超出預算|太超出|沒那麼多|預算只有|有點高|不用這麼貴|(?:再|能不能|可以|可不可以|有沒有|算)(?:更|比較|再)?便宜|便宜(?:一點|一些|點|些)|(?:萬|元)?\s*以內的|以內的話|預算.{0,6}以內/,   // 「想買便宜的代步車」「最便宜多少」是需求不是異議，只認討價的講法
+  objection:  /太貴|貴了|超出預算|太超出|沒那麼多|預算只有|(?:價格|價錢|總價|月繳|月付|報價|這樣|這個)\s*(?:有點|太)高|有點貴|不用這麼貴|(?:再|能不能|可以|可不可以|有沒有|算)(?:更|比較|再)?便宜|便宜(?:一點|一些|點|些)|(?<![\d.萬里程跑])\d{2,3}\s*萬?\s*以內的(?!\s*(?:里程|公里|km))|預算.{0,6}以內/,   // 「里程 10 萬以內的」「排氣量 2.0 以內」「這里程有點高」不是價格異議   // 「想買便宜的代步車」「最便宜多少」是需求不是異議，只認討價的講法
   counter:    /(\d{2,3})\s*萬?\s*(可以嗎|我就簽|成交|就訂|好嗎)|含過戶\s*\d{2,3}|再少一點.*(馬上|就)訂|好啦.*\d+.*成交/,
+  counterNot: /\d{1,2}[:：]\d{2}|\d+\s*點(?!\s*(?:多|萬))|(?<![\d,])\d{4,}\s*(?:可以嗎|好嗎)/,   // 「16:30 可以嗎」是約時間、「5000 可以嗎」是訂金，不是出價
   financing:  /全額貸|利率|頭期|月付|月繳|自備款|自備|分期|信用|車貸|貸款.*(嗎|多少|怎麼|幾成|過)|貸款過嗎/,
   finOk:      /%|頭期\s*\d|月付大概|月繳大概|月繳.*\d|試算|貸款專員|沒問題|可以喔|利率|全額貸|一萬多|萬多/,
   finWeak:    /再問|再確認|問一下|應該可以|看個人條件/,
@@ -58,13 +59,15 @@ const RE = {
   noShowStaff:/沒關係.*(改約|什麼時候)|留到週末|有空跟我說|那改約/,
   schedInText:/(\d{1,2})\/(\d{1,2})\s*(\d{1,2}):(\d{2})/,
   visitStaff: /今天.*(看的|看車|賞車)|謝謝您來|今天看的|今天來|剛剛來|來過了/,
-  highIntent: /(?<![不沒別無])急(?!缺)|就想決定|要交車|沒問題就訂|老客戶|這週就|這個月要|有現車(就|我就)|定下來|跟你買過|買過.*想換|現金總價|月底前|這幾天要/,   // 光問「有現車嗎」不算急迫；「不急」「沒急」不算
-  soldStaff:  /已交車|交車完成|交車愉快|恭喜(?:您|你)?(?:牽|交車|入手|買到|成交)|已經?過戶完成|過戶完成(?!後|前|就|才|再)|(?:今天|昨天|剛剛)(?:順利)?交車(?!前)/,   // 只認過去式；「就可以交車了」「等交車了」「交車了嗎」全是未來式或問句   // 真資料的「交車」多半是「交車前會檢查」這種未來式，不算；「恭喜」單獨出現另外再擋（見 soldStaffNot）
-  soldStaffNot: /交車前|到交車|交車流程|交車時|交車的|交車那|交車後|可以交車|就交車|才交車|等交車|交車了嗎|會交車|再交車|要交車|預計|希望|恭喜(?:你|您)?(?:呀|啊)?[，,]?\s*(?:我|那|這|但)/,
+  highIntent: /(?<![不沒別無著用])急(?!缺)|就想決定|要交車|沒問題就訂|老客戶|這週就|這個月要|有現車(就|我就)|定下來|跟你買過|買過.*想換|現金總價|月底前|這幾天要/,   // 光問「有現車嗎」不算急迫；「不急」「不著急」「不用急」不算（另見 highIntentNot）
+  highIntentNot: /不著急|不用急|沒有很急|沒那麼急|不是很急|沒有急|不急|別急|不趕|慢慢/,
+  soldStaff:  /已交車|交車完成|交車愉快|恭喜(?:您|你)?(?:牽|交車|入手|買到|成交)|已經?過戶完成|過戶完成(?!後|前|就|才|再|是|幾|要)|(?:今天|昨天|剛剛)(?:順利)?交車(?!前)/,   // 只認過去式；「就可以交車了」「等交車了」「交車了嗎」全是未來式或問句   // 真資料的「交車」多半是「交車前會檢查」這種未來式，不算；「恭喜」單獨出現另外再擋（見 soldStaffNot）
+  soldStaffNot: /交車前|到交車|交車流程|交車時|交車的|交車那|交車後|可以交車|就交車|才交車|等交車|交車了嗎|會交車|再交車|要交車|預計|希望|要先看|幾點|恭喜(?:你|您)?(?:呀|啊)?[，,]?\s*(?:我|那|這|但)/,
   lostCust:   /跟朋友買|買了別家|先不換|預算不夠|不用了|之後再說|不好意思.*買了|已經買了|買好了/,
   laterPositiveCust: /成交|下訂|想看車|可以來看|我想看|過去看|考慮好了|過去看看/,
 };
 
+const isCounter = (t: string) => RE.counter.test(t) && !RE.counterNot.test(t);
 const median = (xs: number[]) => { if (!xs.length) return 0; const s = [...xs].sort((a, b) => a - b); const m = Math.floor(s.length / 2); return s.length % 2 ? s[m]! : (s[m - 1]! + s[m]!) / 2; };
 const ev = (type: FunnelEventType, at: number, confidence: Confidence, source: EventSource, detail: Record<string, unknown>, evidence: Detected["evidence"]): Detected => ({ type, at, confidence, source, detail, evidence });
 const nearest = (msgs: Msg[], t: number): Msg | undefined => msgs.reduce<Msg | undefined>((best, m) => (!best || Math.abs(m.at - t) < Math.abs(best.at - t) ? m : best), undefined);
@@ -104,7 +107,7 @@ export function detectEvents(ctx: Ctx, vehicles: VehicleName[], now: number): De
   if (c2.length >= 2 && s1.length >= 1) out.push(ev("ACTIVE_DISCUSSION", c2[1]!.at, "CONFIRMED", "rule", { customer_msgs_48h: c2.length }, [{ message_id: c2[1]!.id, note: "48 小時內客戶至少兩則、業務至少一則" }]));
 
   // HIGH_INTENT（前四則客戶訊息：需求描述常排第二則，急迫語排第三則）
-  const hi = cust.slice(0, 4).find((m) => RE.highIntent.test(m.text));
+  const hi = cust.slice(0, 4).find((m) => RE.highIntent.test(m.text) && !RE.highIntentNot.test(m.text));
   if (hi) out.push(ev("HIGH_INTENT", hi.at, "STRONGLY_SUGGESTED", "rule", { phrase: hi.text.match(RE.highIntent)?.[0] }, [{ message_id: hi.id, note: "客戶早期出現急迫用語" }]));
 
   // PRICE_MENTIONED：業務報價，或機器人車卡有開價且客戶按了「我要了解」（10 分鐘內）
@@ -123,9 +126,9 @@ export function detectEvents(ctx: Ctx, vehicles: VehicleName[], now: number): De
     const wan = cardWan ?? (nm ? Number(nm[1] ?? nm[2]) || null : null);
     out.push(ev("PRICE_MENTIONED", priceMsg.at, priceConf, "rule", { price_wan: wan }, [{ message_id: priceMsg.id, note: priceNote }]));
     const custAfter = cust.filter((m) => m.at > priceMsg.at);
-    objectionMsg = custAfter.find((m) => RE.objection.test(m.text) && !RE.counter.test(m.text));
+    objectionMsg = custAfter.find((m) => RE.objection.test(m.text) && !isCounter(m.text));
     if (objectionMsg) out.push(ev("PRICE_OBJECTION", objectionMsg.at, "CONFIRMED", "rule", {}, [{ message_id: priceMsg.id, note: "報價" }, { message_id: objectionMsg.id, note: "客戶對價格表達異議、沒有出價" }]));
-    negMsg = custAfter.find((m) => RE.counter.test(m.text));
+    negMsg = custAfter.find((m) => isCounter(m.text));
     if (negMsg) out.push(ev("NEGOTIATION", negMsg.at, "CONFIRMED", "rule", { counter_wan: Number(negMsg.text.match(RE.numWan)?.[1] ?? 0) || null }, [{ message_id: negMsg.id, note: "客戶出價" }]));
   }
 

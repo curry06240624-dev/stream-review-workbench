@@ -147,14 +147,18 @@ export async function computeAnalytics(db: DbLike, opts: { to?: string; days?: n
       (SELECT COUNT(*) FROM funnel_events e JOIN leads l ON l.id = e.lead_id WHERE l.staff_id = u.id AND e.type='FOLLOW_UP') AS followups
     FROM users u LEFT JOIN teams t ON t.id = u.team_id WHERE u.role = 'agent' OR u.job IN ('chat','sales','both') ORDER BY gp DESC`);
   // 首次回覆時間中位數：客戶第一則自己打的字（按選單不算）→ 該員第一則；超過 7 天才回的不算回覆（真資料有隔一年才回的，跟 behavior.ts 同一條規則）
-  const staff: Analytics["staff"] = [];
-  for (const r of staffRows) {
-    const lat = (await db.all(`
-      SELECT (julianday(s.created_at) - julianday(c.created_at)) * 1440 AS mins
+  // 一次查全部再在 JS 分組（一人一句時 27 個員工 × 2 萬段對話要 10 秒）
+  const latRows = await db.all(`
+      SELECT cv.assigned_to AS uid, (julianday(s.created_at) - julianday(c.created_at)) * 1440 AS mins
         FROM conversations cv
         JOIN messages c ON c.id = (SELECT id FROM messages WHERE conversation_id = cv.id AND sender_role='customer' AND COALESCE(msg_type,'') <> 'menu' ORDER BY created_at LIMIT 1)
         JOIN messages s ON s.id = (SELECT id FROM messages WHERE conversation_id = cv.id AND sender_role='staff' AND created_at > c.created_at ORDER BY created_at LIMIT 1)
-       WHERE cv.assigned_to = ? AND (julianday(s.created_at) - julianday(c.created_at)) <= 7`, r["id"])).map((x) => num(x["mins"])).sort((a, b) => a - b);
+       WHERE cv.assigned_to IS NOT NULL AND (julianday(s.created_at) - julianday(c.created_at)) <= 7`);
+  const latBy = new Map<number, number[]>();
+  for (const x of latRows) { const u = num(x["uid"]); if (!latBy.has(u)) latBy.set(u, []); latBy.get(u)!.push(num(x["mins"])); }
+  const staff: Analytics["staff"] = [];
+  for (const r of staffRows) {
+    const lat = (latBy.get(num(r["id"])) ?? []).sort((a, b) => a - b);
     const med = lat.length ? lat[Math.floor(lat.length / 2)]! : null;
     staff.push({ id: num(r["id"]), name: String(r["name"]), team: String(r["team"]), leads: num(r["leads"]), priced: num(r["priced"]), dropped: num(r["dropped"]), booked: num(r["booked"]), sold: num(r["sold"]), revenue: num(r["revenue"]), gross_profit: num(r["gp"]), median_first_response_min: med === null ? null : Math.round(med), followups: num(r["followups"]) });
   }
