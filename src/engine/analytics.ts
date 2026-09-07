@@ -199,9 +199,10 @@ export async function computeAnalytics(db: DbLike, opts: { to?: string; days?: n
 
   /* ── SABC（系統推算）：未結案客戶的現況、本期新進線的分布、結果標籤 ── */
   const gOpen: Record<string, number> = {}, gPeriod: Record<string, number> = {}, gTags: Record<string, number> = {};
-  for (const r of await db.all("SELECT grade_auto AS g, COUNT(*) AS n FROM leads WHERE outcome = '' AND grade_auto <> '' GROUP BY grade_auto")) gOpen[String(r["g"])] = num(r["n"]);
+  const activeSince = iso(toT - 30 * D);   // 「現況」只算近 30 天有訊息的未結案客戶，不然舊資料補進來全是幾萬個沉睡的 C
+  for (const r of await db.all("SELECT l.grade_auto AS g, COUNT(*) AS n FROM leads l JOIN conversations cv ON cv.lead_id = l.id WHERE l.outcome = '' AND l.grade_auto <> '' AND cv.last_message_at >= ? GROUP BY l.grade_auto", activeSince)) gOpen[String(r["g"])] = num(r["n"]);
   for (const r of await db.all("SELECT grade_auto AS g, COUNT(*) AS n FROM leads WHERE opened_at >= ? AND opened_at < ? AND grade_auto <> '' GROUP BY grade_auto", ...P)) gPeriod[String(r["g"])] = num(r["n"]);
-  for (const r of await db.all("SELECT result_tag AS t, COUNT(*) AS n FROM leads WHERE outcome = '' AND result_tag <> '' GROUP BY result_tag")) for (const t of String(r["t"]).split("、")) if (t) gTags[t] = (gTags[t] ?? 0) + num(r["n"]);
+  for (const r of await db.all("SELECT l.result_tag AS t, COUNT(*) AS n FROM leads l JOIN conversations cv ON cv.lead_id = l.id WHERE l.outcome = '' AND l.result_tag <> '' AND cv.last_message_at >= ? GROUP BY l.result_tag", activeSince)) for (const t of String(r["t"]).split("、")) if (t) gTags[t] = (gTags[t] ?? 0) + num(r["n"]);
   const grades: Analytics["grades"] = { open: gOpen, period: gPeriod, long_cycle: gTags["長週期"] ?? 0, tags: gTags };
   return { period, prev, funnel: { events, prev_events, leads, prev_leads, stages }, conversion, price_dropoff, appointments, visits, deals, staff, vehicles, attention, grades };
 }

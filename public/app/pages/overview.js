@@ -66,7 +66,7 @@ export async function render(el, ctx) {
     <section>${insights.length ? raw(`<div class="cards">${insights.map((i) => insightCard(i)).join("")}</div>`) : raw('<div class="panel empty">目前沒有成立的洞察。按「重新分析」或匯入資料。</div>')}</section>
 
     <section class="panel"><h3>漏斗快照 <span class="sp"></span><a href="/funnel" data-link style="font-weight:400;letter-spacing:0">完整漏斗 ›</a></h3>${raw(funnelStrip(stages, { slim: true, bottleneck }))}</section>
-    <section class="panel"><h3>SABC 分級 <span class="faint" style="letter-spacing:0;font-weight:400">系統推算 · 未結案客戶現況 · 括號＝本期新進線</span><span class="sp"></span><a href="/conversations?outcome=open&grade=S" data-link style="font-weight:400;letter-spacing:0">看 S 級 ›</a></h3>
+    <section class="panel"><h3>SABC 分級 <span class="faint" style="letter-spacing:0;font-weight:400">系統推算 · 近 30 天有訊息的未結案客戶 · 小字＝本期新進線</span><span class="sp"></span><a href="/conversations?outcome=open&grade=S" data-link style="font-weight:400;letter-spacing:0">看 S 級 ›</a></h3>
       <div class="stats">${raw(["S", "A", "B", "C"].map((g) => stat(GRADE[g], num(a.grades?.open?.[g] || 0), `<a href="/conversations?outcome=open&grade=${g}" data-link>本期新進 ${num(a.grades?.period?.[g] || 0)} ›</a>`, g === "S" ? "warn" : "")).join(""))}
       ${raw(stat("長週期", num(a.grades?.long_cycle || 0), `<a href="/conversations?outcome=open&tag=%E9%95%B7%E9%80%B1%E6%9C%9F" data-link>晚點才買，要設回追日 ›</a>`))}
       ${raw(stat("已送貸／未過件", `${num(a.grades?.tags?.["已送貸"] || 0)} / ${num(a.grades?.tags?.["未過件"] || 0)}`, `<span class="faint">結果標籤，跟分級分開</span>`))}</div></section>
