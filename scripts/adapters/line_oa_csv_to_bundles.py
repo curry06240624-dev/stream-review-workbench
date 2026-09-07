@@ -97,8 +97,10 @@ for fn in files:
     if lu: last_user[fn] = lu
 print(f"第一遍 {time.time()-t0:.0f}s：模板文字 {sum(1 for v in tpl.values() if v >= 30)}、群發鍵 {sum(1 for v in bc.values() if v >= 50)}、後台打字的人 {len(named)}")
 
+KNOWN_BUTTONS = {"回選單", "一年加油金", "瑋瑋中古車品牌理念", "我要諮詢哪裡瑕疵", "貸款", "售後保固", "想了解月繳款", "線上車庫", "本週新進車款", "出清專區", "國產車", "進口車", "露營車", "1", "2", "3", "4"}   # 2026-09-07：沒 emoji 開頭所以沒被抓成選單的按鈕文字（跟 src/engine/funnel.ts menuLike 同一份）
 def is_menu(text):
     s = strip_menu(text)
+    if s in KNOWN_BUTTONS or text.strip() in KNOWN_BUTTONS: return True
     if not s or len(s) > 24: return False
     if s in MENU_SET or s.startswith(MENU_PREFIX): return True
     return len(s) >= 4 and menu_ct.get(s, 0) >= 200 and text.strip() != s   # 資料裡常見、而且原文帶 emoji 開頭（純文字短句如「好」「了解」不算）
