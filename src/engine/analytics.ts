@@ -39,6 +39,7 @@ export interface Analytics {
   vehicles: Array<{ id: number; name: string; body_type: string; inquiries: number; priced: number; dropped: number; booked: number; sold: number; inquiry_to_sold: number | null; gross_profit: number; list_price: number; sell_price: number | null; est_gp: number | null; stock_status: string }>;
   grades: { open: Record<string, number>; period: Record<string, number>; long_cycle: number; tags: Record<string, number> };   // SABC 系統推算：未結案客戶現況／本期新進線分布
   attention: Array<{ kind: string; lead_id: number; contact: string; staff: string; vehicle: string; since: string; reason: string }>;
+  timings?: Record<string, number>;
 }
 
 async function countEvents(db: DbLike, from: string, to: string): Promise<Record<string, number>> {
@@ -56,6 +57,8 @@ async function stageRate(db: DbLike, a: string, b: string, from: string, to: str
 }
 
 export async function computeAnalytics(db: DbLike, opts: { to?: string; days?: number }): Promise<Analytics> {
+  const timings: Record<string, number> = {}; let tMark = Date.now();
+  const lap = (k: string) => { const t = Date.now(); timings[k] = t - tMark; tMark = t; };
   const days = opts.days ?? 7;
   const toT = opts.to ? Date.parse(opts.to) : Date.now();
   const fromT = toT - days * D, pFromT = fromT - days * D;
@@ -164,6 +167,7 @@ export async function computeAnalytics(db: DbLike, opts: { to?: string; days?: n
     staff.push({ id: num(r["id"]), name: String(r["name"]), team: String(r["team"]), leads: num(r["leads"]), priced: num(r["priced"]), dropped: num(r["dropped"]), booked: num(r["booked"]), sold: num(r["sold"]), revenue: num(r["revenue"]), gross_profit: num(r["gp"]), median_first_response_min: med === null ? null : Math.round(med), followups: num(r["followups"]) });
   }
 
+  lap("staff");
   /* ── 車款（全期間）── */
   const vehicles: Analytics["vehicles"] = (await db.all(`
     SELECT v.id, v.brand || ' ' || v.model AS name, v.body_type, v.list_price, v.sell_price, v.cost, v.cost_known, v.stock_status,
@@ -179,6 +183,7 @@ export async function computeAnalytics(db: DbLike, opts: { to?: string; days?: n
       // 在庫車的估算毛利＝調作價（實賣價）－成本；沒有調作價或沒有成本就不算，不拿開價硬算
       est_gp: r["sell_price"] != null && num(r["cost_known"]) ? num(r["sell_price"]) - num(r["cost"]) : null }));
 
+  lap("vehicles");
   /* ── 需要注意（現在）── */
   const attention: Analytics["attention"] = [];
   const base = `SELECT l.id AS lead_id, COALESCE(NULLIF(c.pseudonym,''), c.display_name) AS contact, COALESCE(u.name,'未指派') AS staff, COALESCE(v.brand || ' ' || v.model,'') AS vehicle
@@ -187,7 +192,7 @@ export async function computeAnalytics(db: DbLike, opts: { to?: string; days?: n
   const push = (kind: string, rows: Row[], reason: (r: Row) => string) => { for (const r of rows) attention.push({ kind, lead_id: num(r["lead_id"]), contact: String(r["contact"]), staff: String(r["staff"]), vehicle: String(r["vehicle"]), since: String(r["since"] ?? ""), reason: reason(r) }); };
   push("high_intent_no_followup", await db.all(`${base} JOIN funnel_events h ON h.lead_id = l.id AND h.type='HIGH_INTENT'
       WHERE ${openOnly} AND NOT EXISTS (SELECT 1 FROM funnel_events f WHERE f.lead_id = l.id AND f.type='FOLLOW_UP' AND f.at > h.at)
-        AND (SELECT MAX(m.created_at) FROM messages m JOIN conversations cv ON cv.id = m.conversation_id WHERE cv.lead_id = l.id AND m.sender_role='customer') < ?
+        AND (SELECT MAX(NULLIF(cv.last_customer_at,'')) FROM conversations cv WHERE cv.lead_id = l.id) < ?
       ORDER BY h.at DESC LIMIT 10`, iso(toT - D)), () => "客戶早期表達急迫，之後沒有任何跟進");
   push("price_dropoff_no_followup", await db.all(`${base} JOIN funnel_events p ON p.lead_id = l.id AND p.type='PRICE_DROP_OFF' AND p.confidence IN ('CONFIRMED','STRONGLY_SUGGESTED')
       WHERE ${openOnly} AND p.at >= ? AND NOT EXISTS (SELECT 1 FROM funnel_events f WHERE f.lead_id = l.id AND f.type='FOLLOW_UP' AND f.at > p.at)
@@ -197,6 +202,7 @@ export async function computeAnalytics(db: DbLike, opts: { to?: string; days?: n
   push("financing_unresolved", await db.all(`${base} JOIN funnel_events q ON q.lead_id = l.id AND q.type='FINANCING_QUESTION' AND q.detail LIKE '%"resolved":false%'
       WHERE ${openOnly} AND q.at >= ? LIMIT 10`, iso(toT - 14 * D)), () => "客戶問了貸款，業務沒有給具體答案");
 
+  lap("attention");
   /* ── SABC（系統推算）：未結案客戶的現況、本期新進線的分布、結果標籤 ── */
   const gOpen: Record<string, number> = {}, gPeriod: Record<string, number> = {}, gTags: Record<string, number> = {};
   const activeSince = iso(toT - 30 * D);   // 「現況」只算近 30 天有訊息的未結案客戶，不然舊資料補進來全是幾萬個沉睡的 C
@@ -204,5 +210,6 @@ export async function computeAnalytics(db: DbLike, opts: { to?: string; days?: n
   for (const r of await db.all("SELECT grade_auto AS g, COUNT(*) AS n FROM leads WHERE opened_at >= ? AND opened_at < ? AND grade_auto <> '' GROUP BY grade_auto", ...P)) gPeriod[String(r["g"])] = num(r["n"]);
   for (const r of await db.all("SELECT l.result_tag AS t, COUNT(*) AS n FROM leads l JOIN conversations cv ON cv.lead_id = l.id WHERE l.outcome = '' AND l.result_tag <> '' AND cv.last_message_at >= ? GROUP BY l.result_tag", activeSince)) for (const t of String(r["t"]).split("、")) if (t) gTags[t] = (gTags[t] ?? 0) + num(r["n"]);
   const grades: Analytics["grades"] = { open: gOpen, period: gPeriod, long_cycle: gTags["長週期"] ?? 0, tags: gTags };
-  return { period, prev, funnel: { events, prev_events, leads, prev_leads, stages }, conversion, price_dropoff, appointments, visits, deals, staff, vehicles, attention, grades };
+  lap("grades");
+  return { period, prev, funnel: { events, prev_events, leads, prev_leads, stages }, conversion, price_dropoff, appointments, visits, deals, staff, vehicles, attention, grades, timings };
 }

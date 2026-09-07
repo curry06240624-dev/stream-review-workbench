@@ -170,16 +170,27 @@ export class AppDB extends DurableObject {
      「Too many API requests by single Worker invocation」。搬進 DO 就是本地呼叫，沒有這個上限。 */
   /* ── 讀取快取：DO 免費方案每天 500 萬列讀取；員工報表一次讀幾萬列、每頁又叫好幾次（2026-09-05 就撞到
         「Exceeded allowed rows read」）。同一小時、同參數直接回記憶體快取；資料一改就清掉。 ── */
-  async cached(key, ttlMs, fn) {
+  async cached(key, ttlMs, fn, fresh = false) {
     this._cache ??= new Map();
-    const hit = this._cache.get(key); if (hit && hit.exp > Date.now()) return hit.value;
-    const value = await fn(); this._cache.set(key, { value, exp: Date.now() + ttlMs }); return value;
+    if (!fresh) {
+      const hit = this._cache.get(key); if (hit && hit.exp > Date.now()) return hit.value;
+      // 第二層：SQLite 持久快取。DO 閒置被回收、或重新部署，記憶體快取就沒了；5 萬個 lead 的決策中心冷算要幾十秒，展示時不能等
+      const row = this.first("SELECT value, exp FROM cache_json WHERE key = ?", key);
+      if (row && Number(row.exp) > Date.now()) { try { const value = JSON.parse(row.value); this._cache.set(key, { value, exp: Number(row.exp) }); return value; } catch { /* 壞掉就重算 */ } }
+    }
+    const value = await fn(); const exp = Date.now() + ttlMs;
+    this._cache.set(key, { value, exp });
+    try { this.run("INSERT OR REPLACE INTO cache_json (key, value, exp) VALUES (?,?,?)", key, JSON.stringify(value), exp); } catch { /* 存不進去就只留記憶體 */ }
+    return value;
   }
-  bust() { this._cache = new Map(); }
-  reportCached(days, to) { const bucket = to ?? new Date().toISOString().slice(0, 13); return this.cached(`report:${days ?? 30}:${bucket}`, 30 * 60_000, () => computeStaffReport(this, { days, to })); }
+  /** 資料一改（匯入／漏斗／分析／配對／行動）就清兩層快取 */
+  bust() { this._cache = new Map(); try { this.run("DELETE FROM cache_json"); } catch { /* 表還沒建好 */ } }
+  /** 快取鍵的時間桶：一天一桶。底層資料只有 pipeline 會改（改了就 bust），一天內只差期間邊界往前挪幾小時 */
+  bucket(to) { return to ?? new Date().toISOString().slice(0, 10); }
+  reportCached(days, to, fresh = false) { return this.cached(`report:${days ?? 30}:${this.bucket(to)}`, 24 * 60 * 60_000, () => computeStaffReport(this, { days, to }), fresh); }
   async importLocal(bundle, opts) { this.bust(); return importBundle(this, bundle, opts); }
   /** 分析數字（總覽／成交／漏斗／需要注意都靠它）：每頁載入會叫好幾次，每次讀幾萬列 → 同參數同一小時回快取 */
-  analyticsLocal(opts) { const bucket = opts.to ?? new Date().toISOString().slice(0, 13); return this.cached(`analytics:${opts.days ?? 7}:${bucket}`, 30 * 60_000, () => computeAnalytics(this, { to: opts.to, days: opts.days })); }
+  analyticsLocal(opts) { return this.cached(`analytics:${opts.days ?? 7}:${this.bucket(opts.to)}`, 24 * 60 * 60_000, () => computeAnalytics(this, { to: opts.to, days: opts.days }), !!opts.fresh); }
   async funnelLocal(opts) { this.bust(); return runFunnel(this, opts); }
   /** 員工效能／流失原因的三段分析：角色（歸因）→ 行為特徵（要先有角色）→ 流失原因。全部規則、可重跑。 */
   async analyzeLocal(opts) {
@@ -194,7 +205,7 @@ export class AppDB extends DurableObject {
   /** SABC 分級單獨重算（規則改了不用整套分析重跑） */
   async gradesLocal(opts) { this.bust(); return computeGrades(this, opts); }
   /* ── 員工效能／流失原因／教練／決策卡／管理行動：重活一律在這裡跑 ── */
-  async staffLocal(opts) { return this.reportCached(opts.days, opts.to); }
+  async staffLocal(opts) { return this.reportCached(opts.days, opts.to, !!opts.fresh); }
   async staffProfileLocal(opts) {
     const report = await this.reportCached(opts.days, opts.to);
     const s = report.staff.find((x) => x.id === opts.id); if (!s) return null;
@@ -211,7 +222,7 @@ export class AppDB extends DurableObject {
       pairs: report.pairs.filter((p) => p.a_id === opts.id || p.b_id === opts.id), patterns: report.patterns.filter((p) => p.staff.some((x) => x.id === opts.id)).map((p) => ({ key: p.key, label: p.label })), period: report.period, associations: report.associations };
   }
   async coachingLocal(opts) { const report = await this.reportCached(opts.days, opts.to); return buildCoachingPlan(this, report, opts.id, opts.now); }
-  async decisionsLocal(opts) { const report = await this.reportCached(opts.days, opts.to); return this.cached(`decisions:${opts.days}:${new Date().toISOString().slice(0, 13)}`, 30 * 60_000, async () => ({ cards: await computeDecisions(this, report, opts.now), period: report.period, top: report.top.slice(0, 3), watch: report.watch.slice(0, 2) })); }
+  async decisionsLocal(opts) { const report = await this.reportCached(opts.days, opts.to, !!opts.fresh); return this.cached(`decisions:${opts.days}:${this.bucket(opts.to)}`, 24 * 60 * 60_000, async () => { const t0 = Date.now(); const cards = await computeDecisions(this, report, opts.now); return { cards, period: report.period, top: report.top.slice(0, 3), watch: report.watch.slice(0, 2), timings: { ...(report.timings ?? {}), decisions: Date.now() - t0 } }; }, !!opts.fresh); }
   async lossAggLocal(opts) { return lossAggregate(this, opts); }
   /* ── 待確認配對：成交群「送貨囉」貼文 → 車／客戶／業務 → 成交帳本；接待群 → 到店；估車群 → 估車 ── */
   async reconcileLocal(opts) { return reconcileSummary(this, opts); }
@@ -316,7 +327,7 @@ export class AppDB extends DurableObject {
     return { rematched: rows.length };
   }
   async baselineLocal(opts) { const report = await this.reportCached(opts.days ?? 30, undefined); return metricSnapshot(report, opts.metric_key, opts.staff_id ?? null); }
-  async progressLocal(opts) { const a = await this.first("SELECT * FROM actions WHERE id = ?", opts.id); if (!a) return null; return this.cached(`progress:${opts.id}:${new Date().toISOString().slice(0, 13)}`, 30 * 60_000, () => actionProgress(this, a, opts.now)); }
+  async progressLocal(opts) { const a = await this.first("SELECT * FROM actions WHERE id = ?", opts.id); if (!a) return null; return this.cached(`progress:${opts.id}:${this.bucket()}`, 24 * 60 * 60_000, () => actionProgress(this, a, opts.now)); }
   /** 給評測腳本：每個 lead 的角色／流失原因／行為特徵，附對話外部鍵（CV{n} ↔ 標準答案 L{n}） */
   async analyzeDumpLocal() {
     const rows = await this.all(`SELECT l.id, l.outcome, cv.external_id AS conv_key, la.primary_reason, la.secondary_reason, la.confidence AS loss_conf, la.driver, la.stage, la.status AS loss_status, b.features

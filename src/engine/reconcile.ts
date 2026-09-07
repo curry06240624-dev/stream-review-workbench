@@ -102,7 +102,7 @@ export async function matchReport(db: DbLike, id: number, now: string): Promise<
   if (!lead && vehicle) {
     const rows = await db.all(
       `SELECT l.*, COALESCE(NULLIF(c.pseudonym,''), c.display_name) AS contact,
-              (SELECT MAX(m.created_at) FROM messages m JOIN conversations cv ON cv.id = m.conversation_id WHERE cv.lead_id = l.id) AS last_at,
+              (SELECT MAX(cv.last_message_at) FROM conversations cv WHERE cv.lead_id = l.id) AS last_at,
               EXISTS (SELECT 1 FROM funnel_events e WHERE e.lead_id = l.id AND e.type IN ('STORE_VISIT','NEGOTIATION') AND e.confidence <> 'UNCLEAR') AS hot,
               (SELECT MIN(d.closed_at) FROM deals d WHERE d.lead_id = l.id AND d.status = 'sold') AS sold_at
          FROM leads l JOIN contacts c ON c.id = l.contact_id WHERE l.vehicle_id = ? AND l.outcome <> 'lost' AND l.opened_at <= ?`, num(vehicle["id"]), new Date(atT + 3 * D).toISOString());

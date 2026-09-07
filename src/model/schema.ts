@@ -392,6 +392,8 @@ const ADD_COLUMNS: ReadonlyArray<readonly [string, string, string]> = [
   ["vehicles",      "status_text",      "TEXT NOT NULL DEFAULT ''"],
   ["conversations", "coverage",         "TEXT NOT NULL DEFAULT 'full'"],
   ["conversations", "coverage_note",    "TEXT NOT NULL DEFAULT ''"],
+  ["conversations", "last_staff_at",    "TEXT NOT NULL DEFAULT ''"],   // 最後一則員工訊息時間（匯入時算好；5 萬段對話／540 萬則訊息時每次頁面 GROUP BY messages 要好幾秒）
+  ["conversations", "last_customer_at", "TEXT NOT NULL DEFAULT ''"],   // 最後一則客戶訊息時間
   ["messages",      "via",              "TEXT NOT NULL DEFAULT ''"],
   ["visits",        "source",           "TEXT NOT NULL DEFAULT 'ledger'"],
   ["visits",        "customer_ref",     "TEXT NOT NULL DEFAULT ''"],
@@ -461,6 +463,16 @@ export function migrate(sql: SqlLike): { added: string[] } {
     added.push("deals.contact_id nullable (rebuilt)");
   }
   sql.exec(LATE_INDEXES);
+  // 頁面結果的持久快取（記憶體快取在 DO 被回收／重新部署後就沒了，5 萬個 lead 的決策中心冷啟動要 70 秒）
+  sql.exec("CREATE TABLE IF NOT EXISTS cache_json (key TEXT PRIMARY KEY, value TEXT NOT NULL, exp INTEGER NOT NULL)");
+  // 舊資料補 last_staff_at／last_customer_at（只跑一次，做完在 settings 留記號；欄位剛加或記號不在就補）
+  if (added.includes("conversations.last_staff_at") || !sql.exec("SELECT 1 FROM settings WHERE key = 'backfill_conv_last_at'").toArray().length) {
+    sql.exec(`UPDATE conversations SET
+        last_staff_at    = COALESCE((SELECT MAX(m.created_at) FROM messages m WHERE m.conversation_id = conversations.id AND m.sender_role = 'staff'), ''),
+        last_customer_at = COALESCE((SELECT MAX(m.created_at) FROM messages m WHERE m.conversation_id = conversations.id AND m.sender_role = 'customer'), '')`);
+    sql.exec("INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES ('backfill_conv_last_at', '1', ?)", new Date().toISOString());
+    added.push("conversations.last_*_at backfilled");
+  }
   // 舊資料的 sender_role 補值：out 是員工，in 是客戶
   sql.exec(`UPDATE messages SET sender_role = CASE direction WHEN 'out' THEN 'staff' ELSE 'customer' END
              WHERE sender_role = ''`);

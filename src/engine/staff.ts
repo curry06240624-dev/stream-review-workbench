@@ -72,6 +72,7 @@ export interface StaffReport {
   pairs: Array<{ a: string; b: string; a_id: number; b_id: number; cases: number; sold: number; rate: number | null; label: "association" }>;
   issues: Record<number, Issue[]>;
   n_agents: number;
+  timings?: Record<string, number>;
 }
 
 /* ── 主計算 ── */
@@ -81,6 +82,8 @@ export async function computeStaffReport(db: DbLike, opts: { days?: number; to?:
   const inP = (iso: unknown) => { const t = Date.parse(String(iso ?? "")); return t >= fromT && t < toT; };
   const inPrev = (iso: unknown) => { const t = Date.parse(String(iso ?? "")); return t >= pFromT && t < fromT; };
 
+  const timings: Record<string, number> = {}; let tMark = Date.now();
+  const lap = (k: string) => { const t = Date.now(); timings[k] = t - tMark; tMark = t; };
   const users = await db.all("SELECT u.id, u.name, u.role, COALESCE(u.job,'') AS job, COALESCE(u.seat_shared,0) AS seat_shared, COALESCE(t.name,'') AS team FROM users u LEFT JOIN teams t ON t.id = u.team_id");
   const jobOf = (u: Row) => String(u["job"] || "") || (u["role"] === "agent" ? "both" : "manager");
   const agents = users.filter((u) => u["role"] === "agent" || ["chat", "sales", "both"].includes(jobOf(u)));
@@ -94,10 +97,13 @@ export async function computeStaffReport(db: DbLike, opts: { days?: number; to?:
   const chatBy = new Map(behaviors.map((b) => [num(b["lead_id"]), num(b["chat_staff_id"]) || null]));
   const roles = await db.all("SELECT lead_id, user_id, role FROM lead_roles");
   const loss = await db.all("SELECT lead_id, primary_reason, secondary_reason, driver, stage, status FROM loss_analyses");
-  const lastStaff = await db.all("SELECT cv.lead_id, MAX(m.created_at) AS at FROM messages m JOIN conversations cv ON cv.id = m.conversation_id WHERE m.sender_role = 'staff' GROUP BY cv.lead_id");
-  const lastAny = await db.all("SELECT cv.lead_id, MAX(m.created_at) AS at FROM messages m JOIN conversations cv ON cv.id = m.conversation_id GROUP BY cv.lead_id");
+  // 最後一則員工／任一訊息：用 conversations 上匯入時算好的欄位（以前 GROUP BY 540 萬則訊息，兩句就要好幾秒）
+  const lastStaff = await db.all("SELECT lead_id, MAX(last_staff_at) AS at FROM conversations WHERE lead_id IS NOT NULL AND last_staff_at <> '' GROUP BY lead_id");   // 沒回過的 lead 不出現在這裡 → 跟以前一樣算「停滯」
+  const lastAny = await db.all("SELECT lead_id, MAX(last_message_at) AS at FROM conversations WHERE lead_id IS NOT NULL GROUP BY lead_id");
   const firstSeen = await db.all("SELECT sender_user_id AS uid, MIN(created_at) AS at FROM messages WHERE sender_role = 'staff' AND sender_user_id IS NOT NULL GROUP BY sender_user_id");
 
+  lap("load");
+  const leadById = new Map<number, Row>(leads.map((l) => [num(l["id"]), l]));   // 5 萬個 lead 時 leads.find 是 O(n)，角色列有幾萬筆 → 之前一頁要 70 秒
   const group = <T,>(rows: Row[], key: string, f: (r: Row) => T) => { const m = new Map<number, T[]>(); for (const r of rows) { const k = num(r[key]); if (!m.has(k)) m.set(k, []); m.get(k)!.push(f(r)); } return m; };
   const evBy = group(events, "lead_id", (r) => ({ type: String(r["type"]), at: Date.parse(String(r["at"])) }));
   const dealBy = new Map(deals.map((d) => [num(d["lead_id"]), d]));
@@ -179,12 +185,12 @@ export async function computeStaffReport(db: DbLike, opts: { days?: number; to?:
     let beh = behaviorsOf(chatSet);
     let firstResp = NM(fr, MIN_N.response), resp = NM(rp, MIN_N.response);
     const myRoles = roles.filter((r) => num(r["user_id"]) === uid);
-    const roleLeads = (role: string) => myRoles.filter((r) => String(r["role"]) === role).map((r) => num(r["lead_id"])).filter((id) => { const l = leads.find((x) => num(x["id"]) === id); return !!l && inP(l["opened_at"]); });
+    const roleLeads = (role: string) => myRoles.filter((r) => String(r["role"]) === role).map((r) => num(r["lead_id"])).filter((id) => { const l = leadById.get(id); return !!l && inP(l["opened_at"]); });
     const supportedLeads = roleLeads("supporting");
     const inactiveLeads = chatSet.filter((l) => has(num(l["id"]), "CUSTOMER_INACTIVE"));
     const reactLeads = roleLeads("reactivation");
     const managerOn = leadsP.filter((l) => (rolesBy.get(num(l["id"])) ?? []).some((r) => r.role === "manager")).length;
-    const crossTeam = supportedLeads.filter((id) => { const l = leads.find((x) => num(x["id"]) === id); return !!l && teamOf(num(l["staff_id"])) !== String(u["team"]); }).length;
+    const crossTeam = supportedLeads.filter((id) => { const l = leadById.get(id); return !!l && teamOf(num(l["staff_id"])) !== String(u["team"]); }).length;
     const influencedIds = new Set(myRoles.map((r) => num(r["lead_id"])));
     const influenced = deals.filter((d) => d["status"] === "sold" && inP(d["closed_at"]) && influencedIds.has(num(d["lead_id"])));
     const open = own.filter((l) => !l["outcome"]);
@@ -215,6 +221,7 @@ export async function computeStaffReport(db: DbLike, opts: { days?: number; to?:
     });
   }
 
+  lap("staff");
   /* ── 團隊（含訊息組在線上處理、還沒指派業務的客戶）── */
   const agentIds = new Set(agents.map((u) => num(u["id"])));
   const belongs = (l: Row) => agentIds.has(num(l["staff_id"])) || agentIds.has(chatBy.get(num(l["id"])) ?? -1);
@@ -243,10 +250,11 @@ export async function computeStaffReport(db: DbLike, opts: { days?: number; to?:
     const members = staff.filter((s) => s.team === name);
     const closedIn = members.reduce((a, s) => a + s.funnel.close.n, 0), soldIn = members.reduce((a, s) => a + s.funnel.close.k, 0);
     const handoffIn = roles.filter((r) => String(r["role"]) === "handoff_to" && teamOf(num(r["user_id"])) === name).map((r) => num(r["lead_id"]));
-    const handoffSold = handoffIn.filter((id) => leads.find((l) => num(l["id"]) === id)?.["outcome"] === "sold").length;
+    const handoffSold = handoffIn.filter((id) => leadById.get(id)?.["outcome"] === "sold").length;
     return { name, staff: members.length, leads: members.reduce((a, s) => a + s.context.leads, 0), sold: members.reduce((a, s) => a + s.commercial.sold, 0), revenue: members.reduce((a, s) => a + s.commercial.revenue, 0), gp: members.reduce((a, s) => a + s.commercial.gp, 0), close: M(soldIn, closedIn, MIN_N.close), handoff_success: M(handoffSold, handoffIn.length, MIN_N.pair), cross_support: members.reduce((a, s) => a + s.activity.cross_team_support, 0) };
   });
 
+  lap("team");
   /* ── 排名（分維度、附樣本、Wilson 排序）── */
   interface Dim { key: string; label: string; desc: string; kind: "rate" | "num"; get?: (s: StaffMetrics) => Metric; value?: (s: StaffMetrics) => number | null; n?: (s: StaffMetrics) => number; min?: number; lowerIsBetter?: boolean; fmt: "pct" | "nt" | "min" | "num"; extra?: (s: StaffMetrics) => string }
   const DIMS: Dim[] = [
@@ -433,7 +441,7 @@ export async function computeStaffReport(db: DbLike, opts: { days?: number; to?:
   /* ── 協作組合（關聯）── */
   const pairMap = new Map<string, { a: number; b: number; cases: Set<number>; sold: number }>();
   for (const [lid, rs] of rolesBy) {
-    const l = leads.find((x) => num(x["id"]) === lid); if (!l || !inP(l["opened_at"])) continue;
+    const l = leadById.get(lid); if (!l || !inP(l["opened_at"])) continue;
     const people = [...new Set(rs.map((r) => r.uid))].filter((uid) => userById.has(uid)).sort((a, b) => a - b);
     for (let i = 0; i < people.length; i++) for (let j = i + 1; j < people.length; j++) {
       const k = `${people[i]}-${people[j]}`; if (!pairMap.has(k)) pairMap.set(k, { a: people[i]!, b: people[j]!, cases: new Set(), sold: 0 });
@@ -446,6 +454,7 @@ export async function computeStaffReport(db: DbLike, opts: { days?: number; to?:
     period: { from: new Date(fromT).toISOString(), to: new Date(toT).toISOString(), days }, prev: { from: new Date(pFromT).toISOString(), to: new Date(fromT).toISOString() },
     staff: staff.sort((a, b) => b.commercial.gp - a.commercial.gp), team, teams, rankings, top, watch,
     compare: { top_ids: topIds, watch_ids: watchIds, observations, summary, funnel: compareFunnel }, associations, patterns, matrix, pairs, issues, n_agents: staff.length,
+    timings: (lap("rest"), timings),
   };
 }
 

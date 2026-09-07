@@ -207,7 +207,7 @@ export async function computeDecisions(db: DbLike, report: StaffReport, now: str
   if (pendN >= 3) cards.push({ key: "reports_pending", priority: pendN >= 8 ? "high" : "medium", kind: "workflow", title: `${pendN} 則送貨囉貼文還沒對到客戶或車`, why: `待確認 ${num(pend?.["s"])}、無法配對 ${num(pend?.["u"])}；沒對上的成交不會算進業務的成交率、也算不出毛利`, observed: "貼文最常缺車號與客戶名；車牌是對回車源表唯一的鍵", action: "到「待確認配對」逐筆確認；請業務貼文時一定填車號與客戶名", measure: "下週待配對的貼文數", metric_key: "", staff_ids: [], links: [{ label: "待確認配對", href: "/reconcile" }], claim: "fact" });
   // 5. 急迫客戶沒人回
   const stale = await db.first(`SELECT COUNT(*) AS n FROM leads l JOIN funnel_events h ON h.lead_id = l.id AND h.type = 'HIGH_INTENT' WHERE l.outcome = ''
-    AND (SELECT MAX(m.created_at) FROM messages m JOIN conversations cv ON cv.id = m.conversation_id WHERE cv.lead_id = l.id AND m.sender_role = 'staff') < ?`, new Date(Date.parse(now) - D).toISOString());
+    AND (SELECT MAX(NULLIF(cv.last_staff_at,'')) FROM conversations cv WHERE cv.lead_id = l.id) < ?`, new Date(Date.parse(now) - D).toISOString());
   if (num(stale?.["n"]) >= 3) cards.push({ key: "stale_intent", priority: "high", kind: "contact_leads", title: `${num(stale?.["n"])} 位表達急迫的客戶超過 24 小時沒有業務回覆`, why: "急迫客戶等越久，回來的機率越低", observed: obsText("proposed_after_intent", "表現最佳組在客戶表達急迫後多半立刻約看車"), action: "今天把這幾位分回給業務，下班前回報", measure: "24 小時內回覆率", metric_key: "stale_intent", staff_ids: [], links: [{ label: "需要注意", href: "/attention?kind=high_intent_no_followup" }], claim: "fact" });
   // 6. 值得教全隊的成功模式
   const best = report.patterns.filter((p) => p.outcome && p.outcome.lift != null && p.outcome.lift >= 0.15 && p.n_total >= 15 && p.staff.length >= 2).sort((a, b) => (b.outcome!.lift ?? 0) - (a.outcome!.lift ?? 0))[0];

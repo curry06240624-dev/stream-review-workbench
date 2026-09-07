@@ -175,15 +175,17 @@ export async function importBundle(db: DbLike, b: NormalizedBundle, opts: { rese
     if (!cv.messages.length) { rep.warnings.push(`對話 ${cv.key} 沒有訊息，略過`); skip("conversations"); continue; }
     const msgs = [...cv.messages].sort((a, z) => a.at.localeCompare(z.at));
     const first = msgs[0]!, last = msgs[msgs.length - 1]!;
+    let lastStaff = "", lastCust = "";
+    for (let i = msgs.length - 1; i >= 0 && (!lastStaff || !lastCust); i--) { const m = msgs[i]!; if (m.role === "staff" && !lastStaff) lastStaff = m.at; else if (m.role === "customer" && !lastCust) lastCust = m.at; }
     // 未讀＝結尾連續的客戶訊息
     let unread = 0; for (let i = msgs.length - 1; i >= 0 && msgs[i]!.role === "customer"; i--) unread++;
     const lead = cv.lead_key ? b.leads.find((l) => l.key === cv.lead_key) : undefined;
     const status = lead?.outcome ? "closed" : "open";
     const cov = cv.coverage ? { coverage: cv.coverage, note: cv.coverage_note ?? "" } : detectCoverage(msgs);
     const r = await db.run(
-      `INSERT INTO conversations (contact_id, channel, assigned_to, status, last_message_at, unread, created_at, lead_id, external_id, coverage, coverage_note)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
-      cid(cv.customer_key), cv.channel, sid(cv.assigned_staff), status, last.at, unread, first.at, lid(cv.lead_key), cv.key, cov.coverage, cov.note);
+      `INSERT INTO conversations (contact_id, channel, assigned_to, status, last_message_at, unread, created_at, lead_id, external_id, coverage, coverage_note, last_staff_at, last_customer_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      cid(cv.customer_key), cv.channel, sid(cv.assigned_staff), status, last.at, unread, first.at, lid(cv.lead_key), cv.key, cov.coverage, cov.note, lastStaff, lastCust);
     const convId = r.lastRowId;
     if (cov.coverage !== "full") bump(`coverage_${cov.coverage}`);
     for (const m of msgs) {

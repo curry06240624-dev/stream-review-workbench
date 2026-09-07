@@ -134,7 +134,7 @@ async function route(request, env, db, url) {
     const days = Math.min(90, Math.max(1, Number(url.searchParams.get("days") || 7)));
     const to = url.searchParams.get("to") || undefined;
     const t0 = Date.now();
-    const a = await db.analyticsLocal({ to, days });        // 在 DO 裡算＋快取：免費方案每日列讀取有限
+    const a = await db.analyticsLocal({ to, days, fresh: url.searchParams.get("fresh") === "1" });        // 在 DO 裡算＋兩層快取；?fresh=1 強制重算（量冷啟動用）
     return J({ ok: true, ms: Date.now() - t0, ...a });
   }
 
@@ -155,7 +155,7 @@ async function route(request, env, db, url) {
     if (!me) return J({ ok: false, error: "not_logged_in" }, 401);
     if (!canSeeAll(me.role)) return J({ ok: false, message: "員工效能只開放給老闆與主管。" }, 403);
     const days = Math.min(90, Math.max(7, Number(url.searchParams.get("days") || 30)));
-    const t0 = Date.now(); const r = await db.staffLocal({ days });
+    const t0 = Date.now(); const r = await db.staffLocal({ days, fresh: url.searchParams.get("fresh") === "1" });
     return J({ ok: true, ms: Date.now() - t0, ...r });
   }
   const mSt = p.match(/^\/api\/staff\/(\d+)$/);
@@ -205,7 +205,7 @@ async function route(request, env, db, url) {
     if (!me) return J({ ok: false, error: "not_logged_in" }, 401);
     if (!canSeeAll(me.role)) return J({ ok: false, error: "forbidden" }, 403);
     const days = Math.min(90, Math.max(7, Number(url.searchParams.get("days") || 30)));
-    return J({ ok: true, ...(await db.decisionsLocal({ days, now: now() })) });
+    return J({ ok: true, ...(await db.decisionsLocal({ days, now: now(), fresh: url.searchParams.get("fresh") === "1" })) });
   }
   if (p === "/api/mgmt-actions" && (m === "GET" || m === "POST")) {
     const me = await currentUser(request, db);
