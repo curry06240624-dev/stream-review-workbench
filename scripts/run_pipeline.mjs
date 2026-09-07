@@ -5,7 +5,7 @@
  */
 const args = process.argv.slice(2);
 const BASE = args.find((a) => a.startsWith("http")) || "http://127.0.0.1:8788";
-const BATCH = Number((args.find((a) => a.startsWith("--batch=")) || "--batch=800").slice(8));
+const BATCH = Math.min(90, Number((args.find((a) => a.startsWith("--batch=")) || "--batch=90").slice(8)));   // 伺服器端也會壓到 90（SQLite 綁定參數上限）
 const DAYS = Number((args.find((a) => a.startsWith("--days=")) || "--days=7").slice(7));
 const NO_INS = args.includes("--no-insights");
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0 Safari/537.36";
@@ -27,7 +27,7 @@ async function batches(path, label) {
     n += r.leads ?? r.roles?.leads ?? 0; rounds++;
     if (r.done || r.next_cursor == null) break;
     cursor = r.next_cursor;
-    if (rounds % 5 === 0) console.log(`  ${label}：${n} 個 lead（${Math.round((Date.now() - t0) / 1000)}s）`);
+    if (rounds % 25 === 0) console.log(`  ${label}：${n} 個 lead（${Math.round((Date.now() - t0) / 1000)}s）`);
   }
   console.log(`${label} 完成：${n} 個 lead、${rounds} 批、${Math.round((Date.now() - t0) / 1000)}s`);
 }

@@ -20,7 +20,7 @@ import { detectDocKind, processDocument, checklist, KIND_LABEL, AUTO_KINDS, PROC
 async function batchLeadIds(db, b) {
   if (Array.isArray(b.lead_ids)) return { leadIds: b.lead_ids.map(Number), next: null, done: true, empty: !b.lead_ids.length };
   if (!b.batch) return { leadIds: undefined, next: null, done: true, empty: false };
-  const n = Math.min(5000, Math.max(1, Number(b.batch)));
+  const n = Math.min(90, Math.max(1, Number(b.batch)));   // SQLite 一句最多 100 個綁定參數（lead id 會進 IN (...)），一批最多 90 個
   const rows = await db.all("SELECT id FROM leads WHERE id > ? ORDER BY id LIMIT ?", Number(b.cursor || 0), n);
   const ids = rows.map((r) => Number(r.id));
   return { leadIds: ids, next: ids.length ? ids[ids.length - 1] : null, done: ids.length < n, empty: !ids.length };
