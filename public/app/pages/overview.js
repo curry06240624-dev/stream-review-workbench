@@ -20,7 +20,7 @@ export async function render(el, ctx) {
   const brief = br.brief?.content;
   const briefLines = brief
     ? [["發生了什麼", brief.happened], ["變了什麼", brief.changed], ["最該注意", brief.attention], ["今天做什麼", brief.do_today]]
-    : [["發生了什麼", `最近 ${days} 天新進線 ${f.leads} 位、報價 ${a.price_dropoff.base} 次、成交 ${d.sold} 台。`],
+    : [["發生了什麼", `最近 ${days} 天新進線 ${f.leads} 位（打過字 ${num(f.typed_leads || 0)}）、業務報價 ${a.price_dropoff.base} 次、有日期的成交 ${d.sold} 台${d.undated?.n ? `；車源表另有 ${d.undated.n} 台售出／收訂（日期不明）` : ""}。`],
        ["變了什麼", `成交 ${d.sold} 台（前期 ${d.prev_sold}），價格後流失率 ${pct(a.price_dropoff.rate)}（前期 ${pct(a.price_dropoff.prev_rate)}）。`],
        ["最該注意", insights[0] ? `#${insights[0].id} ${insights[0].title}` : "目前沒有成立的洞察。"],
        ["今天做什麼", a.attention.length ? `先處理需要注意清單的 ${a.attention.length} 位客戶。` : "看一遍需要注意清單。"]];
@@ -65,7 +65,8 @@ export async function render(el, ctx) {
     ${raw(tilesHtml)}
     <section>${insights.length ? raw(`<div class="cards">${insights.map((i) => insightCard(i)).join("")}</div>`) : raw('<div class="panel empty">目前沒有成立的洞察。按「重新分析」或匯入資料。</div>')}</section>
 
-    <section class="panel"><h3>漏斗快照 <span class="sp"></span><a href="/funnel" data-link style="font-weight:400;letter-spacing:0">完整漏斗 ›</a></h3>${raw(funnelStrip(stages, { slim: true, bottleneck }))}</section>
+    <section class="panel"><h3>漏斗快照 <span class="sp"></span><a href="/funnel" data-link style="font-weight:400;letter-spacing:0">完整漏斗 ›</a></h3>${raw(funnelStrip(stages, { slim: true, bottleneck }))}
+      ${raw(`<div class="faint" style="margin-top:8px;font-size:12px">新進線含只按選單的人，其中自己打過字的 ${num(f.typed_leads || 0)} 位 · 報價＝業務親自報價（客戶點車卡不算） · 成交只算有日期的${d.undated?.n ? `；車源表另有 ${d.undated.n} 台售出／收訂，成交日不明` : ""}</div>`)}</section>
     <section class="panel"><h3>SABC 分級 <span class="faint" style="letter-spacing:0;font-weight:400">系統推算 · 近 30 天有訊息的未結案客戶 · 小字＝本期新進線</span><span class="sp"></span><a href="/conversations?outcome=open&grade=S" data-link style="font-weight:400;letter-spacing:0">看 S 級 ›</a></h3>
       <div class="stats">${raw(["S", "A", "B", "C"].map((g) => stat(GRADE[g], num(a.grades?.open?.[g] || 0), `<a href="/conversations?outcome=open&grade=${g}" data-link>本期新進 ${num(a.grades?.period?.[g] || 0)} ›</a>`, g === "S" ? "warn" : "")).join(""))}
       ${raw(stat("長週期", num(a.grades?.long_cycle || 0), `<a href="/conversations?outcome=open&tag=%E9%95%B7%E9%80%B1%E6%9C%9F" data-link>晚點才買，要設回追日 ›</a>`))}

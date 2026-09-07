@@ -13,9 +13,10 @@ export async function render(el, ctx) {
   const d = a.deals, rows = li.rows || [], weeks = se.weeks || [];
   const sold = rows.filter((x) => x.status === "sold"), lost = rows.filter((x) => x.status === "lost");
   const reserved = sold.filter((x) => x.delivered === 0), reservedAmt = reserved.reduce((s, x) => s + (x.sale_price || 0), 0);   // 成交但還沒交車（收訂／送貸／過件）
+  const undated = sold.filter((x) => x.closed_at_source === "import");   // 車源表第一次匯入就是售出／收訂：成交日不明，不算本期
   const below = sold.filter((x) => x.gp_known && x.gross_profit < 0);
   const unknownNote = d.gp_unknown ? `另有 ${d.gp_unknown} 筆成交沒有成本（同行車或車號空白），毛利未計入。` : "";
-  const reservedNote = reserved.length ? `成交裡有 ${reserved.length} 台還沒交車（車源表 收訂／送貸／過件，${nt(reservedAmt)}），收訂就算成交。` : "";
+  const reservedNote = reserved.length ? `${reserved.length} 台還沒交車（車源表 收訂／送貸／過件，${nt(reservedAmt)}）${undated.length ? `；其中 ${undated.length} 台是第一次匯入就有的，成交日不明，不算本期成交` : "，收訂就算成交"}。` : "";
   const aiLine = (below.length ? `${below.length} 筆成交低於成本，先看這幾筆是讓價換成交還是車況問題。${unknownNote}`
     : d.sold ? `毛利率 ${pct(d.gp_margin)}，平均每台毛利 ${nt(d.avg_gp)}（車源表成本估算，正式以會計為準）。${unknownNote}` : "本期沒有成交。") + reservedNote;
 
@@ -57,9 +58,9 @@ export async function render(el, ctx) {
   el.innerHTML = `<div class="wrap stack">
     ${pageHead("成交與毛利", aiLine, `<span class="faint" style="margin-right:10px">最近 ${days} 天 · 對照前 ${days} 天</span>${periodSeg(days, (dd) => ctx.nav(`/deals?days=${dd}&tab=${tab}`))}`)}
     <section class="stats">
-      ${stat("成交", `${num(d.sold)} 台`, `${delta(d.sold, d.prev_sold, { fmt: num })}${d.peer_sold ? ` <span class="faint">同行 ${d.peer_sold}</span>` : ""}${d.sheet_sold ? ` <span class="faint">車源表 ${d.sheet_sold}</span>` : ""}${d.undelivered ? ` <span class="faint">未交車 ${d.undelivered}</span>` : ""}`)}
+      ${stat("成交", `${num(d.sold)} 台`, `${delta(d.sold, d.prev_sold, { fmt: num })}${d.peer_sold ? ` <span class="faint">同行 ${d.peer_sold}</span>` : ""}${d.sheet_sold ? ` <span class="faint">車源表 ${d.sheet_sold}</span>` : ""}${d.undelivered ? ` <span class="faint">未交車 ${d.undelivered}</span>` : ""}${d.undated?.n ? ` <span class="faint">車源表另 ${d.undated.n} 台售出／收訂，日期不明</span>` : ""}`)}
       ${stat("營收", nt(d.revenue), delta(d.revenue, d.prev_revenue, { fmt: nt }))}
-      ${stat("未交車", `${reserved.length} 台`, `<span class="faint">${nt(reservedAmt)} · 收訂／送貸／過件，已算在成交裡</span>`)}
+      ${stat("未交車", `${reserved.length} 台`, `<span class="faint">${nt(reservedAmt)} · 收訂／送貸／過件${undated.length ? `，${undated.length} 台日期不明不算本期` : "，已算在成交裡"}</span>`)}
       ${stat(d.gp_estimate ? "毛利（估算）" : "毛利", nt(d.gross_profit), `${delta(d.gross_profit, d.prev_gross_profit, { fmt: nt })} <span class="faint">毛利率 ${pct(d.gp_margin)} · 成本知道的 ${num(d.gp_known)} 台</span>`)}
       ${stat("平均毛利", nt(d.avg_gp))}
       ${stat("低於成本", `${num(d.below_cost)} 筆`, "", d.below_cost ? "warn" : "")}

@@ -24,7 +24,7 @@ const str = (v: unknown) => String(v ?? "");
 
 export interface SheetDealsReport { created: number; updated: number; removed: number; skipped_has_deal: number; unresolved_staff: string[] }
 
-export async function syncSheetDeals(db: DbLike, opts: { now: string }): Promise<SheetDealsReport> {
+export async function syncSheetDeals(db: DbLike, opts: { now: string; dated?: boolean }): Promise<SheetDealsReport> {
   const rep: SheetDealsReport = { created: 0, updated: 0, removed: 0, skipped_has_deal: 0, unresolved_staff: [] };
   const res = await staffResolver(db);
   const users = await db.all("SELECT id, name FROM users WHERE role <> 'admin'");
@@ -60,19 +60,22 @@ export async function syncSheetDeals(db: DbLike, opts: { now: string }): Promise
     const delivered = st === "sold" ? 1 : 0;
     const sheetStatus = statusText || (st === "sold" ? "售出（備註）" : "");
     const extKey = `sheet:${str(v["plate_norm"]) || `v${vid}`}`;
+    // 成交日：車源表沒有這一欄。第一次匯入就是售出／收訂的 → 日期不明（import，不算本期）；跟上一份快照比才變的 → 日期≈上傳日（sheet_diff）
+    const dateSrc = sheetStatus.startsWith("車源表已移除") || opts.dated ? "sheet_diff" : "import";
     if (!mine) {
       await db.run(
         `INSERT INTO deals (lead_id, contact_id, staff_id, vehicle_id, status, sale_price, cost, gross_profit, lost_reason, closed_at, external_key, source_system,
-                            plate, customer_ref, deposit, loan_status, delivery_by, reported_by, source_kind, peer_dealer, cost_source, gp_is_estimate, report_id, price_source, sheet_status, delivered)
-         VALUES (NULL, NULL, ?, ?, 'sold', ?, ?, ?, '', ?, ?, 'sheet', ?, '', '', ?, '', '', 'stock', '', ?, ?, NULL, ?, ?, ?)`,
-        staffId, vid, price, cost, gp, opts.now, extKey, str(v["plate"]), loan, costSource, costKnown ? 1 : 0, priceSource, sheetStatus, delivered);
+                            plate, customer_ref, deposit, loan_status, delivery_by, reported_by, source_kind, peer_dealer, cost_source, gp_is_estimate, report_id, price_source, sheet_status, delivered, closed_at_source)
+         VALUES (NULL, NULL, ?, ?, 'sold', ?, ?, ?, '', ?, ?, 'sheet', ?, '', '', ?, '', '', 'stock', '', ?, ?, NULL, ?, ?, ?, ?)`,
+        staffId, vid, price, cost, gp, opts.now, extKey, str(v["plate"]), loan, costSource, costKnown ? 1 : 0, priceSource, sheetStatus, delivered, dateSrc);
       rep.created++;
     } else {
       // 從未交車變成售出那次，成交日改成這次匯入日（CASE 裡的 delivered 是舊值）
       await db.run(
         `UPDATE deals SET status = 'sold', sale_price = ?, cost = ?, gross_profit = ?, cost_source = ?, gp_is_estimate = ?, price_source = ?, staff_id = COALESCE(staff_id, ?),
-                          plate = ?, loan_status = ?, sheet_status = ?, closed_at = CASE WHEN delivered = 0 AND ? = 1 THEN ? ELSE closed_at END, delivered = ? WHERE id = ?`,
-        price, cost, gp, costSource, costKnown ? 1 : 0, priceSource, staffId, str(v["plate"]), loan, sheetStatus, delivered, opts.now, delivered, num(mine["id"]));
+                          plate = ?, loan_status = ?, sheet_status = ?, closed_at = CASE WHEN delivered = 0 AND ? = 1 THEN ? ELSE closed_at END,
+                          closed_at_source = CASE WHEN delivered = 0 AND ? = 1 THEN 'sheet_diff' ELSE closed_at_source END, delivered = ? WHERE id = ?`,
+        price, cost, gp, costSource, costKnown ? 1 : 0, priceSource, staffId, str(v["plate"]), loan, sheetStatus, delivered, opts.now, delivered, delivered, num(mine["id"]));
       rep.updated++;
     }
   }

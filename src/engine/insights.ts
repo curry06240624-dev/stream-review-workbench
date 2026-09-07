@@ -101,8 +101,8 @@ export function deriveInsights(a: Analytics): InsightCandidate[] {
   const hiNo = a.attention.filter((x) => x.kind === "high_intent_no_followup");
   if (hiNo.length >= 2) {
     out.push({
-      kind: "followup", title: `${hiNo.length} 位表達急迫的客戶沒有人跟進`,
-      summary: `這些客戶早期就說「急」「有現車就可以」「這週要決定」，之後業務沒有再主動聯絡：${hiNo.slice(0, 3).map((x) => `${x.contact}（${x.staff}）`).join("、")}${hiNo.length > 3 ? " 等" : ""}。這是最容易撿回來的單。`,
+      kind: "followup", title: `${hiNo.length} 位最近兩週說急的客戶，沉默後沒有再跟進`,
+      summary: `這些客戶早期就說「急」「有現車就可以」「這週要決定」，客戶沉默超過 24 小時後業務沒有再主動聯絡：${hiNo.slice(0, 3).map((x) => `${x.contact}（${x.staff}）`).join("、")}${hiNo.length > 3 ? " 等" : ""}。這是最容易撿回來的單。`,
       claim: "fact", severity: hiNo.length >= 5 ? "critical" : "high", confidence: "CONFIRMED",
       metric: { value: hiNo.length, n: hiNo.length, unit: "leads" },
       evidence: { event_types: ["HIGH_INTENT"], kinds: ["high_intent_no_followup"] },
@@ -123,8 +123,8 @@ export function deriveInsights(a: Analytics): InsightCandidate[] {
   const finNo = a.attention.filter((x) => x.kind === "financing_unresolved");
   if (finNo.length >= 3) {
     out.push({
-      kind: "financing", title: `${finNo.length} 位客戶問了貸款，業務沒給具體答案`,
-      summary: `「我再幫您問」之後常常就沒有下文。問貸款的客戶通常是想買、只是在算得不得起。`, claim: "fact", severity: "medium", confidence: "CONFIRMED",
+      kind: "financing", title: `${finNo.length} 位客戶問了貸款，24 小時內沒有人回`,
+      summary: `問貸款的客戶通常是想買、只是在算負不負擔得起；一天沒人回就去別家問了。`, claim: "fact", severity: "medium", confidence: "CONFIRMED",
       metric: { value: finNo.length, n: finNo.length, unit: "leads" }, evidence: { event_types: ["FINANCING_QUESTION"], kinds: ["financing_unresolved"] },
       actions: [{ text: "準備一張「頭期／月付速算表」讓業務當場回答，或在 24 小時內轉貸款專員", owner_role: "manager" }],
     });

@@ -91,7 +91,8 @@ export async function computeStaffReport(db: DbLike, opts: { days?: number; to?:
   const leads = await db.all(`SELECT l.id, l.staff_id, l.outcome, l.opened_at, l.closed_at, l.vehicle_id, v.list_price, COALESCE(v.brand||' '||v.model,'') AS vehicle, COALESCE(NULLIF(c.pseudonym,''), c.display_name) AS contact
                                FROM leads l LEFT JOIN vehicles v ON v.id = l.vehicle_id JOIN contacts c ON c.id = l.contact_id`);
   const events = await db.all(`SELECT lead_id, type, at FROM funnel_events WHERE confidence <> 'UNCLEAR' AND type IN ('PRICE_MENTIONED','APPOINTMENT_BOOKED','STORE_VISIT','NEGOTIATION','SOLD','HIGH_INTENT','CUSTOMER_INACTIVE','RE_ENGAGED')`);
-  const deals = await db.all("SELECT lead_id, staff_id, status, sale_price, cost, gross_profit, closed_at, COALESCE(cost_source,'ledger') AS cost_source, COALESCE(gp_is_estimate,0) AS gp_is_estimate, COALESCE(source_kind,'stock') AS source_kind FROM deals");
+  // 車源表第一次匯入就是售出／收訂的成交日不明 → 不進員工的本期成交（不然全部落在匯入那一天）
+  const deals = await db.all("SELECT lead_id, staff_id, status, sale_price, cost, gross_profit, closed_at, COALESCE(cost_source,'ledger') AS cost_source, COALESCE(gp_is_estimate,0) AS gp_is_estimate, COALESCE(source_kind,'stock') AS source_kind FROM deals WHERE COALESCE(closed_at_source,'') <> 'import'");
   const behaviors = await db.all("SELECT lead_id, staff_id, chat_staff_id, features FROM behaviors");
   /** 這位客戶在線上是誰回的（訊息組 vs 業務拆帳） */
   const chatBy = new Map(behaviors.map((b) => [num(b["lead_id"]), num(b["chat_staff_id"]) || null]));

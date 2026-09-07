@@ -42,6 +42,7 @@ export const RULES = {
 const RE = {
   price:      /(?<![程跑清])(\d{1,3}(?:\.\d)?)\s*萬(?!\s*(?:公里|km))|開\s*\d{2,3}(?:\.\d)?(?!\d)|(?:月繳|月付|總價|報價|含過戶)\s*(?:大概|約|抓|款)?\s*[\d一二三四五六七八九十]|NT\$\s*\d|\$\s*\d{2,3},\d{3}|\d{2,3}多(?!少|久|台|人|次)/,   // 「月繳」「總價」要跟著數字才算報價（真資料：「預算或月繳款抓多少呢」不是報價）
   numWan:     /(\d{1,3}(?:\.\d)?)\s*萬|開\s*(\d{2,3}(?:\.\d)?)(?!\d)/,
+  priceAsk:   /(?:萬|元|千)[^\d]{0,4}嗎|預算|接受嗎|抓多少|大概多少|是嗎/,   // 問預算的句子不是報價：「25萬內嗎」「月繳9000內都可以接受嗎」「貸款10萬左右這樣嗎」
   priceNot:   /結清|餘額|尾款/,   // 「結清大概 40 多萬」不是報價；里程用 price 裡的前後文擋（整句排除會把「189 萬 含過戶 里程 5 萬公里」也排掉）
   cardPrice:  /開價\s*\$?\s*([\d,]{5,9})/,
   cardClick:  /想立即知道|我要了解|我想了解/,
@@ -50,7 +51,7 @@ const RE = {
   counterNot: /\d{1,2}[:：]\d{2}|\d+\s*點(?!\s*(?:多|萬))|(?<![\d,])\d{4,}\s*(?:可以嗎|好嗎)|貸|頭期|期數|約在|年式|那台|比\d|[A-Za-z]\d{2,3}|\d{2,3}\s*至\s*\d/,   // 「K14 可以嗎」「約在 7-11」「多貸 25 至 30」「2020 那台比 21」都不是出價   // 「16:30 可以嗎」是約時間、「5000 可以嗎」是訂金，不是出價
   financing:  /全額貸|利率|頭期|月付|月繳|自備款|自備|分期|信用|車貸|貸款.*(嗎|多少|怎麼|幾成|過)|貸款過嗎/,
   finOk:      /%|頭期\s*\d|月付大概|月繳大概|月繳.*\d|試算|貸款專員|沒問題|可以喔|利率|全額貸|一萬多|萬多|\d{4,5}\s*(?:左右|元|塊)|期的話/,
-  finWeak:    /再問|再確認|問一下|應該可以|看個人條件/,
+  finWeak:    /再問|再確認|問一下|應該可以|看個人條件/,   // resolved＝「有給具體答案」（教練用）；「沒人回」另外看 reply_message_id（需要注意清單用）
   apptProp:   /約個時間|來店|來看車|幫(?:你|您)留車|留車給|哪天有空|來看實車|過來看|現場看(?!過)|來現場|給你地址|載你|可以看車|方便(?:來|過來|到店)|(?:來|過來|到店|看車).{0,10}方便嗎/,   // 「收個 20000 方便嗎」「今天方便聯絡嗎」不是約看車，方便嗎要跟來／看車一起   // 「有空來看看嗎」是跟進不是約時間，不放「來看看」；「保留車款」含「留車」所以只認「幫你留車」
   apptTime:   /週[一二三四五六日]|禮拜|明天|後天|下午|早上|晚上|\d+\s*點/,
   apptConfirm:/見|留好|等您|收到|幫您留|等你/,
@@ -111,20 +112,14 @@ export function detectEvents(ctx: Ctx, vehicles: VehicleName[], now: number): De
   const hi = cust.slice(0, 4).find((m) => RE.highIntent.test(m.text) && !RE.highIntentNot.test(m.text));
   if (hi) out.push(ev("HIGH_INTENT", hi.at, "STRONGLY_SUGGESTED", "rule", { phrase: hi.text.match(RE.highIntent)?.[0] }, [{ message_id: hi.id, note: "客戶早期出現急迫用語" }]));
 
-  // PRICE_MENTIONED：業務報價，或機器人車卡有開價且客戶按了「我要了解」（10 分鐘內）
-  let priceMsg = staff.find((m) => RE.price.test(m.text) && !RE.priceNot.test(m.text));
-  let priceNote = "業務報價"; let priceConf: Confidence = "CONFIRMED"; let cardWan: number | null = null;
-  if (!priceMsg) {
-    for (const b of bots) {
-      const pm = b.text.match(RE.cardPrice); if (!pm) continue;
-      const click = custAll.find((m) => m.at >= b.at && m.at <= b.at + 10 * 60_000 && RE.cardClick.test(m.text));
-      if (click) { priceMsg = click; priceNote = `客戶點了有開價的車卡（$${pm[1]}）`; priceConf = "STRONGLY_SUGGESTED"; cardWan = Math.round(Number(pm[1]!.replace(/,/g, "")) / 10_000 * 10) / 10; break; }
-    }
-  }
+  // PRICE_MENTIONED：只認業務親自報的價。客戶按有開價的車卡不算報價（2026-09-07 瑋瑋看了說不準：7 天 261 次「報價」有 132 次是客戶自己點車卡，
+  // 「價格後流失 44%」大半是點了車卡沒聊）；問預算的句子（25 萬內嗎／月繳 9000 內可以接受嗎）也不算
+  const priceMsg = staff.find((m) => RE.price.test(m.text) && !RE.priceNot.test(m.text) && !RE.priceAsk.test(m.text));
+  const priceNote = "業務報價"; const priceConf: Confidence = "CONFIRMED";
   let objectionMsg: Msg | undefined, negMsg: Msg | undefined;
   if (priceMsg) {
     const nm = priceMsg.text.match(RE.numWan);
-    const wan = cardWan ?? (nm ? Number(nm[1] ?? nm[2]) || null : null);
+    const wan = nm ? Number(nm[1] ?? nm[2]) || null : null;
     out.push(ev("PRICE_MENTIONED", priceMsg.at, priceConf, "rule", { price_wan: wan }, [{ message_id: priceMsg.id, note: priceNote }]));
     const custAfter = cust.filter((m) => m.at > priceMsg.at);
     objectionMsg = custAfter.find((m) => RE.objection.test(m.text) && !isCounter(m.text));

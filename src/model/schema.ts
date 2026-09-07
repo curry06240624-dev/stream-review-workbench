@@ -414,6 +414,7 @@ const ADD_COLUMNS: ReadonlyArray<readonly [string, string, string]> = [
   ["deals",         "price_source",     "TEXT NOT NULL DEFAULT ''"],   // 售價從哪來：report／sheet_sell（調作價）／sheet_list（開價）
   ["deals",         "sheet_status",     "TEXT NOT NULL DEFAULT ''"],   // 車源表「目前狀況」原文（收訂(軒)…），車源表產生的才有
   ["deals",         "delivered",        "INTEGER NOT NULL DEFAULT 1"],   // 0＝成交但還沒交車（車源表 收訂／送貸／過件；Curry：收訂就算成交）
+  ["deals",         "closed_at_source", "TEXT NOT NULL DEFAULT ''"],   // ''＝真的成交日（送貨囉／帳本）；import＝車源表第一次匯入就是售出／收訂，日期不明（不算本期）；sheet_diff＝兩份車源表之間變的（日期≈上傳日）
   ["behaviors",     "chat_staff_id",    "INTEGER"],
 ];
 
@@ -441,19 +442,21 @@ export function migrate(sql: SqlLike): { added: string[] } {
       added.push(`${table}.${col}`);
     }
   }
+  // 2026-09-07：既有的車源表成交全部標「日期不明」（都是第一次匯入就有的；從車源表消失推定交車的那種算兩份之間變的）
+  if (added.includes("deals.closed_at_source")) sql.exec("UPDATE deals SET closed_at_source = CASE WHEN sheet_status LIKE '車源表已移除%' THEN 'sheet_diff' ELSE 'import' END WHERE source_system = 'sheet'");
   // 2026-09-06：車源表也會產生成交／收訂（沒有客戶），deals.contact_id 改成可為空。SQLite 不能直接拿掉 NOT NULL，只好重建一次（只會跑一次）
   const hasTable = (t: string) => sql.exec("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?", t).toArray().length > 0;
   if (!hasTable("deals") && hasTable("deals_new")) { sql.exec("ALTER TABLE deals_new RENAME TO deals"); added.push("deals restored from deals_new"); }   // 上次重建做到一半
   const ci = sql.exec("PRAGMA table_info(deals)").toArray().find((c) => c["name"] === "contact_id");
   if (ci && Number(ci["notnull"]) === 1) {
     if (hasTable("deals_new")) sql.exec("DROP TABLE deals_new");
-    const cols = "id, lead_id, contact_id, staff_id, vehicle_id, status, sale_price, cost, gross_profit, lost_reason, closed_at, external_key, source_system, plate, customer_ref, deposit, loan_status, delivery_by, reported_by, source_kind, peer_dealer, cost_source, gp_is_estimate, report_id, price_source, sheet_status, delivered";
+    const cols = "id, lead_id, contact_id, staff_id, vehicle_id, status, sale_price, cost, gross_profit, lost_reason, closed_at, external_key, source_system, plate, customer_ref, deposit, loan_status, delivery_by, reported_by, source_kind, peer_dealer, cost_source, gp_is_estimate, report_id, price_source, sheet_status, delivered, closed_at_source";
     sql.exec(`CREATE TABLE deals_new (
       id INTEGER PRIMARY KEY AUTOINCREMENT, lead_id INTEGER REFERENCES leads(id), contact_id INTEGER REFERENCES contacts(id), staff_id INTEGER REFERENCES users(id), vehicle_id INTEGER REFERENCES vehicles(id),
       status TEXT NOT NULL, sale_price INTEGER NOT NULL DEFAULT 0, cost INTEGER NOT NULL DEFAULT 0, gross_profit INTEGER NOT NULL DEFAULT 0, lost_reason TEXT NOT NULL DEFAULT '', closed_at TEXT NOT NULL,
       external_key TEXT NOT NULL DEFAULT '', source_system TEXT NOT NULL DEFAULT 'mock', plate TEXT NOT NULL DEFAULT '', customer_ref TEXT NOT NULL DEFAULT '', deposit TEXT NOT NULL DEFAULT '', loan_status TEXT NOT NULL DEFAULT '',
       delivery_by TEXT NOT NULL DEFAULT '', reported_by TEXT NOT NULL DEFAULT '', source_kind TEXT NOT NULL DEFAULT 'stock', peer_dealer TEXT NOT NULL DEFAULT '', cost_source TEXT NOT NULL DEFAULT 'ledger', gp_is_estimate INTEGER NOT NULL DEFAULT 0,
-      report_id INTEGER, price_source TEXT NOT NULL DEFAULT '', sheet_status TEXT NOT NULL DEFAULT '', delivered INTEGER NOT NULL DEFAULT 1)`);
+      report_id INTEGER, price_source TEXT NOT NULL DEFAULT '', sheet_status TEXT NOT NULL DEFAULT '', delivered INTEGER NOT NULL DEFAULT 1, closed_at_source TEXT NOT NULL DEFAULT '')`);
     sql.exec(`INSERT INTO deals_new (${cols}) SELECT ${cols} FROM deals`);
     sql.exec("DROP TABLE deals");
     sql.exec("ALTER TABLE deals_new RENAME TO deals");

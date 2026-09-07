@@ -293,7 +293,8 @@ export class AppDB extends DurableObject {
         vanished.push({ id: row.id, plate: row.plate, name: `${row.brand} ${row.model}`, was: row.stock_status });
       }
     }
-    const sheet = await syncSheetDeals(this, { now: opts.now });
+    // 有上一份快照才知道「這台是這段期間才變成售出／收訂的」→ 成交日≈上傳日；第一份（或沒有上一份）的成交日一律不明
+    const sheet = await syncSheetDeals(this, { now: opts.now, dated: Array.isArray(opts.prevKeys) && opts.prevKeys.length > 0 });
     return { inserted, updated, total: opts.vehicles.length, sheet_deals: sheet, vanished };
   }
   /** 上一份處理過的車源表（不含這一份），拿來比對消失的車 */
