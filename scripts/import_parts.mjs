@@ -14,10 +14,18 @@ const FROM = Number((args.find((a) => a.startsWith("--from=")) || "--from=1").sl
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0 Safari/537.36";
 let cookie = "";
 async function api(path, body, method) {
-  const r = await fetch(BASE + path, { method: method || (body ? "POST" : "GET"), headers: { "content-type": "application/json", cookie, "user-agent": UA }, body: body ? JSON.stringify(body) : undefined });
-  const sc = r.headers.get("set-cookie"); if (sc) cookie = sc.split(";")[0];
-  const txt = await r.text();
-  try { return JSON.parse(txt); } catch { return { ok: false, status: r.status, body: txt.slice(0, 300) }; }
+  for (let attempt = 1; ; attempt++) {   // 正式站偶爾 ECONNRESET／502，同一批重打（每批都是冪等的）
+    try {
+      const r = await fetch(BASE + path, { method: method || (body ? "POST" : "GET"), headers: { "content-type": "application/json", cookie, "user-agent": UA }, body: body ? JSON.stringify(body) : undefined });
+      const sc = r.headers.get("set-cookie"); if (sc) cookie = sc.split(";")[0];
+      const txt = await r.text();
+      if (r.status >= 500 && attempt < 4) { console.log(`  ${path} ${r.status}，${attempt * 5}s 後重試`); await new Promise((res) => setTimeout(res, attempt * 5000)); continue; }
+      try { return JSON.parse(txt); } catch { return { ok: false, status: r.status, body: txt.slice(0, 300) }; }
+    } catch (e) {
+      if (attempt >= 4) throw e;
+      console.log(`  ${path} 連線失敗（${e.cause?.code || e.message}），${attempt * 5}s 後重試`); await new Promise((res) => setTimeout(res, attempt * 5000));
+    }
+  }
 }
 const l = await api("/api/login", { email: "boss@test.local", password: "test-pass-123" });
 if (!l.ok) { console.error("登入失敗", l); process.exit(1); }
