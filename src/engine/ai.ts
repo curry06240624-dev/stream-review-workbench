@@ -42,6 +42,7 @@ export function factsPack(a: Analytics, insights: Row[]): { text: string; allowe
     `預約：提議 ${a.appointments["proposed"]}、成立 ${a.appointments["booked"]}、爽約 ${a.appointments["no_show"]}（爽約率 ${pct(a.appointments["no_show_rate"])}）`,
     `到店 ${a.visits["count"]}（前期 ${a.visits["prev_count"]}）`,
     `成交 ${a.deals.sold} 台（前期 ${a.deals.prev_sold}）、營收 ${Math.round(a.deals.revenue / 10000)} 萬、毛利 ${Math.round(a.deals.gross_profit / 10000)} 萬、毛利率 ${pct(a.deals.gp_margin)}、低於成本 ${a.deals.below_cost} 筆${a.deals.sheet_sold ? `（其中 ${a.deals.sheet_sold} 筆來自車源表${a.deals.sheet_vanished ? `，${a.deals.sheet_vanished} 筆是車從車源表消失推定的` : ""}）` : ""}；成交裡 ${a.deals.undelivered} 台還沒交車（車源表 收訂／送貸／過件，${Math.round(a.deals.undelivered_amount / 10000)} 萬；收訂就算成交）`,
+    `SABC 分級（系統推算，未結案客戶現況）：S ${a.grades?.open?.["S"] ?? 0}、A ${a.grades?.open?.["A"] ?? 0}、B ${a.grades?.open?.["B"] ?? 0}、C ${a.grades?.open?.["C"] ?? 0}；長週期 ${a.grades?.long_cycle ?? 0}；本期新進線 S ${a.grades?.period?.["S"] ?? 0}、A ${a.grades?.period?.["A"] ?? 0}、B ${a.grades?.period?.["B"] ?? 0}、C ${a.grades?.period?.["C"] ?? 0}`,
     `需要注意：${a.attention.length} 位（急迫未跟進 ${a.attention.filter((x) => x.kind === "high_intent_no_followup").length}、報價後未跟進 ${a.attention.filter((x) => x.kind === "price_dropoff_no_followup").length}、預約未到店 ${a.attention.filter((x) => x.kind === "booked_but_no_visit").length}、貸款未回 ${a.attention.filter((x) => x.kind === "financing_unresolved").length}）`,
     "",
     "已成立的洞察（id｜嚴重度｜標題｜摘要）：",

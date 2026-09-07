@@ -374,6 +374,9 @@ const ADD_COLUMNS: ReadonlyArray<readonly [string, string, string]> = [
   /* 2026-09-05 真實資料流（docs/DATA_FLOW.md）：訊息組 vs 業務、共用座位、車源表欄位、送貨囉欄位、訊息來源與涵蓋 */
   ["users",         "job",              "TEXT NOT NULL DEFAULT ''"],
   ["users",         "seat_shared",      "INTEGER NOT NULL DEFAULT 0"],
+  ["leads",         "grade_auto",       "TEXT NOT NULL DEFAULT ''"],   // SABC 系統推算（docs/SABC_RULES.md）
+  ["leads",         "grade_reason",     "TEXT NOT NULL DEFAULT ''"],
+  ["leads",         "result_tag",       "TEXT NOT NULL DEFAULT ''"],   // 未過件／已送貸／長週期／純研究（跟分級分開）
   ["vehicles",      "cost_known",       "INTEGER NOT NULL DEFAULT 1"],
   ["vehicles",      "plate",            "TEXT NOT NULL DEFAULT ''"],
   ["vehicles",      "plate_norm",       "TEXT NOT NULL DEFAULT ''"],
@@ -423,6 +426,7 @@ CREATE INDEX IF NOT EXISTS idx_fe_type_at      ON funnel_events(type, at, confid
 CREATE INDEX IF NOT EXISTS idx_conv_assigned   ON conversations(assigned_to);
 CREATE INDEX IF NOT EXISTS idx_leads_opened    ON leads(opened_at);
 CREATE INDEX IF NOT EXISTS idx_leads_stage     ON leads(stage, outcome);
+CREATE INDEX IF NOT EXISTS idx_leads_grade     ON leads(grade_auto, outcome);
 `;
 
 export function migrate(sql: SqlLike): { added: string[] } {

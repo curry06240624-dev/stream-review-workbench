@@ -14,6 +14,7 @@ import { gemini } from "./engine/ai.ts";
 import { computeRoles } from "./engine/attribution.ts";
 import { computeBehaviors } from "./engine/behavior.ts";
 import { computeLoss, lossAggregate } from "./engine/loss.ts";
+import { computeGrades } from "./engine/grade.ts";
 import { computeStaffReport } from "./engine/staff.ts";
 import { buildCoachingPlan, computeDecisions, metricSnapshot, actionProgress } from "./engine/coaching.ts";
 import { ingestPosts, matchReport, applyReport, unapplyReport, reconcileSummary } from "./engine/reconcile.ts";
@@ -187,8 +188,11 @@ export class AppDB extends DurableObject {
     const roles = await computeRoles(this, { leadIds: opts.leadIds });
     const behaviors = await computeBehaviors(this, { now: opts.now, leadIds: opts.leadIds });
     const loss = await computeLoss(this, { now: opts.now, leadIds: opts.leadIds });
-    return { roles, behaviors, loss, ms: Date.now() - t0 };
+    const grades = await computeGrades(this, { now: opts.now, leadIds: opts.leadIds });
+    return { roles, behaviors, loss, grades, ms: Date.now() - t0 };
   }
+  /** SABC 分級單獨重算（規則改了不用整套分析重跑） */
+  async gradesLocal(opts) { this.bust(); return computeGrades(this, opts); }
   /* ── 員工效能／流失原因／教練／決策卡／管理行動：重活一律在這裡跑 ── */
   async staffLocal(opts) { return this.reportCached(opts.days, opts.to); }
   async staffProfileLocal(opts) {

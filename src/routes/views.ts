@@ -21,7 +21,7 @@ const analytics = (db: DbLike, opts: { days: number; to?: string }) => {
 const LEAD_SELECT = `
   SELECT l.id, l.stage, l.outcome, l.opened_at, l.closed_at, l.source, l.staff_id, l.vehicle_id,
          c.id AS contact_id, c.pseudonym, c.display_name, c.grade, c.first_contact_at,
-         COALESCE(u.name,'') AS staff, COALESCE(v.brand || ' ' || v.model,'') AS vehicle, COALESCE(v.body_type,'') AS body_type, v.list_price, v.sell_price,
+         COALESCE(u.name,'') AS staff, COALESCE(v.brand || ' ' || v.model,'') AS vehicle, COALESCE(v.body_type,'') AS body_type, v.list_price, v.sell_price, l.grade_auto, l.grade_reason, l.result_tag,
          cv.id AS conversation_id, cv.last_message_at AS last_at, cv.unread, cv.coverage, cv.coverage_note,
          (SELECT text FROM messages m WHERE m.conversation_id = cv.id ORDER BY m.created_at DESC, m.id DESC LIMIT 1) AS last_text,
          (SELECT sender_role FROM messages m WHERE m.conversation_id = cv.id ORDER BY m.created_at DESC, m.id DESC LIMIT 1) AS last_role,
@@ -35,7 +35,7 @@ const LEAD_SELECT = `
 const shapeLead = (r: Row) => ({
   id: num(r["id"]), stage: r["stage"], outcome: r["outcome"], opened_at: r["opened_at"], closed_at: r["closed_at"], source: r["source"],
   staff_id: r["staff_id"], vehicle_id: r["vehicle_id"], contact_id: r["contact_id"], pseudonym: r["pseudonym"] || r["display_name"], display_name: r["display_name"],
-  grade: r["grade"], first_contact_at: r["first_contact_at"], staff: r["staff"], vehicle: r["vehicle"], body_type: r["body_type"], list_price: r["list_price"], sell_price: r["sell_price"],
+  grade: r["grade"], first_contact_at: r["first_contact_at"], staff: r["staff"], vehicle: r["vehicle"], body_type: r["body_type"], list_price: r["list_price"], sell_price: r["sell_price"], grade_auto: r["grade_auto"] || "", grade_reason: r["grade_reason"] || "", result_tag: r["result_tag"] || "",
   conversation_id: r["conversation_id"], last_at: r["last_at"], unread: num(r["unread"]), last_text: r["last_text"], last_role: r["last_role"],
   coverage: r["coverage"] || "full", coverage_note: r["coverage_note"] || "",
   flags: { price_dropoff: !!num(r["f_price_dropoff"]), high_intent: !!num(r["f_high_intent"]), financing_unresolved: !!num(r["f_financing"]) },
@@ -67,6 +67,8 @@ export async function handleViews(url: URL, method: string, db: DbLike, me: Me):
     const where: string[] = ["1=1"]; const args: unknown[] = [];
     const s = S(q.get("q"), 40); if (s) { where.push("(c.pseudonym LIKE ? OR c.display_name LIKE ? OR (v.brand||' '||v.model) LIKE ?)"); args.push(`%${s}%`, `%${s}%`, `%${s}%`); }
     if (q.get("stage")) { where.push("l.stage = ?"); args.push(S(q.get("stage"), 20)); }
+    if (q.get("grade")) { where.push("l.grade_auto = ?"); args.push(S(q.get("grade"), 2)); }
+    if (q.get("tag")) { where.push("l.result_tag LIKE ?"); args.push(`%${S(q.get("tag"), 10)}%`); }
     if (q.get("staff")) { where.push("u.name = ?"); args.push(S(q.get("staff"), 40)); }
     if (q.get("vehicle")) { where.push("(v.brand||' '||v.model) = ?"); args.push(S(q.get("vehicle"), 60)); }
     if (q.get("outcome") === "open") where.push("l.outcome = ''"); else if (q.get("outcome")) { where.push("l.outcome = ?"); args.push(S(q.get("outcome"), 10)); }

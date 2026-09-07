@@ -147,6 +147,9 @@ export interface Lead {
   outcome: LeadOutcome;
   opened_at: string;
   closed_at: string | null;
+  grade_auto: "S" | "A" | "B" | "C" | "";   // SABC 系統推算（訊息組自己標的在 contacts.grade）
+  grade_reason: string;
+  result_tag: string;          // 未過件／已送貸／長週期／純研究，頓號分隔
 }
 
 export interface Conversation {

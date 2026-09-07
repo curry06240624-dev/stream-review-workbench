@@ -45,6 +45,11 @@ export const chipConf = (c) => h`<span class="chip conf-${c}">${CONF[c] || c}</s
 export const chipClaim = (c) => h`<span class="chip claim-${c}">${CLAIM[c] || c}</span>`;
 export const chipStage = (s) => h`<span class="chip stage">${STAGE[s] || s}</span>`;
 export const chip = (text, cls = "") => h`<span class="chip ${cls}">${text}</span>`;
+/** 統計小卡（漏斗頁／成交頁各有一份本地版；總覽用這個） */
+export const stat = (label, value, extra = "", cls = "") => `<div class="stat ${cls}"><div class="l">${esc(label)}</div><b>${value}</b>${extra ? `<div class="d">${extra}</div>` : ""}</div>`;
+/** SABC（公司訊息組的分級，系統推算版；docs/SABC_RULES.md） */
+export const GRADE = { S: "S 高推進", A: "A 資料齊", B: "B 對談中", C: "C 未對談" };
+export const chipGrade = (g, reason = "") => (g ? h`<span class="chip ${g === "S" ? "amber" : g === "A" ? "ok" : ""}" title="${reason}">${g}</span>` : "");
 
 /* ── 頁首（每頁一句 AI）── */
 export const pageHead = (title, aiLine, right = "") => h`<div class="ph"><h1>${title}</h1>${aiLine ? raw(h`<div class="ai">${aiLine}</div>`) : ""}<span class="sp"></span>${raw(right)}</div>`;

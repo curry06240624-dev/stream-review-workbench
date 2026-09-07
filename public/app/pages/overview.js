@@ -1,6 +1,6 @@
 /* CEO 總覽：30 秒內回答「現在最需要我處理什麼」。極簡：簡報 → 洞察卡 → 漏斗快照 → 四格 → 需要注意前 5。 */
 import { api } from "../api.js";
-import { h, raw, esc, pct, nt, num, delta, insightCard, kpi, funnelStrip, periodSeg, ago, chip, toast, lostReason, fmtMin, fmtD } from "../ui.js";
+import { h, raw, esc, pct, nt, num, delta, insightCard, kpi, funnelStrip, periodSeg, stat, GRADE, ago, chip, toast, lostReason, fmtMin, fmtD } from "../ui.js";
 
 const KIND = { high_intent_no_followup: "急迫未跟進", price_dropoff_no_followup: "報價後未跟進", booked_but_no_visit: "預約已過未到店", financing_unresolved: "貸款未回覆" };
 const linkify = (s) => esc(s).replace(/#(\d+)/g, (_, id) => `<a href="/insights/${id}" data-link>#${id}</a>`);
@@ -66,6 +66,10 @@ export async function render(el, ctx) {
     <section>${insights.length ? raw(`<div class="cards">${insights.map((i) => insightCard(i)).join("")}</div>`) : raw('<div class="panel empty">目前沒有成立的洞察。按「重新分析」或匯入資料。</div>')}</section>
 
     <section class="panel"><h3>漏斗快照 <span class="sp"></span><a href="/funnel" data-link style="font-weight:400;letter-spacing:0">完整漏斗 ›</a></h3>${raw(funnelStrip(stages, { slim: true, bottleneck }))}</section>
+    <section class="panel"><h3>SABC 分級 <span class="faint" style="letter-spacing:0;font-weight:400">系統推算 · 未結案客戶現況 · 括號＝本期新進線</span><span class="sp"></span><a href="/conversations?outcome=open&grade=S" data-link style="font-weight:400;letter-spacing:0">看 S 級 ›</a></h3>
+      <div class="stats">${raw(["S", "A", "B", "C"].map((g) => stat(GRADE[g], num(a.grades?.open?.[g] || 0), `<a href="/conversations?outcome=open&grade=${g}" data-link>本期新進 ${num(a.grades?.period?.[g] || 0)} ›</a>`, g === "S" ? "warn" : "")).join(""))}
+      ${raw(stat("長週期", num(a.grades?.long_cycle || 0), `<a href="/conversations?outcome=open&tag=%E9%95%B7%E9%80%B1%E6%9C%9F" data-link>晚點才買，要設回追日 ›</a>`))}
+      ${raw(stat("已送貸／未過件", `${num(a.grades?.tags?.["已送貸"] || 0)} / ${num(a.grades?.tags?.["未過件"] || 0)}`, `<span class="faint">結果標籤，跟分級分開</span>`))}</div></section>
 
     <section class="grid g4">
       ${raw(kpi("營收", nt(d.revenue), delta(d.revenue, d.prev_revenue, { fmt: nt }), series("revenue")))}

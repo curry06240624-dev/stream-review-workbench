@@ -88,6 +88,14 @@ async function route(request, env, db, url) {
     const r = await db.analyzeLocal({ now: b.now || now(), leadIds: sel.leadIds });
     return J({ ok: true, ...r, leads: sel.leadIds ? sel.leadIds.length : r.roles?.leads, next_cursor: sel.next, done: sel.done });
   }
+  if (p === "/api/admin/grades/run" && m === "POST") {
+    const me = await currentUser(request, db);
+    if (!me || me.role !== "admin") return J({ ok: false, error: "forbidden" }, 403);
+    const b = await request.json().catch(() => ({}));
+    const sel = await batchLeadIds(db, b); if (sel.empty) return J({ ok: true, leads: 0, next_cursor: null, done: true });
+    const r = await db.gradesLocal({ now: b.now || now(), leadIds: sel.leadIds });
+    return J({ ok: true, ...r, next_cursor: sel.next, done: sel.done });
+  }
   if (p === "/api/admin/analyze/dump" && m === "GET") {
     const me = await currentUser(request, db);
     if (!me || me.role !== "admin") return J({ ok: false, error: "forbidden" }, 403);

@@ -37,6 +37,7 @@ export interface Analytics {
   };
   staff: Array<{ id: number; name: string; team: string; leads: number; priced: number; dropped: number; booked: number; sold: number; revenue: number; gross_profit: number; median_first_response_min: number | null; followups: number }>;
   vehicles: Array<{ id: number; name: string; body_type: string; inquiries: number; priced: number; dropped: number; booked: number; sold: number; inquiry_to_sold: number | null; gross_profit: number; list_price: number; sell_price: number | null; est_gp: number | null; stock_status: string }>;
+  grades: { open: Record<string, number>; period: Record<string, number>; long_cycle: number; tags: Record<string, number> };   // SABC 系統推算：未結案客戶現況／本期新進線分布
   attention: Array<{ kind: string; lead_id: number; contact: string; staff: string; vehicle: string; since: string; reason: string }>;
 }
 
@@ -196,5 +197,11 @@ export async function computeAnalytics(db: DbLike, opts: { to?: string; days?: n
   push("financing_unresolved", await db.all(`${base} JOIN funnel_events q ON q.lead_id = l.id AND q.type='FINANCING_QUESTION' AND q.detail LIKE '%"resolved":false%'
       WHERE ${openOnly} AND q.at >= ? LIMIT 10`, iso(toT - 14 * D)), () => "客戶問了貸款，業務沒有給具體答案");
 
-  return { period, prev, funnel: { events, prev_events, leads, prev_leads, stages }, conversion, price_dropoff, appointments, visits, deals, staff, vehicles, attention };
+  /* ── SABC（系統推算）：未結案客戶的現況、本期新進線的分布、結果標籤 ── */
+  const gOpen: Record<string, number> = {}, gPeriod: Record<string, number> = {}, gTags: Record<string, number> = {};
+  for (const r of await db.all("SELECT grade_auto AS g, COUNT(*) AS n FROM leads WHERE outcome = '' AND grade_auto <> '' GROUP BY grade_auto")) gOpen[String(r["g"])] = num(r["n"]);
+  for (const r of await db.all("SELECT grade_auto AS g, COUNT(*) AS n FROM leads WHERE opened_at >= ? AND opened_at < ? AND grade_auto <> '' GROUP BY grade_auto", ...P)) gPeriod[String(r["g"])] = num(r["n"]);
+  for (const r of await db.all("SELECT result_tag AS t, COUNT(*) AS n FROM leads WHERE outcome = '' AND result_tag <> '' GROUP BY result_tag")) for (const t of String(r["t"]).split("、")) if (t) gTags[t] = (gTags[t] ?? 0) + num(r["n"]);
+  const grades: Analytics["grades"] = { open: gOpen, period: gPeriod, long_cycle: gTags["長週期"] ?? 0, tags: gTags };
+  return { period, prev, funnel: { events, prev_events, leads, prev_leads, stages }, conversion, price_dropoff, appointments, visits, deals, staff, vehicles, attention, grades };
 }

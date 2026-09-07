@@ -1,12 +1,12 @@
 /* 對話與證據：左清單／中時間軸（事件插在訊息之間、證據高亮）／右 AI 分析（事實與假設分開）。 */
 import { api } from "../api.js";
-import { h, raw, esc, fmtDT, fmtD, ago, chipStage, chip, chipClaim, chipConf, bubble, eventMark, EVENT, CONF, STAGE, wan, toast, lossLabel, DRIVER, roleLabel, lostReason, coverageChip, MATCH, nt } from "../ui.js";
+import { h, raw, esc, fmtDT, fmtD, ago, chipStage, chipGrade, GRADE, chip, chipClaim, chipConf, bubble, eventMark, EVENT, CONF, STAGE, wan, toast, lossLabel, DRIVER, roleLabel, lostReason, coverageChip, MATCH, nt } from "../ui.js";
 
 const FLAG = { price_dropoff: "價格後流失", high_intent: "高意圖", financing: "貸款未回", insights: "有洞察的" };
 
 export async function render(el, ctx) {
   const q = ctx.query, cur = ctx.params.id ? Number(ctx.params.id) : null;
-  const qs = new URLSearchParams(); for (const k of ["q", "stage", "staff", "vehicle", "outcome", "flag", "insight", "event"]) if (q[k]) qs.set(k, q[k]);
+  const qs = new URLSearchParams(); for (const k of ["q", "stage", "staff", "vehicle", "outcome", "flag", "insight", "event", "grade", "tag"]) if (q[k]) qs.set(k, q[k]);
   const [list, detail] = await Promise.all([api(`/api/leads?${qs}&limit=80`), cur ? api(`/api/leads/${cur}`) : Promise.resolve(null)]);
   const leads = list.leads || [];
   const staffs = [...new Set(leads.map((l) => l.staff).filter(Boolean))], vehicles = [...new Set(leads.map((l) => l.vehicle).filter(Boolean))];
@@ -14,7 +14,7 @@ export async function render(el, ctx) {
 
   const listHtml = leads.length ? leads.map((l) => h`<a href="/conversations/${l.id}${qs.toString() ? "?" + qs : ""}" data-link class="${l.id === cur ? "on" : ""} ${l.flags.price_dropoff ? "pd" : l.flags.high_intent ? "hi" : ""}">
       <div class="n"><span>${l.pseudonym} <span class="faint">${l.staff ? "· " + l.staff : ""}</span></span><span class="faint">${ago(l.last_at)}</span></div>
-      <div class="s">${l.vehicle}${raw(chipStage(l.stage))}${l.flags.price_dropoff ? raw(chip("價格後流失", "amber")) : ""}${l.flags.financing_unresolved ? raw(chip("貸款未回")) : ""}</div>
+      <div class="s">${raw(chipGrade(l.grade_auto, l.grade_reason))}${l.vehicle}${raw(chipStage(l.stage))}${l.flags.price_dropoff ? raw(chip("價格後流失", "amber")) : ""}${l.flags.financing_unresolved ? raw(chip("貸款未回")) : ""}</div>
     </a>`).join("") : '<div class="empty">沒有符合的對話。</div>';
 
   el.innerHTML = h`<div class="conv">
@@ -22,6 +22,7 @@ export async function render(el, ctx) {
       <h3>對話 <span class="faint" style="letter-spacing:0;font-weight:400">${list.n ?? 0} 則</span>${q.insight ? raw(h`<a href="/insights/${q.insight}" data-link style="font-weight:400;letter-spacing:0">‹ 回洞察</a>`) : ""}</h3>
       <input id="fq" placeholder="搜尋客戶或車款…" value="${q.q || ""}">
       <div class="filters">
+        <select id="fgrade"><option value="">分級</option>${raw(["S", "A", "B", "C"].map((g) => `<option value="${g}" ${q.grade === g ? "selected" : ""}>${GRADE[g]}</option>`).join(""))}</select>
         <select id="fstage">${raw(opt(Object.keys(STAGE), q.stage, "階段"))}</select>
         <select id="fstaff">${raw(opt(staffs, q.staff, "業務"))}</select>
         <select id="fveh">${raw(opt(vehicles, q.vehicle, "車款"))}</select>
@@ -35,8 +36,8 @@ export async function render(el, ctx) {
   </div>`;
 
   // 篩選：改任何一個就重新載入（保留目前的對話）
-  const go = () => { const p = new URLSearchParams(); const v = (id) => document.getElementById(id).value; if (v("fq")) p.set("q", v("fq")); if (v("fstage")) p.set("stage", v("fstage")); if (v("fstaff")) p.set("staff", v("fstaff")); if (v("fveh")) p.set("vehicle", v("fveh")); if (v("fout")) p.set("outcome", v("fout")); if (v("fflag")) p.set("flag", v("fflag")); if (q.insight) p.set("insight", q.insight); ctx.nav(`/conversations${cur ? "/" + cur : ""}${p.toString() ? "?" + p : ""}`); };
-  ["fstage", "fstaff", "fveh", "fout", "fflag"].forEach((id) => document.getElementById(id).onchange = go);
+  const go = () => { const p = new URLSearchParams(); const v = (id) => document.getElementById(id).value; if (v("fq")) p.set("q", v("fq")); if (v("fstage")) p.set("stage", v("fstage")); if (v("fgrade")) p.set("grade", v("fgrade")); if (v("fstaff")) p.set("staff", v("fstaff")); if (v("fveh")) p.set("vehicle", v("fveh")); if (v("fout")) p.set("outcome", v("fout")); if (v("fflag")) p.set("flag", v("fflag")); if (q.insight) p.set("insight", q.insight); ctx.nav(`/conversations${cur ? "/" + cur : ""}${p.toString() ? "?" + p : ""}`); };
+  ["fgrade", "fstage", "fstaff", "fveh", "fout", "fflag"].forEach((id) => document.getElementById(id).onchange = go);
   document.getElementById("fq").addEventListener("keydown", (e) => { if (e.key === "Enter") go(); });
   document.getElementById("fflag").innerHTML = `<option value="">只看…</option>` + Object.entries(FLAG).map(([k, v]) => `<option value="${k}" ${q.flag === k ? "selected" : ""}>${v}</option>`).join("");
   el.querySelectorAll("[data-act]").forEach((b) => b.onclick = async () => { const r = await api(`/api/actions/${b.dataset.act}`, { status: b.dataset.st }, "PATCH"); toast(r.ok ? "已更新" : "失敗"); render(el, ctx); });
@@ -103,7 +104,7 @@ function sideHtml(d) {
     : sold ? ["交車後 7 天關懷一次，順便問轉介。"] : ["維持跟進節奏，48 小時內至少一則主動訊息。"];
 
   return `<div class="kv"><div>客戶</div><div><b>${esc(L.pseudonym)}</b> <span class="faint">${esc(L.display_name)}</span></div>
-      <div>分級</div><div>${esc(L.grade)}</div><div>首次進線</div><div>${fmtD(L.first_contact_at || L.opened_at)}</div>
+      <div>分級</div><div>${raw(chipGrade(L.grade_auto, L.grade_reason))} <span class="faint">${esc(L.grade_reason || "")}</span>${L.result_tag ? ` ${raw(chip(esc(L.result_tag), "amber"))}` : ""}${L.grade ? ` <span class="faint">· 訊息組標 ${esc(L.grade)}</span>` : ""}</div><div>首次進線</div><div>${fmtD(L.first_contact_at || L.opened_at)}</div>
       <div>車款</div><div>${esc(L.vehicle || "—")}${L.list_price ? ` <span class="faint">開價 ${wan(L.list_price)}</span>` : ""}${L.sell_price ? ` <span class="faint">調作價 ${wan(L.sell_price)}</span>` : ""}</div>
       <div>業務</div><div>${esc(L.staff || "未指派")}${(d.roles || []).filter((r) => r.role !== "primary").map((r) => ` ${chip(`${roleLabel(r.role)} ${r.staff}`, r.role === "chat_handler" ? "cyan" : "")}`).join("")}</div><div>階段</div><div>${chipStage(L.stage)} ${L.outcome ? chip({ sold: "已成交", lost: "已流失" }[L.outcome], L.outcome === "sold" ? "cyan" : "") : ""}</div>
       <div>訊息涵蓋</div><div>${L.coverage && L.coverage !== "full" ? `${coverageChip(L.coverage, L.coverage_note)} <span class="faint">${esc(L.coverage_note)}</span>` : "完整"}</div></div>
