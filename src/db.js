@@ -186,7 +186,7 @@ export class AppDB extends DurableObject {
   /** 資料一改（匯入／漏斗／分析／配對／行動）就清兩層快取 */
   bust() { this._cache = new Map(); try { this.run("DELETE FROM cache_json"); } catch { /* 表還沒建好 */ } }
   /** 快取鍵的時間桶：一天一桶。底層資料只有 pipeline 會改（改了就 bust），一天內只差期間邊界往前挪幾小時 */
-  bucket(to) { return to ?? new Date().toISOString().slice(0, 10); }
+  bucket(to) { return to ?? new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10); }   // 台灣日期：桶在台灣 00:00 換，換完 cron 馬上暖
   reportCached(days, to, fresh = false) { return this.cached(`report:${days ?? 30}:${this.bucket(to)}`, 24 * 60 * 60_000, () => computeStaffReport(this, { days, to }), fresh); }
   async importLocal(bundle, opts) { this.bust(); return importBundle(this, bundle, opts); }
   /** 分析數字（總覽／成交／漏斗／需要注意都靠它）：每頁載入會叫好幾次，每次讀幾萬列 → 同參數同一小時回快取 */

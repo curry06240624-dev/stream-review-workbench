@@ -72,6 +72,7 @@ export async function computeAnalytics(db: DbLike, opts: { to?: string; days?: n
   const prev_leads = num((await db.first("SELECT COUNT(*) AS n FROM leads WHERE opened_at >= ? AND opened_at < ?", ...Q))?.["n"]);
   const stages = (await db.all("SELECT stage, COUNT(*) AS n FROM leads GROUP BY stage")).map((r) => ({ stage: String(r["stage"]), n: num(r["n"]) }));
 
+  lap("funnel");
   /* ── 階段轉換（以 lead 計）── */
   const pairs: Array<[string, string, string]> = [
     ["price_to_booking", "PRICE_MENTIONED", "APPOINTMENT_BOOKED"],
@@ -86,6 +87,7 @@ export async function computeAnalytics(db: DbLike, opts: { to?: string; days?: n
     conversion[k] = { rate: c.rate, n: c.n, prev_rate: p.rate, prev_n: p.n };
   }
 
+  lap("conversion");
   /* ── 價格後流失 ── */
   const dropQ = `SELECT COUNT(*) AS n FROM funnel_events WHERE type = 'PRICE_DROP_OFF' AND confidence IN ('CONFIRMED','STRONGLY_SUGGESTED','POSSIBLE') AND at >= ? AND at < ?`;
   const priceQ = `SELECT COUNT(*) AS n FROM funnel_events WHERE type = 'PRICE_MENTIONED' AND at >= ? AND at < ?`;
@@ -108,6 +110,7 @@ export async function computeAnalytics(db: DbLike, opts: { to?: string; days?: n
     by_vehicle: (await breakdown("vehicle", "LEFT JOIN vehicles v ON v.id = l.vehicle_id", "COALESCE(v.brand || ' ' || v.model,'')")) as never,
   };
 
+  lap("dropoff");
   /* ── 預約與到店 ── */
   const cnt = async (type: string, pp: readonly [string, string]) => num((await db.first(`SELECT COUNT(*) AS n FROM funnel_events WHERE type = ? AND confidence <> 'UNCLEAR' AND at >= ? AND at < ?`, type, ...pp))?.["n"]);
   const aProp = await cnt("APPOINTMENT_PROPOSED", P), aBook = await cnt("APPOINTMENT_BOOKED", P), aNo = await cnt("NO_SHOW", P), aCxl = await cnt("APPOINTMENT_CANCELLED", P), aChg = await cnt("APPOINTMENT_CHANGED", P), vis = await cnt("STORE_VISIT", P);
@@ -116,6 +119,7 @@ export async function computeAnalytics(db: DbLike, opts: { to?: string; days?: n
   const vOut = Object.fromEntries((await db.all(`SELECT outcome, COUNT(*) AS n FROM visits WHERE visited_at >= ? AND visited_at < ? GROUP BY outcome`, ...P)).map((r) => [String(r["outcome"]), num(r["n"])]));
   const visits = { count: vis, prev_count: pVis, bought: vOut["bought"] ?? 0, negotiating: vOut["negotiating"] ?? 0, left: vOut["left"] ?? 0, booking_to_visit: conversion["booking_to_visit"]?.rate ?? null, visit_to_sold: conversion["visit_to_sold"]?.rate ?? null };
 
+  lap("appts");
   /* ── 成交/毛利（帳本；毛利只算成本知道的成交）── */
   const GP = "CASE WHEN status='sold' AND cost_source<>'none' THEN gross_profit ELSE 0 END";
   const dl = await db.first(`SELECT SUM(CASE WHEN status='sold' THEN 1 ELSE 0 END) AS sold, SUM(CASE WHEN status='lost' THEN 1 ELSE 0 END) AS lost,
@@ -139,17 +143,18 @@ export async function computeAnalytics(db: DbLike, opts: { to?: string; days?: n
   };
 
   /* ── 業務（全期間，不只本週：跟進品質要看足夠樣本）── */
-  const staffRows = await db.all(`
-    SELECT u.id, u.name, COALESCE(t.name,'') AS team,
-      (SELECT COUNT(*) FROM leads l WHERE l.staff_id = u.id) AS leads,
-      (SELECT COUNT(*) FROM funnel_events e JOIN leads l ON l.id = e.lead_id WHERE l.staff_id = u.id AND e.type='PRICE_MENTIONED') AS priced,
-      (SELECT COUNT(*) FROM funnel_events e JOIN leads l ON l.id = e.lead_id WHERE l.staff_id = u.id AND e.type='PRICE_DROP_OFF' AND e.confidence<>'UNCLEAR') AS dropped,
-      (SELECT COUNT(*) FROM funnel_events e JOIN leads l ON l.id = e.lead_id WHERE l.staff_id = u.id AND e.type='APPOINTMENT_BOOKED') AS booked,
-      (SELECT COUNT(*) FROM deals d WHERE d.staff_id = u.id AND d.status='sold') AS sold,
-      (SELECT COALESCE(SUM(d.sale_price),0) FROM deals d WHERE d.staff_id = u.id AND d.status='sold') AS revenue,
-      (SELECT COALESCE(SUM(d.gross_profit),0) FROM deals d WHERE d.staff_id = u.id AND d.status='sold' AND d.cost_source<>'none') AS gp,
-      (SELECT COUNT(*) FROM funnel_events e JOIN leads l ON l.id = e.lead_id WHERE l.staff_id = u.id AND e.type='FOLLOW_UP') AS followups
-    FROM users u LEFT JOIN teams t ON t.id = u.team_id WHERE u.role = 'agent' OR u.job IN ('chat','sales','both') ORDER BY gp DESC`);
+  // 員工列：以前每人 8 個子查詢、每個都掃「這個人的所有 lead 的事件」（未署名客服有 4 萬個 lead → 2 萬段時就要 5 秒）；改成三句 GROUP BY 再在 JS 對回去
+  const byStaffEv = new Map<number, Record<string, number>>();
+  for (const r of await db.all(`SELECT l.staff_id AS uid, e.type AS t, COUNT(*) AS n FROM funnel_events e JOIN leads l ON l.id = e.lead_id
+      WHERE l.staff_id IS NOT NULL AND e.type IN ('PRICE_MENTIONED','PRICE_DROP_OFF','APPOINTMENT_BOOKED','FOLLOW_UP') AND (e.type <> 'PRICE_DROP_OFF' OR e.confidence <> 'UNCLEAR')
+      GROUP BY l.staff_id, e.type`)) { const u = num(r["uid"]); if (!byStaffEv.has(u)) byStaffEv.set(u, {}); byStaffEv.get(u)![String(r["t"])] = num(r["n"]); }
+  const byStaffLeads = new Map((await db.all("SELECT staff_id AS uid, COUNT(*) AS n FROM leads WHERE staff_id IS NOT NULL GROUP BY staff_id")).map((r) => [num(r["uid"]), num(r["n"])]));
+  const byStaffDeals = new Map((await db.all("SELECT staff_id AS uid, COUNT(*) AS sold, COALESCE(SUM(sale_price),0) AS revenue, COALESCE(SUM(CASE WHEN cost_source<>'none' THEN gross_profit ELSE 0 END),0) AS gp FROM deals WHERE status='sold' AND staff_id IS NOT NULL GROUP BY staff_id")).map((r) => [num(r["uid"]), r]));
+  const staffRows = (await db.all(`SELECT u.id, u.name, COALESCE(t.name,'') AS team FROM users u LEFT JOIN teams t ON t.id = u.team_id WHERE u.role = 'agent' OR u.job IN ('chat','sales','both')`))
+    .map((u) => { const id = num(u["id"]), ev = byStaffEv.get(id) ?? {}, d = byStaffDeals.get(id);
+      return { ...u, leads: byStaffLeads.get(id) ?? 0, priced: ev["PRICE_MENTIONED"] ?? 0, dropped: ev["PRICE_DROP_OFF"] ?? 0, booked: ev["APPOINTMENT_BOOKED"] ?? 0, followups: ev["FOLLOW_UP"] ?? 0, sold: num(d?.["sold"]), revenue: num(d?.["revenue"]), gp: num(d?.["gp"]) } as Row; })
+    .sort((a, b) => num(b["gp"]) - num(a["gp"]));
+  lap("staff_rows");
   // 首次回覆時間中位數：客戶第一則自己打的字（按選單不算）→ 該員第一則；超過 7 天才回的不算回覆（真資料有隔一年才回的，跟 behavior.ts 同一條規則）
   // 一次查全部再在 JS 分組（一人一句時 27 個員工 × 2 萬段對話要 10 秒）
   const latRows = await db.all(`
@@ -158,6 +163,7 @@ export async function computeAnalytics(db: DbLike, opts: { to?: string; days?: n
         JOIN messages c ON c.id = (SELECT id FROM messages WHERE conversation_id = cv.id AND sender_role='customer' AND COALESCE(msg_type,'') <> 'menu' ORDER BY created_at LIMIT 1)
         JOIN messages s ON s.id = (SELECT id FROM messages WHERE conversation_id = cv.id AND sender_role='staff' AND created_at > c.created_at ORDER BY created_at LIMIT 1)
        WHERE cv.assigned_to IS NOT NULL AND (julianday(s.created_at) - julianday(c.created_at)) <= 7`);
+  lap("latency");
   const latBy = new Map<number, number[]>();
   for (const x of latRows) { const u = num(x["uid"]); if (!latBy.has(u)) latBy.set(u, []); latBy.get(u)!.push(num(x["mins"])); }
   const staff: Analytics["staff"] = [];
@@ -169,15 +175,17 @@ export async function computeAnalytics(db: DbLike, opts: { to?: string; days?: n
 
   lap("staff");
   /* ── 車款（全期間）── */
-  const vehicles: Analytics["vehicles"] = (await db.all(`
-    SELECT v.id, v.brand || ' ' || v.model AS name, v.body_type, v.list_price, v.sell_price, v.cost, v.cost_known, v.stock_status,
-      (SELECT COUNT(*) FROM leads l WHERE l.vehicle_id = v.id) AS inquiries,
-      (SELECT COUNT(*) FROM funnel_events e JOIN leads l ON l.id = e.lead_id WHERE l.vehicle_id = v.id AND e.type='PRICE_MENTIONED') AS priced,
-      (SELECT COUNT(*) FROM funnel_events e JOIN leads l ON l.id = e.lead_id WHERE l.vehicle_id = v.id AND e.type='PRICE_DROP_OFF' AND e.confidence<>'UNCLEAR') AS dropped,
-      (SELECT COUNT(*) FROM funnel_events e JOIN leads l ON l.id = e.lead_id WHERE l.vehicle_id = v.id AND e.type='APPOINTMENT_BOOKED') AS booked,
-      (SELECT COUNT(*) FROM deals d WHERE d.vehicle_id = v.id AND d.status='sold') AS sold,
-      (SELECT COALESCE(SUM(d.gross_profit),0) FROM deals d WHERE d.vehicle_id = v.id AND d.status='sold' AND d.cost_source<>'none') AS gp
-    FROM vehicles v ORDER BY inquiries DESC`))
+  const byVehEv = new Map<number, Record<string, number>>();
+  for (const r of await db.all(`SELECT l.vehicle_id AS vid, e.type AS t, COUNT(*) AS n FROM funnel_events e JOIN leads l ON l.id = e.lead_id
+      WHERE l.vehicle_id IS NOT NULL AND e.type IN ('PRICE_MENTIONED','PRICE_DROP_OFF','APPOINTMENT_BOOKED') AND (e.type <> 'PRICE_DROP_OFF' OR e.confidence <> 'UNCLEAR')
+      GROUP BY l.vehicle_id, e.type`)) { const v = num(r["vid"]); if (!byVehEv.has(v)) byVehEv.set(v, {}); byVehEv.get(v)![String(r["t"])] = num(r["n"]); }
+  const byVehLeads = new Map((await db.all("SELECT vehicle_id AS vid, COUNT(*) AS n FROM leads WHERE vehicle_id IS NOT NULL GROUP BY vehicle_id")).map((r) => [num(r["vid"]), num(r["n"])]));
+  const byVehDeals = new Map((await db.all("SELECT vehicle_id AS vid, COUNT(*) AS sold, COALESCE(SUM(CASE WHEN cost_source<>'none' THEN gross_profit ELSE 0 END),0) AS gp FROM deals WHERE status='sold' AND vehicle_id IS NOT NULL GROUP BY vehicle_id")).map((r) => [num(r["vid"]), r]));
+  const vehRows = (await db.all("SELECT v.id, v.brand || ' ' || v.model AS name, v.body_type, v.list_price, v.sell_price, v.cost, v.cost_known, v.stock_status FROM vehicles v"))
+    .map((v) => { const id = num(v["id"]), ev = byVehEv.get(id) ?? {}, d = byVehDeals.get(id);
+      return { ...v, inquiries: byVehLeads.get(id) ?? 0, priced: ev["PRICE_MENTIONED"] ?? 0, dropped: ev["PRICE_DROP_OFF"] ?? 0, booked: ev["APPOINTMENT_BOOKED"] ?? 0, sold: num(d?.["sold"]), gp: num(d?.["gp"]) } as Row; })
+    .sort((a, b) => num(b["inquiries"]) - num(a["inquiries"]));
+  const vehicles: Analytics["vehicles"] = vehRows
     .map((r) => ({ id: num(r["id"]), name: String(r["name"]), body_type: String(r["body_type"]), inquiries: num(r["inquiries"]), priced: num(r["priced"]), dropped: num(r["dropped"]), booked: num(r["booked"]), sold: num(r["sold"]), inquiry_to_sold: rate(num(r["sold"]), num(r["inquiries"])), gross_profit: num(r["gp"]),
       list_price: num(r["list_price"]), sell_price: r["sell_price"] == null ? null : num(r["sell_price"]), stock_status: String(r["stock_status"] ?? ""),
       // 在庫車的估算毛利＝調作價（實賣價）－成本；沒有調作價或沒有成本就不算，不拿開價硬算

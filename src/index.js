@@ -34,8 +34,21 @@ const J = (o, s = 200, headers = {}) => new Response(JSON.stringify(o), {
   headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", ...headers },
 });
 const now = () => new Date().toISOString();
+async function warmCaches(db) {
+  const out = {}; const t0 = Date.now();
+  for (const days of [7, 14, 30]) {
+    await db.analyticsLocal({ days }); await db.staffLocal({ days }); await db.decisionsLocal({ days, now: now() });
+    out[days] = Date.now() - t0;
+  }
+  return out;
+}
 
 export default {
+  /** 排程（wrangler.toml [triggers]）：把每個人一開站就會看的頁面先算好放進持久快取；也可以 POST /api/admin/warm 手動觸發 */
+  async scheduled(_event, env, ctx) {
+    const db = env.APPDB.get(env.APPDB.idFromName("main"));
+    ctx.waitUntil(warmCaches(db));
+  },
   async fetch(request, env) {
     const url = new URL(request.url);
     if (!url.pathname.startsWith("/api/")) {
@@ -275,6 +288,12 @@ async function route(request, env, db, url) {
     const me = await currentUser(request, db);
     if (!me || !canSeeAll(me.role)) return J({ ok: false, error: "forbidden" }, 403);
     return J({ ok: true, ...(await db.rematchAllLocal({ now: now() })) });
+  }
+  /* ── 把總覽／員工效能／決策中心的 7／14／30 天先算好進持久快取（cron 每天台灣 00:10 也會跑） ── */
+  if (p === "/api/admin/warm" && m === "POST") {
+    const me = await currentUser(request, db);
+    if (!me || !canSeeAll(me.role)) return J({ ok: false, error: "forbidden" }, 403);
+    return J({ ok: true, ms: await warmCaches(db) });
   }
   /* ── 車源表 售出／收訂 → 成交／收訂中：重跑同步（匯入與上傳時會自動跑） ── */
   if (p === "/api/admin/sheet-deals/sync" && m === "POST") {

@@ -45,7 +45,7 @@ const sd = await api("/api/admin/sheet-deals/sync", {}); console.log("車源表�
 if (!NO_INS) { const i = await api("/api/insights/run", { days: DAYS }); console.log("洞察＋簡報：", JSON.stringify({ ok: i.ok, persisted: i.persisted, narrate: i.narrate, brief: i.brief, ms: i.ms, err: i.body })); }
 const a = await api(`/api/analytics?days=${DAYS}`);
 for (const d of [7, 14, 30]) if (d !== DAYS) await api(`/api/analytics?days=${d}`);   // 暖快取：第一次算要好幾秒，老闆打開就直接有
-await api("/api/decisions?days=30");   // 總覽也叫決策中心（冷的要 10 秒）
+for (const d of [7, 14, 30]) { await api(`/api/staff?days=${d}`); await api(`/api/decisions?days=${d}`); }   // 總覽也叫決策中心；員工效能／決策中心的三個期間都先算好進持久快取
 if (a.ok) {
   console.log("階段：", JSON.stringify(a.funnel?.stages));
   console.log(`本期 leads ${a.funnel?.leads}（前期 ${a.funnel?.prev_leads}）；事件：`, JSON.stringify(a.funnel?.events));
