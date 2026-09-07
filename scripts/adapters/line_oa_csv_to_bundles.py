@@ -27,6 +27,8 @@ csv.field_size_limit(10**9)
 ap = argparse.ArgumentParser()
 ap.add_argument("src"); ap.add_argument("out")
 ap.add_argument("--since", default="2026-03-10")
+ap.add_argument("--until", default="", help="只轉最後一則客戶訊息在這天之前的（跟 --since 互補，用來補舊資料）")
+ap.add_argument("--start-no", type=int, default=41, help="新客戶編號從幾號起（補舊資料時要接在已匯入的後面，避免撞號）")
 ap.add_argument("--chunk", type=int, default=500)
 ap.add_argument("--super8", default="data/real/2026-09-06/bundle.json")
 ap.add_argument("--map", default="data/real/2026-09-06/bundle.map.json")
@@ -36,6 +38,7 @@ A = ap.parse_args()
 
 TZ = dt.timezone(dt.timedelta(hours=9))
 SINCE = dt.date.fromisoformat(A.since)
+UNTIL = dt.date.fromisoformat(A.until) if A.until else None
 os.makedirs(A.out, exist_ok=True)
 
 NAME_MAP = {"陳昱孝": "昱孝陳", "瑋瑋": "昱孝陳", "瑋瑋中古車": "昱孝陳"}
@@ -72,7 +75,7 @@ def iso(x): return x.astimezone(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000
 
 files = sorted(glob.glob(os.path.join(A.src, "*.csv")), key=lambda f: file_meta(f)[0])
 if A.limit: files = files[:A.limit]
-print(f"檔案 {len(files)}，只轉最後一則客戶訊息在 {SINCE} 之後的對話")
+print(f"檔案 {len(files)}，只轉最後一則客戶訊息在 {SINCE} 之後" + (f"、{UNTIL} 之前" if UNTIL else "") + " 的對話")
 
 # ── 第一遍：模板／群發／選單的統計，以及每段的最後客戶訊息日 ──
 t0 = time.time()
@@ -125,9 +128,9 @@ for nm, cnt in named.most_common():
 staff.append({"name": PLACEHOLDER, "role": "agent", "team": "訊息組", "email": "s8-unknown@pusen.local", "job": "chat", "aliases": []})
 
 # ── 第二遍：轉對話、分批寫出 ──
-selected = [fn for fn in files if fn in last_user and dt.date(*map(int, last_user[fn].split("/"))) >= SINCE]
+selected = [fn for fn in files if fn in last_user and dt.date(*map(int, last_user[fn].split("/"))) >= SINCE and (UNTIL is None or dt.date(*map(int, last_user[fn].split("/"))) < UNTIL)]
 print(f"選中 {len(selected)} 段")
-name_map = {}; next_no = 41; part = 0; buf = {"customers": [], "leads": [], "conversations": []}
+name_map = {}; next_no = A.start_no; part = 0; buf = {"customers": [], "leads": [], "conversations": []}
 stats = collections.Counter(); matched = 0
 
 def flush():
