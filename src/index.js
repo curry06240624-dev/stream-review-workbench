@@ -506,7 +506,7 @@ async function route(request, env, db, url) {
     if (!me) return J({ ok: false, error: "not_logged_in" }, 401);
     if (!canSeeAll(me.role)) return J({ ok: false, error: "forbidden" }, 403);
     const date = url.searchParams.get("date");
-    const row = date ? await db.first("SELECT * FROM briefs WHERE brief_date = ?", date) : await db.first("SELECT * FROM briefs ORDER BY brief_date DESC LIMIT 1");
+    const row = date ? await db.first("SELECT * FROM briefs WHERE brief_date = ?", date) : await db.first("SELECT * FROM briefs ORDER BY created_at DESC, id DESC LIMIT 1")   // 最新＝最後產生的那份（brief_date 是資料截至那天，切基準後日期可能比舊的早）;
     if (!row) return J({ ok: true, brief: null });
     return J({ ok: true, brief: { ...row, content: JSON.parse(row.content) } });
   }
