@@ -17,7 +17,7 @@ import { computeLoss, lossAggregate } from "./engine/loss.ts";
 import { computeGrades } from "./engine/grade.ts";
 import { computeStaffReport } from "./engine/staff.ts";
 import { buildCoachingPlan, computeDecisions, metricSnapshot, actionProgress } from "./engine/coaching.ts";
-import { ingestPosts, matchReport, applyReport, unapplyReport, reconcileSummary } from "./engine/reconcile.ts";
+import { ingestPosts, matchReport, applyReport, unapplyReport, reconcileSummary, restaffReports } from "./engine/reconcile.ts";
 import { parseLineExport } from "./engine/posts.ts";
 import { syncSheetDeals } from "./engine/sheetdeals.ts";
 import { vehicleKey, VANISHED_TEXT } from "./engine/csv.ts";
@@ -332,6 +332,8 @@ export class AppDB extends DurableObject {
     }
     return { matched, unmatched_n: unmatched.length, unmatched: unmatched.slice(0, 20), total: opts.rows.length };
   }
+  /** 暱稱表補了之後：沒對到業務的貼文與成交重新歸屬 */
+  async restaffLocal() { this.bust(); return restaffReports(this); }
   /** 重新配對所有還沒確認的貼文（例如補了暱稱或車源表之後） */
   async rematchAllLocal(opts) {
     this.bust();

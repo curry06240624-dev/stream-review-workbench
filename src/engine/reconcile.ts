@@ -29,7 +29,8 @@ interface Cand { id: number; label: string; reason: string }
 interface Cands { vehicles: Cand[]; leads: Cand[]; applied?: Row }
 
 /** 名字 → user id：本名或任何系統的暱稱；去掉 emoji 與空白再比 */
-const nameKey = (s: string) => s.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}]/gu, "").replace(/\s+/g, "").trim();
+/** 名字比對鍵：去 emoji、去空白、全形標點轉半形（貼文者「賴安Ash｜瑋瑋中古車」存進來時 clean() 已把 ｜ 變成 |，暱稱表打全形也要對得到） */
+const nameKey = (s: string) => s.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}]/gu, "").replace(/[！-～]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).replace(/\s+/g, "").trim();
 export async function staffResolver(db: DbLike) {
   const users = await db.all("SELECT id, name, role, job FROM users");
   const aliases = await db.all("SELECT user_id, alias FROM staff_aliases");
@@ -321,6 +322,18 @@ export async function ingestPosts(db: DbLike, posts: Post[], opts: { kind: "deal
     }
   }
   return rep;
+}
+
+/** 暱稱表補了之後，把還沒對到業務的貼文與成交重新歸屬（發文人＝成交業務） */
+export async function restaffReports(db: DbLike): Promise<{ reports: number; deals: number; unresolved: Record<string, number> }> {
+  const res = await staffResolver(db); let reports = 0, deals = 0; const unresolved: Record<string, number> = {};
+  for (const x of await db.all("SELECT id, reported_by, staff_id, reported_by_user_id, deal_id FROM deal_reports WHERE staff_id IS NULL OR reported_by_user_id IS NULL")) {
+    const uid = res.resolve(str(x["reported_by"]));
+    if (!uid) { const k = str(x["reported_by"]); unresolved[k] = (unresolved[k] ?? 0) + 1; continue; }
+    await db.run("UPDATE deal_reports SET reported_by_user_id = ?, staff_id = COALESCE(staff_id, ?) WHERE id = ?", uid, uid, num(x["id"])); reports++;
+    if (x["deal_id"]) { const u = await db.run("UPDATE deals SET staff_id = ? WHERE id = ? AND staff_id IS NULL", uid, num(x["deal_id"])); if (u) deals++; }
+  }
+  return { reports, deals, unresolved };
 }
 
 /* ── 畫面用的總覽 ── */

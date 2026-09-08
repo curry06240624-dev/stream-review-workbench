@@ -286,6 +286,11 @@ async function route(request, env, db, url) {
       return J({ ok: true, ...r });
     } catch (e) { return J({ ok: false, message: String(e && e.message || e).slice(0, 200) }, 400); }
   }
+  if (p === "/api/reconcile/restaff" && m === "POST") {
+    const me = await currentUser(request, db);
+    if (!me || !canSeeAll(me.role)) return J({ ok: false, error: "forbidden" }, 403);
+    return J({ ok: true, ...(await db.restaffLocal()) });
+  }
   if (p === "/api/reconcile/rematch-all" && m === "POST") {
     const me = await currentUser(request, db);
     if (!me || !canSeeAll(me.role)) return J({ ok: false, error: "forbidden" }, 403);
