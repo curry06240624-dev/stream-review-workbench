@@ -22,7 +22,7 @@ const analytics = (db: DbLike, opts: { days: number; to?: string }) => {
 async function periodEnd(db: DbLike, q: URLSearchParams): Promise<{ iso: string; to: string | undefined }> {
   const nowIso = new Date().toISOString();
   if (q.get("anchor") === "today") return { iso: nowIso, to: undefined };
-  const r = await db.first("SELECT MAX(last_message_at) AS m FROM conversations");
+  const r = await db.first("SELECT MAX(m) AS m FROM (SELECT MAX(last_message_at) AS m FROM conversations UNION ALL SELECT MAX(reported_at) AS m FROM deal_reports UNION ALL SELECT MAX(at) AS m FROM group_posts)");   // 跟 db.js dataEndLocal 同一條規則
   const t = r && r["m"] ? Date.parse(String(r["m"])) + 1000 : NaN;
   if (!Number.isFinite(t) || t >= Date.now()) return { iso: nowIso, to: undefined };
   const iso = new Date(t).toISOString(); return { iso, to: iso };

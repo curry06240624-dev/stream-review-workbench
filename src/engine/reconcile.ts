@@ -11,6 +11,7 @@
  */
 import type { DbLike } from "../adapters/import.ts";
 import { parseDealReport, parseAppraisal, parseReception, detectKind, hashId, modelLike, colorKey, type Post } from "./posts.ts";
+import { scrubText } from "./posts.ts";
 import { runFunnel } from "./funnel.ts";
 import { computeRoles } from "./attribution.ts";
 
@@ -75,6 +76,13 @@ export async function matchReport(db: DbLike, id: number, now: string): Promise<
     if (v) { vehicle = v; vConf = "CONFIRMED"; method = "plate"; reasons.push(`車牌相同（${plate}）→ ${vehicleLabel(v)}`); cands.vehicles.push({ id: num(v["id"]), label: vehicleLabel(v), reason: "車牌相同" }); }
     else reasons.push(`車源表沒有車牌 ${plate}${isPeer ? "（同行的車通常不在車源表）" : ""}`);
   } else reasons.push("貼文的車號空白");
+  const last4 = /^\d{4}$/.test(plate.trim()) ? plate.trim() : "";   // 成交群常只寫後四碼
+  if (!vehicle && !plateNorm && last4) {
+    const vs = await db.all("SELECT * FROM vehicles WHERE plate_norm LIKE ? ORDER BY id DESC", `%${last4}`);
+    if (vs.length === 1) { vehicle = vs[0]!; vConf = "STRONGLY_SUGGESTED"; method = "plate4"; reasons.push(`車號只寫後四碼 ${last4}，車源表剛好只有一台：${vehicleLabel(vehicle)}`); cands.vehicles.push({ id: num(vehicle["id"]), label: vehicleLabel(vehicle), reason: "後四碼相同" }); }
+    else if (vs.length > 1) { vConf = "POSSIBLE"; for (const v of vs.slice(0, 5)) cands.vehicles.push({ id: num(v["id"]), label: vehicleLabel(v), reason: "後四碼相同" }); reasons.push(`車號只寫後四碼 ${last4}，車源表有 ${vs.length} 台相符，要人選`); }
+    else reasons.push(`車號只寫後四碼 ${last4}，車源表沒有相符的車`);
+  }
   if (!vehicle && model && isPeer) reasons.push("同行的車不在車源表，不用年份車型猜（只認車牌），成本也不算");
   if (!vehicle && model && !isPeer) {
     const all = await db.all("SELECT * FROM vehicles");
@@ -144,7 +152,7 @@ export async function matchReport(db: DbLike, id: number, now: string): Promise<
   if (lead && lead["staff_id"]) { staffId = num(lead["staff_id"]); reasons.push("業務＝這位客戶指派的業務"); }
   else if (lead) { const v = await db.first("SELECT staff_id FROM visits WHERE lead_id = ? AND staff_id IS NOT NULL ORDER BY visited_at DESC LIMIT 1", num(lead["id"])); if (v) { staffId = num(v["staff_id"]); reasons.push("業務＝接待群指派"); } }
   if (!staffId && staffRef) { staffId = res.resolve(staffRef); reasons.push(staffId ? `貼文寫了業務「${staffRef}」` : `貼文寫的業務「${staffRef}」對不到員工（暱稱表要補）`); }
-  if (!staffId && reportedBy) { const u = res.resolve(reportedBy); if (u && ["sales", "both"].includes(res.jobOf(u))) { staffId = u; reasons.push(`發文人 ${reportedBy} 本身是業務（可能）`); } }
+  if (!staffId && reportedBy) { const u = res.resolve(reportedBy); if (u) { staffId = u; reasons.push(`發文人 ${reportedBy}＝貼單的人，依成交群慣例當成交業務（可改）`); } }   // 成交群沒有「業務」欄，誰貼誰成交
   const reportedByUid = res.resolve(reportedBy);
   if (reportedBy && !reportedByUid) reasons.push(`發文人「${reportedBy}」對不到員工（暱稱表要補）`);
 
@@ -154,6 +162,7 @@ export async function matchReport(db: DbLike, id: number, now: string): Promise<
   let status: "auto" | "suggested" | "unmatched";
   if (hasPrice && lead && vehicle && (vConf === "CONFIRMED" || lConf === "CONFIRMED") && strong(vConf) && strong(lConf)) status = "auto";
   else if (hasPrice && lead && lConf === "CONFIRMED" && !vehicle && isPeer) status = "auto";      // 同行車：客戶名確定就夠，車本來就不在表裡
+  else if (hasPrice && (str(r["stage"]) || plateNorm || last4)) { status = "auto"; reasons.push("成交群的收訂／送貸單本身就算成交（收訂＝成交），先記成交，客戶之後再對"); }   // 2026-09-08 真格式沒有客戶欄
   else if (vehicle || lead || cands.vehicles.length || cands.leads.length) status = "suggested";
   else status = "unmatched";
   if (!hasPrice) reasons.push("貼文沒有售價，不能自動建立成交");
@@ -171,16 +180,24 @@ export async function applyReport(db: DbLike, id: number, ov: { vehicle_id?: num
   const vehicleId = ov.vehicle_id !== undefined ? ov.vehicle_id : (r["vehicle_id"] == null ? null : num(r["vehicle_id"]));
   const leadId = ov.lead_id !== undefined ? ov.lead_id : (r["lead_id"] == null ? null : num(r["lead_id"]));
   let staffId = ov.staff_id !== undefined ? ov.staff_id : (r["staff_id"] == null ? null : num(r["staff_id"]));
-  if (!leadId) throw new Error("要先對到客戶才能建立成交");
-  const lead = await db.first("SELECT * FROM leads WHERE id = ?", leadId); if (!lead) throw new Error("找不到這位客戶的旅程");
-  const price = num(r["sale_price"]); if (!price) throw new Error("貼文沒有售價");
-  if (!staffId) staffId = lead["staff_id"] == null ? null : num(lead["staff_id"]);
+  // 2026-09-08：成交群的收訂單沒有客戶欄，收訂＝成交 → 沒對到客戶也建成交（跟車源表一樣沒客戶），之後在待確認配對補客戶
+  const lead = leadId ? await db.first("SELECT * FROM leads WHERE id = ?", leadId) : null; if (leadId && !lead) throw new Error("找不到這位客戶的旅程");
+  const price = num(r["sale_price"]);
+  if (!staffId && lead) staffId = lead["staff_id"] == null ? null : num(lead["staff_id"]);
   const v = vehicleId ? await db.first("SELECT * FROM vehicles WHERE id = ?", vehicleId) : null;
   const peer = str(r["source_kind"]) === "peer" || (!!v && str(v["source"]) === "peer");
   let cost = 0, costSource = "none", gp = 0, est = 0;
   if (v && num(v["cost_known"]) && !peer) { cost = num(v["cost"]); costSource = "sheet"; gp = price - cost; est = 1; }
-  const applied = { lead_prev_outcome: str(lead["outcome"]), lead_prev_closed_at: lead["closed_at"] ?? null, lead_prev_stage: str(lead["stage"]), vehicle_prev_status: v ? str(v["stock_status"]) : null, sheet_deal: null as Row | null };
-  const existing = await db.first("SELECT * FROM deals WHERE lead_id = ? AND status = 'sold' ORDER BY id LIMIT 1", leadId);
+  const applied = { lead_prev_outcome: lead ? str(lead["outcome"]) : "", lead_prev_closed_at: lead ? (lead["closed_at"] ?? null) : null, lead_prev_stage: lead ? str(lead["stage"]) : "", vehicle_prev_status: v ? str(v["stock_status"]) : null, sheet_deal: null as Row | null };
+  let existing = leadId ? await db.first("SELECT * FROM deals WHERE lead_id = ? AND status = 'sold' ORDER BY id LIMIT 1", leadId) : null;
+  // 同一台車在成交群會貼好幾次（收訂囉 → 送貸囉 → 售出囉）：90 天內同車牌（或同後四碼＋車型）的貼文算同一筆成交，只更新階段
+  if (!existing) {
+    const pn = str(r["plate_norm"]), pl = str(r["plate"]).trim(), mt = str(r["model_text"]); const l4 = /^\d{4}$/.test(pl) ? pl : "";
+    if (pn || l4) existing = await db.first(`SELECT d.* FROM deals d JOIN deal_reports r0 ON r0.id = d.report_id WHERE d.status = 'sold' AND r0.id <> ?
+        AND ((? <> '' AND r0.plate_norm = ?) OR (? <> '' AND r0.plate_norm = '' AND TRIM(r0.plate) = ? AND r0.model_text = ?)) AND ABS(julianday(d.closed_at) - julianday(?)) <= 90 ORDER BY d.id LIMIT 1`,
+        id, pn, pn, l4, l4, mt, str(r["reported_at"]));
+  }
+  if (!existing && !price) throw new Error("貼文沒有售價");
   // 車源表先產生的成交／收訂（沒有客戶）對到同一台車 → 換成貼文的成交；原列存進快照，撤銷時放回去
   if (!existing && vehicleId) {
     const sd = await db.first("SELECT * FROM deals WHERE vehicle_id = ? AND source_system = 'sheet' AND status = 'sold' ORDER BY id LIMIT 1", vehicleId);
@@ -190,28 +207,32 @@ export async function applyReport(db: DbLike, id: number, ov: { vehicle_id?: num
   if (existing) {
     dealId = num(existing["id"]);
     await db.run(`UPDATE deals SET plate = ?, customer_ref = ?, deposit = ?, loan_status = ?, delivery_by = ?, reported_by = ?, source_kind = ?, peer_dealer = ?, report_id = ?,
-                    vehicle_id = COALESCE(vehicle_id, ?), staff_id = COALESCE(staff_id, ?) WHERE id = ?`,
-      str(r["plate"]), str(r["customer_ref"]), str(r["deposit"]), str(r["loan_status"]), str(r["delivery_by"]), str(r["reported_by"]), str(r["source_kind"]) || "stock", str(r["peer_dealer"]), id, vehicleId, staffId, dealId);
+                    loan_via = CASE WHEN ? <> '' THEN ? ELSE loan_via END, delivered = CASE WHEN ? = 1 THEN 1 ELSE delivered END, vehicle_id = COALESCE(vehicle_id, ?), staff_id = COALESCE(staff_id, ?),
+                    lead_id = COALESCE(lead_id, ?), contact_id = COALESCE(contact_id, ?), sale_price = CASE WHEN sale_price > 0 THEN sale_price ELSE ? END WHERE id = ?`,
+      str(r["plate"]), str(r["customer_ref"]), str(r["deposit"]), str(r["loan_status"]), str(r["delivery_by"]), str(r["reported_by"]), str(r["source_kind"]) || "stock", str(r["peer_dealer"]), id, str(r["loan_via"]), str(r["loan_via"]), str(r["stage"]) === "delivered" ? 1 : 0, vehicleId, staffId,
+      leadId, lead ? num(lead["contact_id"]) : null, price, dealId);
   } else {
     const ins = await db.run(
       `INSERT INTO deals (lead_id, contact_id, staff_id, vehicle_id, status, sale_price, cost, gross_profit, lost_reason, closed_at, external_key, source_system,
-                          plate, customer_ref, deposit, loan_status, delivery_by, reported_by, source_kind, peer_dealer, cost_source, gp_is_estimate, report_id, price_source)
-       VALUES (?,?,?,?,'sold',?,?,?,'',?,?,?,?,?,?,?,?,?,?,?,?,?,?,'report')`,
-      leadId, num(lead["contact_id"]), staffId, vehicleId, price, cost, gp, str(r["reported_at"]), `report:${id}`, str(r["source_system"]),
-      str(r["plate"]), str(r["customer_ref"]), str(r["deposit"]), str(r["loan_status"]), str(r["delivery_by"]), str(r["reported_by"]), str(r["source_kind"]) || "stock", str(r["peer_dealer"]), costSource, est, id);
+                          plate, customer_ref, deposit, loan_status, delivery_by, reported_by, source_kind, peer_dealer, cost_source, gp_is_estimate, report_id, price_source, delivered, loan_via)
+       VALUES (?,?,?,?,'sold',?,?,?,'',?,?,?,?,?,?,?,?,?,?,?,?,?,?,'report',?,?)`,
+      leadId, lead ? num(lead["contact_id"]) : null, staffId, vehicleId, price, cost, gp, str(r["reported_at"]), `report:${id}`, str(r["source_system"]),
+      str(r["plate"]), str(r["customer_ref"]), str(r["deposit"]), str(r["loan_status"]), str(r["delivery_by"]), str(r["reported_by"]), str(r["source_kind"]) || "stock", str(r["peer_dealer"]), costSource, est, id,
+      str(r["stage"]) && str(r["stage"]) !== "delivered" ? 0 : 1, str(r["loan_via"]));   // 收訂／送貸／過件＝成交但還沒交車；售出囉或沒標題（送貨囉）＝已交車
     dealId = ins.lastRowId; created = 1;
-    await db.run("UPDATE leads SET outcome = 'sold', closed_at = ?, stage = 'closed' WHERE id = ?", str(r["reported_at"]), leadId);
-    await db.run("UPDATE conversations SET status = 'closed' WHERE lead_id = ?", leadId);
-    await db.run("DELETE FROM evidence WHERE loss_id IN (SELECT id FROM loss_analyses WHERE lead_id = ?)", leadId);
-    await db.run("DELETE FROM loss_analyses WHERE lead_id = ?", leadId);
+    if (lead) {
+      await db.run("UPDATE leads SET outcome = 'sold', closed_at = ?, stage = 'closed' WHERE id = ?", str(r["reported_at"]), leadId);
+      await db.run("UPDATE conversations SET status = 'closed' WHERE lead_id = ?", leadId);
+      await db.run("DELETE FROM evidence WHERE loss_id IN (SELECT id FROM loss_analyses WHERE lead_id = ?)", leadId);
+      await db.run("DELETE FROM loss_analyses WHERE lead_id = ?", leadId);
+    }
     if (v && !peer) await db.run("UPDATE vehicles SET stock_status = 'sold' WHERE id = ?", vehicleId);
   }
   const cands = jsonOf<Cands>(r["candidates"], { vehicles: [], leads: [] }); cands.applied = applied;
   await db.run(`UPDATE deal_reports SET match_status = ?, vehicle_id = ?, lead_id = ?, contact_id = ?, staff_id = ?, deal_id = ?, deal_created = ?, candidates = ?, confirmed_by = ?, confirmed_at = ?,
                   match_method = CASE WHEN ? = 1 THEN 'manual' ELSE match_method END WHERE id = ?`,
-    status, vehicleId, leadId, num(lead["contact_id"]), staffId, dealId, created, JSON.stringify(cands), by, status === "confirmed" ? now : null, ov.vehicle_id !== undefined || ov.lead_id !== undefined || ov.staff_id !== undefined ? 1 : 0, id);
-  await runFunnel(db, { now, leadIds: [leadId] });
-  await computeRoles(db, { leadIds: [leadId] });
+    status, vehicleId, leadId, lead ? num(lead["contact_id"]) : null, staffId, dealId, created, JSON.stringify(cands), by, status === "confirmed" ? now : null, ov.vehicle_id !== undefined || ov.lead_id !== undefined || ov.staff_id !== undefined ? 1 : 0, id);
+  if (leadId) { await runFunnel(db, { now, leadIds: [leadId] }); await computeRoles(db, { leadIds: [leadId] }); }
   return { deal_id: dealId, created: !!created };
 }
 
@@ -242,7 +263,8 @@ export async function ingestPosts(db: DbLike, posts: Post[], opts: { kind: "deal
   const rep: IngestReport = { posts: posts.length, deal_reports: 0, visits: 0, appraisals: 0, auto: 0, suggested: 0, unmatched: 0, duplicates: 0, unparsed: [], unmatched_posts: [], warnings: [] };
   const res = await staffResolver(db);
   const src = opts.source_system;
-  for (const p of posts) {
+  for (const p0 of posts) {
+    const p = { ...p0, text: scrubText(p0.text) };   // 電話／身分證字號先抹掉再落庫
     const ext = hashId(`${p.at}|${p.sender}|${p.text}`);
     const kind = opts.kind === "auto" ? detectKind(p.text) : opts.kind;
     const dup = await db.first("SELECT id FROM group_posts WHERE source_system = ? AND external_id = ?", src, ext);
@@ -257,6 +279,7 @@ export async function ingestPosts(db: DbLike, posts: Post[], opts: { kind: "deal
          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
         p.at, p.sender, d.year, d.model_text, d.color, d.plate, d.plate_norm, d.deposit, d.sale_price, d.source_kind, d.peer_dealer, d.delivery_by, d.delivery_uncertain ? 1 : 0, d.note, d.loan_status, d.customer_ref, d.staff_ref, p.text, JSON.stringify(d.missing), src, ext, opts.now);
       if (!ins.lastRowId) { rep.duplicates++; continue; }
+      await db.run("UPDATE deal_reports SET stage = ?, loan_via = ? WHERE id = ?", d.stage, d.loan_via, ins.lastRowId);
       rep.deal_reports++;
       await matchReport(db, ins.lastRowId, opts.now);
       const st = str((await db.first("SELECT match_status FROM deal_reports WHERE id = ?", ins.lastRowId))?.["match_status"]);

@@ -189,7 +189,11 @@ export class AppDB extends DurableObject {
   bucket(to) { return to ?? new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10); }   // 台灣日期：桶在台灣 00:00 換，換完 cron 馬上暖；有傳 to（資料末端）就用原字串，資料沒變鍵就不變
   /** 資料末端＝最後一則訊息時間＋1 秒（引擎用半開區間 at < to）。資料已到現在（或排在未來，模擬資料會）就回 null＝「到今天」。
       每次查一句、不暫存：收件匣回覆／模擬進線會改 last_message_at 但不 bust（有 idx_conv_last，MAX 很快） */
-  dataEndLocal() { const r = this.first("SELECT MAX(last_message_at) AS m FROM conversations"); const t = r && r.m ? Date.parse(r.m) + 1000 : NaN; return Number.isFinite(t) && t < Date.now() ? new Date(t).toISOString() : null; }
+  dataEndLocal() {
+    // 資料末端＝對話最後一則 或 群組貼文最後一篇（成交群常比對話匯出晚兩天）取晚的那個
+    const r = this.first("SELECT MAX(m) AS m FROM (SELECT MAX(last_message_at) AS m FROM conversations UNION ALL SELECT MAX(reported_at) AS m FROM deal_reports UNION ALL SELECT MAX(at) AS m FROM group_posts)");
+    const t = r && r.m ? Date.parse(r.m) + 1000 : NaN; return Number.isFinite(t) && t < Date.now() ? new Date(t).toISOString() : null;
+  }
   /** 分析視窗的終點（2026-09-08 Curry 定案：預設以資料最後一天為準，可切到今天）：to 明講 → 用它；anchor=today → undefined（引擎用牆鐘、快取鍵按台灣日期）；否則資料末端（沒有就 undefined） */
   resolveTo(opts) { if (opts && opts.to) return opts.to; if (opts && opts.anchor === "today") return undefined; return this.dataEndLocal() ?? undefined; }
   anchorOf(opts, to) { return opts && opts.to ? "custom" : to ? "data" : "today"; }

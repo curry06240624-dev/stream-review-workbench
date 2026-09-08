@@ -416,7 +416,10 @@ const ADD_COLUMNS: ReadonlyArray<readonly [string, string, string]> = [
   ["deals",         "sheet_status",     "TEXT NOT NULL DEFAULT ''"],   // 車源表「目前狀況」原文（收訂(軒)…），車源表產生的才有
   ["deals",         "delivered",        "INTEGER NOT NULL DEFAULT 1"],   // 0＝成交但還沒交車（車源表 收訂／送貸／過件；Curry：收訂就算成交）
   ["deals",         "closed_at_source", "TEXT NOT NULL DEFAULT ''"],
-  ["leads",         "first_real_at",    "TEXT"],   // 第一則「非選單」客戶訊息時間＝新進線的日期（打字／照片／貼圖都算）；只點過選單的 NULL（2026-09-08 定義）   // ''＝真的成交日（送貨囉／帳本）；import＝車源表第一次匯入就是售出／收訂，日期不明（不算本期）；sheet_diff＝兩份車源表之間變的（日期≈上傳日）
+  ["leads",         "first_real_at",    "TEXT"],
+  ["deal_reports",  "stage",            "TEXT NOT NULL DEFAULT ''"],   // 成交群標題：deposit／loan_sent／loan_approved／delivered
+  ["deal_reports",  "loan_via",         "TEXT NOT NULL DEFAULT ''"],   // 送貸單位
+  ["deals",         "loan_via",         "TEXT NOT NULL DEFAULT ''"],   // 第一則「非選單」客戶訊息時間＝新進線的日期（打字／照片／貼圖都算）；只點過選單的 NULL（2026-09-08 定義）   // ''＝真的成交日（送貨囉／帳本）；import＝車源表第一次匯入就是售出／收訂，日期不明（不算本期）；sheet_diff＝兩份車源表之間變的（日期≈上傳日）
   ["behaviors",     "chat_staff_id",    "INTEGER"],
 ];
 

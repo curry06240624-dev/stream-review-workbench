@@ -10,12 +10,17 @@ export interface Fields { [label: string]: string }
 export interface Post { at: string; sender: string; text: string }
 export type Deposit = "cash" | "transfer" | "none" | "unknown" | "";
 export type LoanStatus = "approved" | "rejected" | "none" | "pending" | "";   // pending＝送貸中（車源表 送貸）
+/** 成交群貼文的標題：收訂囉／送貸囉／過件囉／售出囉（2026-09-08 真格式；「送貨囉」是 9/5 聽來的，實際沒有） */
+export type DealStage = "deposit" | "loan_sent" | "loan_approved" | "delivered" | "";
 export interface DealReportParsed {
   year: number | null; model_text: string; color: string; plate: string; plate_norm: string;
   deposit: Deposit; sale_price: number | null;
   source_kind: "stock" | "peer" | ""; peer_dealer: string;
   delivery_by: string; delivery_uncertain: boolean; note: string; loan_status: LoanStatus;
   customer_ref: string; staff_ref: string; missing: string[];
+  stage: DealStage; loan_via: string;   // 標題階段；送貸單位（阿富／富哥／和潤／裕隆／現金…）
+  plate_last4: string;                  // 只寫後四碼（「3600」）：不當完整車牌，配對時用尾碼找
+  price_suspicious: boolean;            // 售價數字怪怪的（>500 萬或 <1 萬，例如 zinger 寫 95000萬）→ 不採用、列進 missing
 }
 export interface AppraisalParsed {
   model_text: string; year: number | null; trim: string; color: string; mileage_km: number | null;
@@ -34,6 +39,9 @@ const clean = (s: string) => toHalf(s).replace(/[​-‍﻿]/g, "").trim();
 const normLabel = (s: string) => clean(s).replace(/[（(][^）)]*[）)]/g, "").replace(/\s+/g, "").replace(/[?？!！]/g, "");
 /** 值裡的不確定寫法 */
 export const RE_UNCERTAIN = /應該|大概|可能|好像|再確認|待確認|[?？]/;
+/** 群組貼文的個資：電話與身分證字號在存進資料庫前抹掉（跟 LINE 對話匯入同一條規則） */
+const RE_PHONE_G = /09\d{2}[- ]?\d{3}[- ]?\d{3}/g, RE_ID_G = /[A-Z][12]\d{8}/g;
+export const scrubText = (s: string): string => s.replace(RE_PHONE_G, "[電話已抹掉]").replace(RE_ID_G, "[身分證字號已抹掉]");
 
 /** 「標籤：值」逐行解析；同一標籤出現兩次取第一次 */
 export function parseFields(text: string): Fields {
@@ -120,9 +128,12 @@ export function parseDealReport(text: string): DealReportParsed | null {
   const model_text = (pickField(f, ["車型", "車款", "車種", "車輛"]) ?? "").trim();
   const color = (pickField(f, ["顏色", "車色"]) ?? "").trim();
   const plateRaw = pickField(f, ["車號", "車牌", "車牌號碼", "牌照"]) ?? "";
-  const plate = clean(plateRaw), plate_norm = normalizePlate(plateRaw);
+  const unknownPlate = /不知道|未知|不清楚|待補|沒有|還沒|再補/.test(clean(plateRaw));
+  const plate = unknownPlate ? "" : clean(plateRaw); let plate_norm = unknownPlate ? "" : normalizePlate(plateRaw), plate_last4 = "";
+  if (/^\d{4}$/.test(plate_norm)) { plate_last4 = plate_norm; plate_norm = ""; }   // 只寫後四碼
   const deposit = parseDeposit(pickField(f, ["訂金", "定金", "訂金方式"]));
-  const sale_price = parseMoney(pickField(f, ["售價", "成交價", "賣價", "價格", "總價"]), 1000);
+  let sale_price = parseMoney(pickField(f, ["售價", "成交價", "賣價", "價格", "總價"]), 1000); let price_suspicious = false;
+  if (sale_price != null && (sale_price > 5_000_000 || (sale_price > 0 && sale_price < 10_000))) { price_suspicious = true; sale_price = null; }
   const srcRaw = pickField(f, ["同行/庫存", "同行／庫存", "庫存/同行", "同行或庫存", "車源", "同行", "庫存"]) ?? "";
   let source_kind: DealReportParsed["source_kind"] = "", peer_dealer = "";
   if (srcRaw) {
@@ -134,16 +145,24 @@ export function parseDealReport(text: string): DealReportParsed | null {
   const delivery_by = clean(delRaw).replace(/應該|大概|可能|好像|是|再確認|待確認|[?？]/g, "").trim();
   const note = (pickField(f, ["備註", "備注", "註", "說明"]) ?? "").trim();
   const loanField = pickField(f, ["貸款", "貸款結果", "對保"]) ?? "";
-  const loan_status = parseLoan(`${note} ${loanField}`);
+  const head = clean(text.split(/\r?\n/)[0] ?? "");
+  const stage: DealStage = /售出/.test(head) ? "delivered" : /過件/.test(head) ? "loan_approved" : /送貸/.test(head) ? "loan_sent" : /收訂|訂金/.test(head) ? "deposit" : "";
+  const loan_via = clean(pickField(f, ["送貸單位", "送貸", "貸款單位", "財務公司", "貸款公司"]) ?? "");
+  let loan_status = parseLoan(`${note} ${loanField}`);
+  if (!loan_status) {
+    if (stage === "loan_approved") loan_status = "approved";
+    else if (/現金/.test(loan_via) || /現金/.test(note)) loan_status = "none";
+    else if (stage === "loan_sent" || (loan_via && !/同行盤售|盤售/.test(loan_via))) loan_status = "pending";
+  }
   const customer_ref = (pickField(f, ["客戶", "客人", "客戶名", "客戶名稱", "買家", "車主"]) ?? "").trim();
   const staff_ref = (pickField(f, ["業務", "銷售", "成交業務", "負責業務", "經手"]) ?? "").trim();
   const missing: string[] = [];
   if (!plate_norm) missing.push("車號");
-  if (sale_price == null) missing.push("售價");
+  if (sale_price == null) missing.push(price_suspicious ? "售價（數字怪怪的）" : "售價");
   if (!customer_ref) missing.push("客戶");
   if (!staff_ref) missing.push("業務");
   if (year == null && !model_text) missing.push("年份或車型");
-  return { year, model_text, color, plate, plate_norm, deposit, sale_price, source_kind, peer_dealer, delivery_by, delivery_uncertain, note, loan_status, customer_ref, staff_ref, missing };
+  return { year, model_text, color, plate, plate_norm, deposit, sale_price, source_kind, peer_dealer, delivery_by, delivery_uncertain, note, loan_status, customer_ref, staff_ref, missing, stage, loan_via, plate_last4, price_suspicious };
 }
 
 /* ── 估車群 ── */
