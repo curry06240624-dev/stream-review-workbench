@@ -36,9 +36,10 @@ const J = (o, s = 200, headers = {}) => new Response(JSON.stringify(o), {
 const now = () => new Date().toISOString();
 async function warmCaches(db) {
   const out = {}; const t0 = Date.now();
-  for (const days of [7, 14, 30]) {
-    await db.analyticsLocal({ days }); await db.staffLocal({ days }); await db.decisionsLocal({ days, now: now() });
-    out[days] = Date.now() - t0;
+  try { await db.run("DELETE FROM cache_json WHERE exp < ?", Date.now()); } catch { /* 表還沒建 */ }
+  for (const anchor of ["data", "today"]) for (const days of [7, 14, 30]) {   // 兩種基準都暖：資料截至（預設）與到今天
+    await db.analyticsLocal({ days, anchor }); await db.staffLocal({ days, anchor }); await db.decisionsLocal({ days, anchor, now: now() });
+    out[`${anchor}:${days}`] = Date.now() - t0;
   }
   return out;
 }
@@ -74,6 +75,7 @@ export default {
 async function route(request, env, db, url) {
   const p = url.pathname;
   const m = request.method;
+  const anchor = url.searchParams.get("anchor") === "today" ? "today" : "data";   // 分析視窗基準：預設資料截至，?anchor=today 到今天（前端 api() 會自動帶）
 
   if (p === "/api/health") return J({ ok: true, at: now() });
 
@@ -98,7 +100,7 @@ async function route(request, env, db, url) {
     if (me.role !== "admin") return J({ ok: false, error: "forbidden" }, 403);
     const b = await request.json().catch(() => ({}));
     const sel = await batchLeadIds(db, b); if (sel.empty) return J({ ok: true, leads: 0, next_cursor: null, done: true });
-    const r = await db.analyzeLocal({ now: b.now || now(), leadIds: sel.leadIds });
+    const r = await db.analyzeLocal({ now: b.now || undefined, anchor, leadIds: sel.leadIds });
     return J({ ok: true, ...r, leads: sel.leadIds ? sel.leadIds.length : r.roles?.leads, next_cursor: sel.next, done: sel.done });
   }
   if (p === "/api/admin/grades/run" && m === "POST") {
@@ -106,7 +108,7 @@ async function route(request, env, db, url) {
     if (!me || me.role !== "admin") return J({ ok: false, error: "forbidden" }, 403);
     const b = await request.json().catch(() => ({}));
     const sel = await batchLeadIds(db, b); if (sel.empty) return J({ ok: true, leads: 0, next_cursor: null, done: true });
-    const r = await db.gradesLocal({ now: b.now || now(), leadIds: sel.leadIds });
+    const r = await db.gradesLocal({ now: b.now || undefined, anchor, leadIds: sel.leadIds });
     return J({ ok: true, ...r, next_cursor: sel.next, done: sel.done });
   }
   if (p === "/api/admin/analyze/dump" && m === "GET") {
@@ -123,7 +125,7 @@ async function route(request, env, db, url) {
     const b = await request.json().catch(() => ({}));
     const t0 = Date.now();
     const sel = await batchLeadIds(db, b); if (sel.empty) return J({ ok: true, leads: 0, next_cursor: null, done: true, ms: 0 });
-    const r = await db.funnelLocal({ now: b.now || now(), leadIds: sel.leadIds });
+    const r = await db.funnelLocal({ now: b.now || undefined, anchor, leadIds: sel.leadIds });
     return J({ ok: true, ...r, next_cursor: sel.next, done: sel.done, ms: Date.now() - t0 });
   }
   if (p === "/api/admin/funnel/events" && m === "GET") {
@@ -147,7 +149,7 @@ async function route(request, env, db, url) {
     const days = Math.min(90, Math.max(1, Number(url.searchParams.get("days") || 7)));
     const to = url.searchParams.get("to") || undefined;
     const t0 = Date.now();
-    const a = await db.analyticsLocal({ to, days, fresh: url.searchParams.get("fresh") === "1" });        // 在 DO 裡算＋兩層快取；?fresh=1 強制重算（量冷啟動用）
+    const a = await db.analyticsLocal({ to, days, anchor, fresh: url.searchParams.get("fresh") === "1" });        // 在 DO 裡算＋兩層快取；?fresh=1 強制重算（量冷啟動用）
     return J({ ok: true, ms: Date.now() - t0, ...a });
   }
 
@@ -168,7 +170,7 @@ async function route(request, env, db, url) {
     if (!me) return J({ ok: false, error: "not_logged_in" }, 401);
     if (!canSeeAll(me.role)) return J({ ok: false, message: "員工效能只開放給老闆與主管。" }, 403);
     const days = Math.min(90, Math.max(7, Number(url.searchParams.get("days") || 30)));
-    const t0 = Date.now(); const r = await db.staffLocal({ days, fresh: url.searchParams.get("fresh") === "1" });
+    const t0 = Date.now(); const r = await db.staffLocal({ days, anchor, fresh: url.searchParams.get("fresh") === "1" });
     return J({ ok: true, ms: Date.now() - t0, ...r });
   }
   const mSt = p.match(/^\/api\/staff\/(\d+)$/);
@@ -178,7 +180,7 @@ async function route(request, env, db, url) {
     const id = Number(mSt[1]);
     if (!canSeeAll(me.role) && me.id !== id) return J({ ok: false, error: "not_found" }, 404);   // 業務只能看自己
     const days = Math.min(90, Math.max(7, Number(url.searchParams.get("days") || 30)));
-    const r = await db.staffProfileLocal({ id, days, now: now(), refresh: url.searchParams.get("refresh") === "1" });
+    const r = await db.staffProfileLocal({ id, days, anchor, now: now(), refresh: url.searchParams.get("refresh") === "1" });
     if (!r) return J({ ok: false, message: "找不到這位員工。" }, 404);
     return J({ ok: true, ...r });
   }
@@ -189,7 +191,7 @@ async function route(request, env, db, url) {
     if (!canSeeAll(me.role)) return J({ ok: false, error: "forbidden" }, 403);
     const b = await request.json().catch(() => ({}));
     const id = Number(mCo[1]), at = now(), t0 = Date.now();
-    let plan = await db.coachingLocal({ id, days: Math.min(90, Math.max(7, Number(b.days || 30))), now: at });
+    let plan = await db.coachingLocal({ id, days: Math.min(90, Math.max(7, Number(b.days || 30))), anchor, now: at });
     if (!plan) return J({ ok: false, message: "找不到這位員工。" }, 404);
     if (b.polish !== false) {
       const polished = await polishCoaching(env, plan);                       // AI 只潤稿，在 Worker 端
@@ -202,7 +204,7 @@ async function route(request, env, db, url) {
     if (!me) return J({ ok: false, error: "not_logged_in" }, 401);
     if (!canSeeAll(me.role)) return J({ ok: false, error: "forbidden" }, 403);
     const days = Math.min(90, Math.max(7, Number(url.searchParams.get("days") || 30)));
-    return J({ ok: true, ...(await db.lossAggLocal({ days, reason: url.searchParams.get("reason") || undefined })) });
+    return J({ ok: true, ...(await db.lossAggLocal({ days, anchor, reason: url.searchParams.get("reason") || undefined })) });
   }
   const mLo = p.match(/^\/api\/loss\/lead\/(\d+)$/);
   if (mLo && m === "GET") {
@@ -218,7 +220,7 @@ async function route(request, env, db, url) {
     if (!me) return J({ ok: false, error: "not_logged_in" }, 401);
     if (!canSeeAll(me.role)) return J({ ok: false, error: "forbidden" }, 403);
     const days = Math.min(90, Math.max(7, Number(url.searchParams.get("days") || 30)));
-    return J({ ok: true, ...(await db.decisionsLocal({ days, now: now(), fresh: url.searchParams.get("fresh") === "1" })) });
+    return J({ ok: true, ...(await db.decisionsLocal({ days, anchor, now: now(), fresh: url.searchParams.get("fresh") === "1" })) });
   }
   if (p === "/api/mgmt-actions" && (m === "GET" || m === "POST")) {
     const me = await currentUser(request, db);
@@ -228,14 +230,14 @@ async function route(request, env, db, url) {
       const rows = await db.all(`SELECT a.*, u.name AS staff_name FROM actions a LEFT JOIN users u ON u.id = a.staff_id WHERE a.kind <> ''
         ORDER BY CASE a.status WHEN 'approved' THEN 0 WHEN 'proposed' THEN 1 WHEN 'done' THEN 2 ELSE 3 END, CASE a.priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END, a.id DESC LIMIT 50`);
       const at = now(); let budget = 8;
-      for (const a of rows) { a.baseline = JSON.parse(a.baseline || "null"); a.after = JSON.parse(a.after || "null"); if (a.metric_key && a.status !== "dismissed" && budget-- > 0) a.progress = await db.progressLocal({ id: a.id, now: at }); }
+      for (const a of rows) { a.baseline = JSON.parse(a.baseline || "null"); a.after = JSON.parse(a.after || "null"); if (a.metric_key && a.status !== "dismissed" && budget-- > 0) a.progress = await db.progressLocal({ id: a.id, now: at, anchor }); }
       return J({ ok: true, actions: rows });
     }
     const b = await request.json().catch(() => ({}));
     const title = String(b.title || "").trim().slice(0, 120); if (!title) return J({ ok: false, message: "要有標題。" }, 400);
     const at = now(); const staffId = b.staff_id ? Number(b.staff_id) : null; const metric = String(b.metric_key || "").slice(0, 40);
     const SNAPSHOT_OK = /^(price_continue|appt|appt_visit|visit_sale|close|dropoff|followup_24h|first_response|gp|avg_gp|asked_after_price|objection_clarified|proposed_after_intent|fin_answered|postvisit_24h|loss:[a-z_]+)$/;
-    const baseline = SNAPSHOT_OK.test(metric) ? await db.baselineLocal({ metric_key: metric, staff_id: staffId, now: at }) : null;
+    const baseline = SNAPSHOT_OK.test(metric) ? await db.baselineLocal({ metric_key: metric, staff_id: staffId, now: at, anchor }) : null;
     const due = new Date(Date.parse(at) + Math.min(180, Math.max(1, Number(b.due_days || 30))) * 86_400_000).toISOString();
     const r = await db.run(`INSERT INTO actions (insight_id, text, owner_role, status, created_at, kind, title, staff_id, priority, due_at, metric_key, baseline, why, measure, owner_user_id)
       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, b.insight_id ? Number(b.insight_id) : null, String(b.action || title).slice(0, 400), ["ceo", "manager", "staff"].includes(b.owner_role) ? b.owner_role : "manager", "approved", at,
@@ -254,13 +256,13 @@ async function route(request, env, db, url) {
       const b = await request.json().catch(() => ({}));
       const st = ["approved", "dismissed", "done", "proposed"].includes(b.status) ? b.status : null;
       if (st) {
-        let after = null; if (st === "done" && a.metric_key) { const pr = await db.progressLocal({ id, now: at }); after = pr?.after ?? null; }
+        let after = null; if (st === "done" && a.metric_key) { const pr = await db.progressLocal({ id, now: at, anchor }); after = pr?.after ?? null; }
         await db.run("UPDATE actions SET status = ?, decided_at = ?, decided_by = ?, result_note = COALESCE(?, result_note), after = COALESCE(?, after) WHERE id = ?", st, at, me.id, b.result_note != null ? String(b.result_note).slice(0, 400) : null, after ? JSON.stringify(after) : null, id);
       } else if (b.result_note != null) await db.run("UPDATE actions SET result_note = ? WHERE id = ?", String(b.result_note).slice(0, 400), id);
     }
     const row = await db.first("SELECT a.*, u.name AS staff_name FROM actions a LEFT JOIN users u ON u.id = a.staff_id WHERE a.id = ?", id);
     row.baseline = JSON.parse(row.baseline || "null"); row.after = JSON.parse(row.after || "null");
-    const progress = row.metric_key ? await db.progressLocal({ id, now: at }) : null;
+    const progress = row.metric_key ? await db.progressLocal({ id, now: at, anchor }) : null;
     return J({ ok: true, action: row, progress });
   }
 
@@ -270,7 +272,7 @@ async function route(request, env, db, url) {
     if (!me) return J({ ok: false, error: "not_logged_in" }, 401);
     if (!canSeeAll(me.role)) return J({ ok: false, message: "待確認配對只開放給老闆與主管。" }, 403);
     const status = url.searchParams.get("status") || undefined;
-    return J({ ok: true, ...(await db.reconcileLocal({ status, days: 30 })) });
+    return J({ ok: true, ...(await db.reconcileLocal({ status, days: 30, anchor })) });
   }
   const mRc = p.match(/^\/api\/reconcile\/(\d+)\/(confirm|reject|undo|rematch)$/);
   if (mRc && m === "POST") {
@@ -438,7 +440,7 @@ async function route(request, env, db, url) {
     const q = String(b.q || "").trim().slice(0, 200);
     if (!q) return J({ ok: false, message: "請輸入問題。" }, 400);
     const t0 = Date.now();
-    const answer = await askAnswer(db, env, q);
+    const answer = await askAnswer(db, env, q, { to: anchor === "today" ? undefined : (await db.dataEndLocal()) || undefined });
     return J({ ok: true, ms: Date.now() - t0, answer });
   }
 
@@ -449,9 +451,10 @@ async function route(request, env, db, url) {
     if (!canSeeAll(me.role)) return J({ ok: false, error: "forbidden" }, 403);
     const b = await request.json().catch(() => ({}));
     const t0 = Date.now(), at = now();
-    const r = await db.insightsLocal({ to: b.to, days: Math.min(90, Math.max(1, Number(b.days || 7))), now: at });
+    const to = b.to || (anchor === "today" ? undefined : (await db.dataEndLocal()) || undefined);   // 簡報的期間終點跟畫面同一個基準（資料截至）
+    const r = await db.insightsLocal({ to, days: Math.min(90, Math.max(1, Number(b.days || 7))), now: at, anchor });
     const nar = b.narrate === false ? { narrated: 0, mode: "skipped" } : await narrateInsights(db, env, r.analytics, at);
-    const date = (b.to || at).slice(0, 10);
+    const date = (to || at).slice(0, 10);
     const brief = b.brief === false ? null : await generateBrief(db, env, r.analytics, date, at);
     return J({ ok: true, ms: Date.now() - t0, candidates: r.candidates, persisted: r.persisted, narrate: nar, brief: brief ? { mode: brief.mode, model: brief.model, date } : null });
   }
@@ -588,7 +591,7 @@ async function route(request, env, db, url) {
   if (p === "/api/me") {
     const u = await currentUser(request, db);
     const n = await db.first("SELECT COUNT(*) AS c FROM users");
-    return J({ ok: true, user: u ? { email: u.email, name: u.name, role: u.role } : null, needsSetup: n.c === 0, demo: env.DEMO_MODE === "on" });
+    return J({ ok: true, user: u ? { email: u.email, name: u.name, role: u.role } : null, needsSetup: n.c === 0, demo: env.DEMO_MODE === "on", data_end: u ? await db.dataEndLocal() : null });   // data_end：null＝資料到現在
   }
 
   /* ── 以下全部要登入 ── */

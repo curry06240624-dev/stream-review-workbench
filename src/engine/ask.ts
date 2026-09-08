@@ -37,7 +37,7 @@ const num = (v: unknown) => Number(v ?? 0) || 0;
 const P = (x: number | null | undefined) => (x == null ? "—" : `${Math.round(x * 100)}%`);
 const W = (n: number) => `${Math.round(n / 10000).toLocaleString("zh-TW")} 萬`;
 const md = (iso: string) => { const d = new Date(Date.parse(iso) + TZ); return `${d.getUTCMonth() + 1}/${String(d.getUTCDate()).padStart(2, "0")}`; };
-const hrs = (iso: string) => Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 3_600_000));
+const hrs = (iso: string, nowIso?: string) => Math.max(0, Math.round(((nowIso ? Date.parse(nowIso) : Date.now()) - Date.parse(iso)) / 3_600_000));
 const enc = (s: string) => encodeURIComponent(s);
 const CONF: Record<string, string> = { CONFIRMED: "確定", STRONGLY_SUGGESTED: "強烈建議", POSSIBLE: "可能", UNCLEAR: "不確定" };
 const KIND: Record<string, string> = { high_intent_no_followup: "急迫未跟進", price_dropoff_no_followup: "報價後未跟進", booked_but_no_visit: "預約已過未到店", financing_unresolved: "貸款未回覆" };
@@ -76,8 +76,8 @@ const periodLine = (a: Analytics) => `期間：最近 ${a.period.days} 天（${m
 const staffHref = (n: string) => `/conversations?staff=${enc(n)}`;
 const vehHref = (n: string) => `/conversations?vehicle=${enc(n)}`;
 
-async function weekly(db: DbLike, weeks = 8) {
-  const now = Date.now();
+async function weekly(db: DbLike, weeks = 8, nowIso?: string) {
+  const now = nowIso ? Date.parse(nowIso) : Date.now();
   const out: Array<{ week_end: string; priced: number; dropoff: number; booked: number; visits: number; sold: number; gp: number }> = [];
   for (let i = weeks - 1; i >= 0; i--) {
     const to = new Date(now - i * 7 * D).toISOString(), from = new Date(now - (i + 1) * 7 * D).toISOString();
@@ -116,7 +116,7 @@ async function priceDropoff(c: Ctx): Promise<Built> {
   const rows = await db.all(`SELECT x.*, e.at, e.confidence FROM (${LEAD}) x JOIN funnel_events e ON e.lead_id = x.id AND e.type = 'PRICE_DROP_OFF' AND e.confidence IN ('CONFIRMED','STRONGLY_SUGGESTED')
     WHERE e.at >= ? AND e.at < ?${where.map((w) => ` AND ${w}`).join("")} ORDER BY e.at DESC LIMIT 8`, ...args);
   const leads = rows.map((r) => lead(r, `${md(String(r["at"]))} 判定流失（${CONF[String(r["confidence"])] ?? String(r["confidence"])}）`));
-  const weeks = await weekly(db, 8);
+  const weeks = await weekly(db, 8, c.now);
   const chart: AskChart = c.by && ranked.length
     ? { type: "bar", labels: ranked.slice(0, 8).map((x) => x.label), series: [{ label: "流失率 %", data: ranked.slice(0, 8).map((x) => Math.round(num(x.rate) * 100)), tone: "warn" }] }
     : { type: "bar", labels: weeks.map((w) => w.week_end), series: [{ label: "報價", data: weeks.map((w) => w.priced) }, { label: "價格後流失", data: weeks.map((w) => w.dropoff), style: "line", tone: "warn" }] };
@@ -198,7 +198,7 @@ async function vehicleB(c: Ctx): Promise<Built> {
 async function appointmentsB(c: Ctx): Promise<Built> {
   const { a, db } = c; const ap = a.appointments, v = a.visits, bv = a.conversion["booking_to_visit"], vs = a.conversion["visit_to_sold"];
   const overdue = await db.all(`SELECT x.*, ap.scheduled_for FROM (${LEAD}) x JOIN appointments ap ON ap.lead_id = x.id AND ap.status = 'booked' AND ap.scheduled_for < ?
-    WHERE NOT EXISTS (SELECT 1 FROM visits vi WHERE vi.lead_id = x.id) ORDER BY ap.scheduled_for DESC LIMIT 8`, new Date().toISOString());
+    WHERE NOT EXISTS (SELECT 1 FROM visits vi WHERE vi.lead_id = x.id) ORDER BY ap.scheduled_for DESC LIMIT 8`, c.now);
   const numbers: AskNumber[] = [
     { label: "提議看車", value: `${num(ap["proposed"])} 次` },
     { label: "預約成立", value: `${num(ap["booked"])} 次`, sub: `前期 ${num(ap["prev_booked"])}`, href: "/appointments" },
@@ -212,7 +212,7 @@ async function appointmentsB(c: Ctx): Promise<Built> {
   const evidence = pick(c.insights, /appointment|預約|到店|爽約/i);
   reasons.push(...hypos(c.insights, evidence.map((e) => e.id)));
   const leads = overdue.map((r) => lead(r, `${md(String(r["scheduled_for"]))} 預約已過，沒有到店紀錄`));
-  const weeks = await weekly(db, 8);
+  const weeks = await weekly(db, 8, c.now);
   const chart: AskChart = { type: "bar", labels: weeks.map((w) => w.week_end), series: [{ label: "預約成立", data: weeks.map((w) => w.booked) }, { label: "到店", data: weeks.map((w) => w.visits), tone: "accent" }] };
   const conclusion = `最近 ${c.days} 天預約成立 ${num(ap["booked"])} 次（提議 ${num(ap["proposed"])}）、到店 ${num(v["count"])} 位、爽約 ${num(ap["no_show"])} 位（${P(ap["no_show_rate"])}）；預約→到店 ${P(bv?.rate)}（n=${bv?.n ?? 0}）。${overdue.length ? `目前有 ${overdue.length} 位預約時間已過但沒有到店紀錄。` : ""}`;
   return { conclusion, numbers, reasons, leads, evidence, chart,
@@ -238,7 +238,7 @@ async function dealsB(c: Ctx): Promise<Built> {
   const evidence = pick(c.insights, /anomaly|成交|毛利|成本/i);
   reasons.push(...hypos(c.insights, evidence.map((e) => e.id)));
   const leads = rows.map((r) => lead(r, `${md(String(r["closed_at"]))} 成交 · 售價 ${W(num(r["sale_price"]))} · 毛利 ${num(r["gross_profit"]) < 0 ? "負 " : ""}${W(Math.abs(num(r["gross_profit"])))}`));
-  const weeks = await weekly(db, 8);
+  const weeks = await weekly(db, 8, c.now);
   const chart: AskChart = { type: "bar", labels: weeks.map((w) => w.week_end), series: [{ label: "成交台數", data: weeks.map((w) => w.sold) }, { label: "毛利（萬）", data: weeks.map((w) => Math.round(w.gp / 10000)), style: "line", tone: "accent" }] };
   const conclusion = `最近 ${c.days} 天成交 ${d.sold} 台（前期 ${d.prev_sold}）、營收 ${W(d.revenue)}、毛利 ${W(d.gross_profit)}（毛利率 ${P(d.gp_margin)}）${d.below_cost ? `，其中 ${d.below_cost} 筆低於成本` : ""}${top ? `；毛利最高是 ${top.staff}（${W(top.gross_profit)}）` : ""}。`;
   return { conclusion, numbers, reasons, leads, evidence, chart,
@@ -252,7 +252,7 @@ async function attentionB(c: Ctx): Promise<Built> {
   const numbers: AskNumber[] = Object.keys(KIND).map((k) => ({ label: KIND[k] ?? k, value: `${counts[k] ?? 0} 位`, href: `/attention?kind=${k}` }));
   const oldest = att.filter((x) => x.since).slice().sort((x, y) => Date.parse(x.since) - Date.parse(y.since))[0];
   const reasons: Built["reasons"] = [];
-  if (oldest) reasons.push({ text: `等最久的是 ${oldest.contact}（${KIND[oldest.kind] ?? oldest.kind}，已等 ${hrs(oldest.since)} 小時）。`, claim: "fact" });
+  if (oldest) reasons.push({ text: `等最久的是 ${oldest.contact}（${KIND[oldest.kind] ?? oldest.kind}，已等 ${hrs(oldest.since, c.now)} 小時）。`, claim: "fact" });
   const evidence = c.insights.slice(0, 3).map((i) => ({ id: num(i["id"]), title: String(i["title"]), severity: String(i["severity"]) }));
   const leads = att.slice(0, 8).map((x) => ({ id: x.lead_id, contact: x.contact, staff: x.staff, vehicle: x.vehicle, note: `${KIND[x.kind] ?? x.kind}：${x.reason}` }));
   const urgent = counts["high_intent_no_followup"] ?? 0;
@@ -291,7 +291,7 @@ async function overviewB(c: Ctx): Promise<Built> {
 /* ── 員工效能／教練／流失原因／決策 ── */
 const fmtFeat = (key: string, v: number | null) => { const u = FEATURE_LABEL[key]?.unit ?? "rate"; return v == null ? "—" : u === "rate" || u === "pct" ? pctS(v) : u === "min" ? `${Math.round(v)} 分鐘` : String(Math.round(v * 10) / 10); };
 const mtxt = (m: Metric) => (m.ok ? `${pctS(m.rate)}（${m.k}/${m.n}）` : `資料不足（${m.k}/${m.n}）`);
-async function report(c: Ctx): Promise<StaffReport> { return computeStaffReport(c.db, { days: Math.max(30, c.days) }); }
+async function report(c: Ctx): Promise<StaffReport> { return computeStaffReport(c.db, { days: Math.max(30, c.days), to: c.now }); }
 
 async function staffCompareB(c: Ctx): Promise<Built> {
   const r = await report(c);
@@ -361,7 +361,7 @@ async function coachingB(c: Ctx): Promise<Built> {
 }
 
 async function lossReasonsB(c: Ctx): Promise<Built> {
-  const agg = await lossAggregate(c.db, { days: c.days });
+  const agg = await lossAggregate(c.db, { days: c.days, to: c.now });
   const rising = /增加|上升|變多/.test(c.q);
   const reasons = (rising ? [...agg.reasons].sort((a, b) => b.delta - a.delta) : agg.reasons).filter((x) => x.k > 0);
   const filterReason = c.q.match(/貸款|價格|爽約|車況|折抵|家人|時機|別家|回覆太慢|跟進/);
@@ -434,9 +434,9 @@ const SUGGEST: Record<Intent, string[]> = {
 };
 
 /* ── 3. 入口與 AI 敘事 ── */
-export async function answer(db: DbLike, env: Env, q: string): Promise<AskAnswer> {
+export async function answer(db: DbLike, env: Env, q: string, opts: { to?: string } = {}): Promise<AskAnswer> {
   const days = parseDays(q);
-  const a = await computeAnalytics(db, { days });
+  const a = await computeAnalytics(db, { days, to: opts.to, anchor: opts.to ? "data" : "today", data_end: opts.to ?? null });   // 跟畫面同一個基準（資料截至）
   const staffList = await db.all("SELECT name FROM users WHERE role = 'agent'");
   const vehList = await db.all("SELECT brand, model FROM vehicles");
   const lq = q.toLowerCase();
@@ -449,7 +449,7 @@ export async function answer(db: DbLike, env: Env, q: string): Promise<AskAnswer
   if (intent === "overview" && by === "staff") intent = "staff";
   if ((intent === "overview" || intent === "deals") && by === "vehicle") intent = "vehicle";
   const insights = await db.all("SELECT id, kind, title, summary, severity FROM insights WHERE dismissed = 0 ORDER BY CASE severity WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END, id DESC LIMIT 20");
-  const ctx: Ctx = { db, a, q, days, by, staffName, vehName, insights, staffNames, now: new Date().toISOString() };
+  const ctx: Ctx = { db, a, q, days, by, staffName, vehName, insights, staffNames, now: opts.to ?? new Date().toISOString() };
   const built = await BUILD[intent](ctx);
   const ids = built.evidence.map((e) => e.id);
   const dbActs = ids.length ? await db.all(`SELECT text, owner_role FROM actions WHERE insight_id IN (${ids.map(() => "?").join(",")}) AND status IN ('approved','proposed') ORDER BY CASE status WHEN 'approved' THEN 0 ELSE 1 END, id LIMIT 3`, ...ids) : [];

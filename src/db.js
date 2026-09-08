@@ -186,28 +186,36 @@ export class AppDB extends DurableObject {
   /** 資料一改（匯入／漏斗／分析／配對／行動）就清兩層快取 */
   bust() { this._cache = new Map(); try { this.run("DELETE FROM cache_json"); } catch { /* 表還沒建好 */ } }
   /** 快取鍵的時間桶：一天一桶。底層資料只有 pipeline 會改（改了就 bust），一天內只差期間邊界往前挪幾小時 */
-  bucket(to) { return to ?? new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10); }   // 台灣日期：桶在台灣 00:00 換，換完 cron 馬上暖
+  bucket(to) { return to ?? new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10); }   // 台灣日期：桶在台灣 00:00 換，換完 cron 馬上暖；有傳 to（資料末端）就用原字串，資料沒變鍵就不變
+  /** 資料末端＝最後一則訊息時間＋1 秒（引擎用半開區間 at < to）。資料已到現在（或排在未來，模擬資料會）就回 null＝「到今天」。
+      每次查一句、不暫存：收件匣回覆／模擬進線會改 last_message_at 但不 bust（有 idx_conv_last，MAX 很快） */
+  dataEndLocal() { const r = this.first("SELECT MAX(last_message_at) AS m FROM conversations"); const t = r && r.m ? Date.parse(r.m) + 1000 : NaN; return Number.isFinite(t) && t < Date.now() ? new Date(t).toISOString() : null; }
+  /** 分析視窗的終點（2026-09-08 Curry 定案：預設以資料最後一天為準，可切到今天）：to 明講 → 用它；anchor=today → undefined（引擎用牆鐘、快取鍵按台灣日期）；否則資料末端（沒有就 undefined） */
+  resolveTo(opts) { if (opts && opts.to) return opts.to; if (opts && opts.anchor === "today") return undefined; return this.dataEndLocal() ?? undefined; }
+  anchorOf(opts, to) { return opts && opts.to ? "custom" : to ? "data" : "today"; }
   reportCached(days, to, fresh = false) { return this.cached(`report:${days ?? 30}:${this.bucket(to)}`, 24 * 60 * 60_000, () => computeStaffReport(this, { days, to }), fresh); }
   async importLocal(bundle, opts) { this.bust(); return importBundle(this, bundle, opts); }
   /** 分析數字（總覽／成交／漏斗／需要注意都靠它）：每頁載入會叫好幾次，每次讀幾萬列 → 同參數同一小時回快取 */
-  analyticsLocal(opts) { return this.cached(`analytics:${opts.days ?? 7}:${this.bucket(opts.to)}`, 24 * 60 * 60_000, () => computeAnalytics(this, { to: opts.to, days: opts.days }), !!opts.fresh); }
-  async funnelLocal(opts) { this.bust(); return runFunnel(this, opts); }
+  analyticsLocal(opts) { const to = this.resolveTo(opts); return this.cached(`analytics:${opts.days ?? 7}:${this.bucket(to)}`, 24 * 60 * 60_000, () => computeAnalytics(this, { to, days: opts.days, anchor: this.anchorOf(opts, to), data_end: this.dataEndLocal() }), !!opts.fresh); }
+  /** 漏斗／分析的「現在」：沒明講就用資料末端（沉默幾天、推定流失才不會隨日曆漂移）；anchor=today 或資料到現在就用牆鐘 */
+  nowFor(opts) { return (opts && opts.now) || this.resolveTo(opts) || new Date().toISOString(); }
+  async funnelLocal(opts) { this.bust(); return runFunnel(this, { ...opts, now: this.nowFor(opts) }); }
   /** 員工效能／流失原因的三段分析：角色（歸因）→ 行為特徵（要先有角色）→ 流失原因。全部規則、可重跑。 */
   async analyzeLocal(opts) {
     this.bust();
-    const t0 = Date.now();
+    const t0 = Date.now(); const now = this.nowFor(opts);
     const roles = await computeRoles(this, { leadIds: opts.leadIds });
-    const behaviors = await computeBehaviors(this, { now: opts.now, leadIds: opts.leadIds });
-    const loss = await computeLoss(this, { now: opts.now, leadIds: opts.leadIds });
-    const grades = await computeGrades(this, { now: opts.now, leadIds: opts.leadIds });
+    const behaviors = await computeBehaviors(this, { now, leadIds: opts.leadIds });
+    const loss = await computeLoss(this, { now, leadIds: opts.leadIds });
+    const grades = await computeGrades(this, { now, leadIds: opts.leadIds });
     return { roles, behaviors, loss, grades, ms: Date.now() - t0 };
   }
   /** SABC 分級單獨重算（規則改了不用整套分析重跑） */
-  async gradesLocal(opts) { this.bust(); return computeGrades(this, opts); }
+  async gradesLocal(opts) { this.bust(); return computeGrades(this, { ...opts, now: this.nowFor(opts) }); }
   /* ── 員工效能／流失原因／教練／決策卡／管理行動：重活一律在這裡跑 ── */
-  async staffLocal(opts) { return this.reportCached(opts.days, opts.to, !!opts.fresh); }
+  async staffLocal(opts) { return this.reportCached(opts.days, this.resolveTo(opts), !!opts.fresh); }
   async staffProfileLocal(opts) {
-    const report = await this.reportCached(opts.days, opts.to);
+    const report = await this.reportCached(opts.days, this.resolveTo(opts));
     const s = report.staff.find((x) => x.id === opts.id); if (!s) return null;
     const last = await this.first("SELECT content, model, created_at FROM coaching_plans WHERE staff_id = ? ORDER BY id DESC LIMIT 1", opts.id);
     let plan = null; if (last && !opts.refresh) { try { plan = JSON.parse(String(last.content)); plan.model = last.model; } catch { plan = null; } }
@@ -215,17 +223,17 @@ export class AppDB extends DurableObject {
     const leads = await this.all(`SELECT l.id, l.stage, l.outcome, l.opened_at, l.closed_at, COALESCE(NULLIF(c.pseudonym,''), c.display_name) AS contact, COALESCE(v.brand||' '||v.model,'') AS vehicle,
         la.primary_reason, la.driver, la.stage AS lost_stage, d.gross_profit, d.sale_price, d.cost_source, d.gp_is_estimate
       FROM leads l JOIN contacts c ON c.id = l.contact_id LEFT JOIN vehicles v ON v.id = l.vehicle_id LEFT JOIN loss_analyses la ON la.lead_id = l.id LEFT JOIN deals d ON d.lead_id = l.id AND d.status = 'sold'
-      WHERE l.staff_id = ? AND l.opened_at >= ? AND l.opened_at < ? ORDER BY l.opened_at DESC LIMIT 60`, opts.id, report.period.from, report.period.to);
-    const roles = await this.all(`SELECT r.role, COUNT(*) AS n FROM lead_roles r JOIN leads l ON l.id = r.lead_id WHERE r.user_id = ? AND l.opened_at >= ? AND l.opened_at < ? GROUP BY r.role`, opts.id, report.period.from, report.period.to);
+      WHERE l.staff_id = ? AND l.first_real_at >= ? AND l.first_real_at < ? ORDER BY l.opened_at DESC LIMIT 60`, opts.id, report.period.from, report.period.to);
+    const roles = await this.all(`SELECT r.role, COUNT(*) AS n FROM lead_roles r JOIN leads l ON l.id = r.lead_id WHERE r.user_id = ? AND l.first_real_at >= ? AND l.first_real_at < ? GROUP BY r.role`, opts.id, report.period.from, report.period.to);
     const ranks = report.rankings.map((r) => { const row = r.rows.find((x) => x.staff_id === opts.id); return { key: r.key, label: r.label, rank: row?.rank ?? null, display: row?.display ?? "—", n: row?.n ?? 0, ok: !!row?.ok, of: r.rows.filter((x) => x.ok).length }; });
     return { staff: s, issues: report.issues[opts.id] ?? [], rankings: ranks, team: report.team, top_ids: report.compare.top_ids, watch_ids: report.compare.watch_ids, plan, leads, roles,
       pairs: report.pairs.filter((p) => p.a_id === opts.id || p.b_id === opts.id), patterns: report.patterns.filter((p) => p.staff.some((x) => x.id === opts.id)).map((p) => ({ key: p.key, label: p.label })), period: report.period, associations: report.associations };
   }
-  async coachingLocal(opts) { const report = await this.reportCached(opts.days, opts.to); return buildCoachingPlan(this, report, opts.id, opts.now); }
-  async decisionsLocal(opts) { const report = await this.reportCached(opts.days, opts.to, !!opts.fresh); return this.cached(`decisions:${opts.days}:${this.bucket(opts.to)}`, 24 * 60 * 60_000, async () => { const t0 = Date.now(); const cards = await computeDecisions(this, report, opts.now); return { cards, period: report.period, top: report.top.slice(0, 3), watch: report.watch.slice(0, 2), timings: { ...(report.timings ?? {}), decisions: Date.now() - t0 } }; }, !!opts.fresh); }
-  async lossAggLocal(opts) { return lossAggregate(this, opts); }
+  async coachingLocal(opts) { const report = await this.reportCached(opts.days, this.resolveTo(opts)); return buildCoachingPlan(this, report, opts.id, opts.now); }
+  async decisionsLocal(opts) { const to = this.resolveTo(opts); const report = await this.reportCached(opts.days, to, !!opts.fresh); return this.cached(`decisions:${opts.days}:${this.bucket(to)}`, 24 * 60 * 60_000, async () => { const t0 = Date.now(); const cards = await computeDecisions(this, report, to ?? opts.now ?? new Date().toISOString()); return { cards, period: report.period, top: report.top.slice(0, 3), watch: report.watch.slice(0, 2), timings: { ...(report.timings ?? {}), decisions: Date.now() - t0 } }; }, !!opts.fresh); }
+  async lossAggLocal(opts) { return lossAggregate(this, { ...opts, to: this.resolveTo(opts) }); }
   /* ── 待確認配對：成交群「送貨囉」貼文 → 車／客戶／業務 → 成交帳本；接待群 → 到店；估車群 → 估車 ── */
-  async reconcileLocal(opts) { return reconcileSummary(this, opts); }
+  async reconcileLocal(opts) { return reconcileSummary(this, { ...opts, to: this.resolveTo(opts) }); }
   async ingestGroupLocal(opts) {
     this.bust();
     const posts = Array.isArray(opts.posts) && opts.posts.length ? opts.posts : parseLineExport(String(opts.text || ""));
@@ -327,8 +335,8 @@ export class AppDB extends DurableObject {
     for (const r of rows) await matchReport(this, Number(r.id), opts.now);
     return { rematched: rows.length };
   }
-  async baselineLocal(opts) { const report = await this.reportCached(opts.days ?? 30, undefined); return metricSnapshot(report, opts.metric_key, opts.staff_id ?? null); }
-  async progressLocal(opts) { const a = await this.first("SELECT * FROM actions WHERE id = ?", opts.id); if (!a) return null; return this.cached(`progress:${opts.id}:${this.bucket()}`, 24 * 60 * 60_000, () => actionProgress(this, a, opts.now)); }
+  async baselineLocal(opts) { const report = await this.reportCached(opts.days ?? 30, this.resolveTo(opts)); return metricSnapshot(report, opts.metric_key, opts.staff_id ?? null); }
+  async progressLocal(opts) { const a = await this.first("SELECT * FROM actions WHERE id = ?", opts.id); if (!a) return null; const to = this.resolveTo(opts); return this.cached(`progress:${opts.id}:${this.bucket(to)}`, 24 * 60 * 60_000, () => actionProgress(this, a, to ?? opts.now ?? new Date().toISOString())); }
   /** 給評測腳本：每個 lead 的角色／流失原因／行為特徵，附對話外部鍵（CV{n} ↔ 標準答案 L{n}） */
   async analyzeDumpLocal() {
     const rows = await this.all(`SELECT l.id, l.outcome, cv.external_id AS conv_key, la.primary_reason, la.secondary_reason, la.confidence AS loss_conf, la.driver, la.stage, la.status AS loss_status, b.features
@@ -348,8 +356,8 @@ export class AppDB extends DurableObject {
       DO 被釘在某個機房，從那裡打 Gemini 會被拒「User location is not supported」（2026-09-04 實測），Worker 端從台灣打就正常。 */
   async insightsLocal(opts) {
     this.bust();
-    const at = opts.now;
-    const a = await computeAnalytics(this, { to: opts.to, days: opts.days });
+    const at = opts.now; const to = this.resolveTo(opts);
+    const a = await computeAnalytics(this, { to, days: opts.days, anchor: this.anchorOf(opts, to), data_end: this.dataEndLocal() });
     const cands = deriveInsights(a);
     const { ids } = await persistInsights(this, cands, a, at);
     /* 一次只有一組「現行」洞察：新一輪成立後，其他仍為 0 的舊洞察全部標 dismissed=2（被取代），

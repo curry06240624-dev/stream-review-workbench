@@ -12,6 +12,7 @@
  */
 import type { Confidence, EventSource, FunnelEventType } from "../model/types.ts";
 import type { DbLike } from "../adapters/import.ts";
+import { MENU_LIKE } from "../model/menu.ts";
 
 type Row = Record<string, unknown>;
 interface Msg { id: number; role: string; text: string; at: number; type?: string; }
@@ -51,7 +52,6 @@ const RE = {
   counterNot: /\d{1,2}[:：]\d{2}|\d+\s*點(?!\s*(?:多|萬))|(?<![\d,])\d{4,}\s*(?:可以嗎|好嗎)|貸|頭期|期數|約在|年式|那台|比\d|[A-Za-z]\d{2,3}|\d{2,3}\s*至\s*\d/,   // 「K14 可以嗎」「約在 7-11」「多貸 25 至 30」「2020 那台比 21」都不是出價   // 「16:30 可以嗎」是約時間、「5000 可以嗎」是訂金，不是出價
   financing:  /(?:全額貸|零利率|利率|頭期|月付|月繳|自備款?|分期|車貸|貸款|信用|呆帳|協商)/,   // 主題：貸款相關
   financingAsk: /嗎|多少|怎麼|怎樣|如何|幾成|幾%|幾趴|可不可以|能不能|有沒有|想了解|想問|請問|試算|算一下|辦得|辦嗎|[?？]/,   // 要有「問」的形式：「我車貸還沒繳完」「罰單過高無法買信用瑕疵」不是在問貸款
-  menuLike:   /^[^\u4e00-\u9fffA-Za-z0-9]*(?:回選單|一年加油金|瑋瑋中古車品牌理念|我要諮詢哪裡瑕疵|貸款|售後保固|想了解月繳款|線上車庫|本週新進車款|出清專區|國產車|進口車|露營車|[1-4])\s*$/,   // 匯出裡沒標成選單的按鈕文字（沒 emoji 開頭）
   finOk:      /%|頭期\s*\d|月付大概|月繳大概|月繳.*\d|試算|貸款專員|沒問題|可以喔|利率|全額貸|一萬多|萬多|\d{4,5}\s*(?:左右|元|塊)|期的話/,
   finWeak:    /再問|再確認|問一下|應該可以|看個人條件/,   // resolved＝「有給具體答案」（教練用）；「沒人回」另外看 reply_message_id（需要注意清單用）
   apptProp:   /約個時間|來店|來看車|幫(?:你|您)留車|留車給|哪天有空|來看實車|過來看|現場看(?!過)|來現場|給你地址|載你|可以看車|方便(?:來|過來|到店)|(?:來|過來|到店|看車).{0,10}方便嗎/,   // 「收個 20000 方便嗎」「今天方便聯絡嗎」不是約看車，方便嗎要跟來／看車一起   // 「有空來看看嗎」是跟進不是約時間，不放「來看看」；「保留車款」含「留車」所以只認「幫你留車」
@@ -82,16 +82,18 @@ export function detectEvents(ctx: Ctx, vehicles: VehicleName[], now: number): De
   const msgs = ctx.msgs;
   if (!msgs.length) return out;
   const custAll = msgs.filter((m) => m.role === "customer");
-  const cust = custAll.filter((m) => m.type !== "menu" && !RE.menuLike.test(m.text));   // 客戶自己打的字；按選單（含沒標到的按鈕文字）不算有來有往
+  const cust = custAll.filter((m) => m.type !== "menu" && !MENU_LIKE.test(m.text));   // 客戶自己送的訊息（打字／照片／貼圖）；按選單、按鈕文字不算（src/model/menu.ts）
   const staff = msgs.filter((m) => m.role === "staff");
   const bots = msgs.filter((m) => m.role === "bot");
   const first = msgs[0]!, last = msgs[msgs.length - 1]!;
   const outcome = String(ctx.lead["outcome"] ?? "");
   const displayName = String(ctx.contact["display_name"] ?? "");
 
-  // NEW_LEAD（第一則客戶訊息，選單點擊也算進線）
-  const firstCust = custAll[0] ?? first;
-  out.push(ev("NEW_LEAD", firstCust.at, "CONFIRMED", "rule", {}, [{ message_id: firstCust.id, note: "第一則客戶訊息" }]));
+  // NEW_LEAD：第一則「非選單」客戶訊息（打字、照片、貼圖都算）。只按過選單／按鈕的人不算進線、也不發任何事件——
+  // 他們仍是 lead（SABC C、畫面上另列「只加好友／點選單 N 位」）。2026-09-08 瑋瑋／Curry 定案
+  if (!cust.length) return out;
+  const firstCust = cust[0]!;
+  out.push(ev("NEW_LEAD", firstCust.at, "CONFIRMED", "rule", {}, [{ message_id: firstCust.id, note: "第一則客戶訊息（非選單）" }]));
 
   // VEHICLE_INTEREST：對話（含客戶按的車卡）提到車輛主檔裡的車款
   const vhit = msgs.find((m) => m.role !== "bot" && vehicles.some((v) => v.needles.some((n) => m.text.toLowerCase().includes(n))));
@@ -312,6 +314,8 @@ export async function runFunnel(db: DbLike, opts: { now: string; leadIds?: numbe
       hasReception,
     };
     const events = detectEvents(ctx, vehicles, now);
+    const firstReal = msgs.find((m) => m.role === "customer" && m.type !== "menu" && !MENU_LIKE.test(m.text));   // 新進線日期（跟 detectEvents 同一條規則）
+    await db.run("UPDATE leads SET first_real_at = ? WHERE id = ?", firstReal ? new Date(firstReal.at).toISOString() : null, lid);
     await db.run("DELETE FROM evidence WHERE event_id IN (SELECT id FROM funnel_events WHERE lead_id = ? AND source IN ('rule','ledger'))", lid);
     await db.run("DELETE FROM funnel_events WHERE lead_id = ? AND source IN ('rule','ledger')", lid);
     const convRow = await db.first("SELECT id FROM conversations WHERE lead_id = ? ORDER BY id LIMIT 1", lid);

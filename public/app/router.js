@@ -1,6 +1,6 @@
 /* 路由：路徑 → 頁面模組。每頁 export render(el, ctx)。ctx = { params, query, me, nav }。 */
-import { api, ensureLogin, switchUser } from "./api.js";
-import { esc } from "./ui.js";
+import { api, ensureLogin, switchUser, anchorMode, setAnchorMode } from "./api.js";
+import { esc, fmtDT } from "./ui.js";
 
 const ROUTES = [
   ["/overview", "overview"], ["/funnel", "funnel"], ["/attention", "attention"],
@@ -94,6 +94,10 @@ function paintWho() {
     w.innerHTML += `<select id="switch"><option value="">切換示範身分…</option>${opts}</select>`;
     document.getElementById("switch").onchange = (e) => e.target.value && switchUser(e.target.value);
   }
+  // 分析視窗基準：資料截至（預設）／到今天。存 localStorage，api() 自動帶；切了就重畫本頁
+  window.__dataEnd = me.data_end || null; const mode = anchorMode(); const de = me.data_end ? fmtDT(me.data_end) : null;
+  w.innerHTML += `<div class="faint" style="margin-top:6px;font-size:12px;line-height:1.5">${mode === "today" ? "視窗：到今天" : de ? `資料截至 ${esc(de)}` : "資料到現在"}${de ? ` · <a href="#" id="anchorToggle" style="color:var(--cyan)">${mode === "today" ? "改看資料截至" : "改看到今天"}</a>` : ""}</div>`;
+  const tg = document.getElementById("anchorToggle"); if (tg) tg.onclick = (e) => { e.preventDefault(); setAnchorMode(mode === "today" ? "data" : "today"); paintWho(); render(); };
 }
 
 (async () => {

@@ -12,7 +12,7 @@ export async function render(el, ctx) {
   const r = await api(`/api/appointments?days=${days}`);
   if (!r.ok) { el.innerHTML = `<div class="empty">${esc(r.message || "讀不到預約資料。")}</div>`; return; }
   const c = r.counts || {}, tl = r.timeline || [], watch = r.watch || [], recent = r.recent_visits || [];
-  const todayKey = dayKey(new Date().toISOString());
+  const todayKey = dayKey(r.as_of || new Date().toISOString());   // 「今天」＝期間終點（資料截至或現在）
   const groups = new Map();
   for (const x of tl) { const k = dayKey(x.scheduled_for); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(x); }
   const overdueN = watch.length;
@@ -45,7 +45,7 @@ export async function render(el, ctx) {
           ${table([
             { key: "contact", label: "客戶" }, { key: "vehicle", label: "車款" }, { key: "staff", label: "業務" },
             { key: "scheduled_for", label: "原定", num: true, render: (x) => fmtDT(x.scheduled_for) },
-            { key: "late", label: "已過", num: true, render: (x) => ago(x.scheduled_for), cls: () => "warn" },
+            { key: "late", label: "已過", num: true, render: (x) => ago(x.scheduled_for, Date.parse(r.as_of || new Date().toISOString())), cls: () => "warn" },
           ], watch, { rowHref: (x) => `/conversations/${x.lead_id}`, dense: true, empty: "沒有逾期未到店。" })}</div>
         <div class="panel"><h3>最近到店 <span class="faint" style="font-weight:400;letter-spacing:0">到店後的結果</span></h3>
           ${table([

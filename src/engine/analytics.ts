@@ -15,7 +15,7 @@ const iso = (t: number) => new Date(t).toISOString();
 export interface Period { from: string; to: string; days: number; }
 export interface Analytics {
   period: Period; prev: Period;
-  funnel: { events: Record<string, number>; prev_events: Record<string, number>; leads: number; prev_leads: number; typed_leads: number; prev_typed_leads: number; stages: Array<{ stage: string; n: number }> };   // typed＝客戶自己打過字的新進線
+  funnel: { events: Record<string, number>; prev_events: Record<string, number>; leads: number; prev_leads: number; menu_only_leads: number; prev_menu_only_leads: number; typed_leads: number; prev_typed_leads: number; stages: Array<{ stage: string; n: number }> };   // leads＝有送過非選單訊息的；menu_only＝只加好友／點選單；typed＝其中打過字的
   conversion: Record<string, { rate: number | null; n: number; prev_rate: number | null; prev_n: number }>;
   price_dropoff: {
     count: number; base: number; rate: number | null; prev_count: number; prev_base: number; prev_rate: number | null;
@@ -41,6 +41,8 @@ export interface Analytics {
   grades: { open: Record<string, number>; period: Record<string, number>; long_cycle: number; tags: Record<string, number> };   // SABC 系統推算：未結案客戶現況／本期新進線分布
   attention: Array<{ kind: string; lead_id: number; contact: string; staff: string; vehicle: string; since: string; reason: string }>;
   timings?: Record<string, number>;
+  anchor: string;            // data＝以資料末端為準｜today＝到今天｜custom＝指定 to
+  data_end: string | null;   // 資料末端（最後一則訊息＋1 秒；資料到現在就 null）
 }
 
 async function countEvents(db: DbLike, from: string, to: string): Promise<Record<string, number>> {
@@ -57,7 +59,7 @@ async function stageRate(db: DbLike, a: string, b: string, from: string, to: str
   return { rate: rate(k, n), n };
 }
 
-export async function computeAnalytics(db: DbLike, opts: { to?: string; days?: number }): Promise<Analytics> {
+export async function computeAnalytics(db: DbLike, opts: { to?: string; days?: number; anchor?: string; data_end?: string | null }): Promise<Analytics> {
   const timings: Record<string, number> = {}; let tMark = Date.now();
   const lap = (k: string) => { const t = Date.now(); timings[k] = t - tMark; tMark = t; };
   const days = opts.days ?? 7;
@@ -69,12 +71,14 @@ export async function computeAnalytics(db: DbLike, opts: { to?: string; days?: n
 
   /* ── 漏斗 ── */
   const events = await countEvents(db, ...P), prev_events = await countEvents(db, ...Q);
-  const leads = num((await db.first("SELECT COUNT(*) AS n FROM leads WHERE opened_at >= ? AND opened_at < ?", ...P))?.["n"]);
-  const prev_leads = num((await db.first("SELECT COUNT(*) AS n FROM leads WHERE opened_at >= ? AND opened_at < ?", ...Q))?.["n"]);
-  // 新進線裡「客戶自己打過字」的（只按選單／貼圖的不算）：瑋瑋的人講的「進線」多半是這個；兩個數字都給
-  const typedQ = `SELECT COUNT(*) AS n FROM leads l WHERE l.opened_at >= ? AND l.opened_at < ? AND EXISTS (SELECT 1 FROM messages m JOIN conversations cv ON cv.id = m.conversation_id
-      WHERE cv.lead_id = l.id AND m.sender_role = 'customer' AND COALESCE(m.msg_type,'text') NOT IN ('menu','sticker','image','video','audio','file','location')
-        AND m.text NOT IN ('回選單','一年加油金','瑋瑋中古車品牌理念','我要諮詢哪裡瑕疵','貸款','售後保固','想了解月繳款','線上車庫','❤️國產車','❤️進口車','🚎露營車','1','2','3','4'))`;   // 沒標成選單的按鈕文字（跟 funnel.ts menuLike 同一份）
+  // 新進線＝第一則「非選單」客戶訊息落在期間內的 lead（打字、照片、貼圖都算；只點選單／按鈕的不算，另計 menu_only）。2026-09-08 瑋瑋／Curry 定案
+  const leadQ = "SELECT COUNT(*) AS n FROM leads WHERE first_real_at >= ? AND first_real_at < ?";
+  const leads = num((await db.first(leadQ, ...P))?.["n"]), prev_leads = num((await db.first(leadQ, ...Q))?.["n"]);
+  const menuQ = "SELECT COUNT(*) AS n FROM leads WHERE opened_at >= ? AND opened_at < ? AND first_real_at IS NULL";   // 加好友／只點選單，沒送過任何訊息
+  const menu_only_leads = num((await db.first(menuQ, ...P))?.["n"]), prev_menu_only_leads = num((await db.first(menuQ, ...Q))?.["n"]);
+  // 進線裡自己打過字的（照片／貼圖不算）：給 AI 事實包參考
+  const typedQ = `SELECT COUNT(*) AS n FROM leads l WHERE l.first_real_at >= ? AND l.first_real_at < ? AND EXISTS (SELECT 1 FROM messages m JOIN conversations cv ON cv.id = m.conversation_id
+      WHERE cv.lead_id = l.id AND m.sender_role = 'customer' AND COALESCE(m.msg_type,'text') = 'text')`;
   const typed_leads = num((await db.first(typedQ, ...P))?.["n"]), prev_typed_leads = num((await db.first(typedQ, ...Q))?.["n"]);
   const stages = (await db.all("SELECT stage, COUNT(*) AS n FROM leads GROUP BY stage")).map((r) => ({ stage: String(r["stage"]), n: num(r["n"]) }));
 
@@ -228,9 +232,10 @@ export async function computeAnalytics(db: DbLike, opts: { to?: string; days?: n
   const gOpen: Record<string, number> = {}, gPeriod: Record<string, number> = {}, gTags: Record<string, number> = {};
   const activeSince = iso(toT - 30 * D);   // 「現況」只算近 30 天有訊息的未結案客戶，不然舊資料補進來全是幾萬個沉睡的 C
   for (const r of await db.all("SELECT l.grade_auto AS g, COUNT(*) AS n FROM leads l JOIN conversations cv ON cv.lead_id = l.id WHERE l.outcome = '' AND l.grade_auto <> '' AND cv.last_message_at >= ? GROUP BY l.grade_auto", activeSince)) gOpen[String(r["g"])] = num(r["n"]);
-  for (const r of await db.all("SELECT grade_auto AS g, COUNT(*) AS n FROM leads WHERE opened_at >= ? AND opened_at < ? AND grade_auto <> '' GROUP BY grade_auto", ...P)) gPeriod[String(r["g"])] = num(r["n"]);
+  for (const r of await db.all("SELECT grade_auto AS g, COUNT(*) AS n FROM leads WHERE first_real_at >= ? AND first_real_at < ? AND grade_auto <> '' GROUP BY grade_auto", ...P)) gPeriod[String(r["g"])] = num(r["n"]);
   for (const r of await db.all("SELECT l.result_tag AS t, COUNT(*) AS n FROM leads l JOIN conversations cv ON cv.lead_id = l.id WHERE l.outcome = '' AND l.result_tag <> '' AND cv.last_message_at >= ? GROUP BY l.result_tag", activeSince)) for (const t of String(r["t"]).split("、")) if (t) gTags[t] = (gTags[t] ?? 0) + num(r["n"]);
   const grades: Analytics["grades"] = { open: gOpen, period: gPeriod, long_cycle: gTags["長週期"] ?? 0, tags: gTags };
   lap("grades");
-  return { period, prev, funnel: { events, prev_events, leads, prev_leads, typed_leads, prev_typed_leads, stages }, conversion, price_dropoff, appointments, visits, deals, staff, vehicles, attention, grades, timings };
+  return { period, prev, funnel: { events, prev_events, leads, prev_leads, menu_only_leads, prev_menu_only_leads, typed_leads, prev_typed_leads, stages }, conversion, price_dropoff, appointments, visits, deals, staff, vehicles, attention, grades, timings,
+    anchor: opts.anchor ?? (opts.to ? "custom" : "today"), data_end: opts.data_end ?? null };
 }

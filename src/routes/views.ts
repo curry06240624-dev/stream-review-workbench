@@ -18,6 +18,16 @@ const analytics = (db: DbLike, opts: { days: number; to?: string }) => {
   return local ? local.call(db, opts) : computeAnalytics(db, opts);
 };
 
+/** 期間終點：?anchor=today → 現在；否則資料末端（最後一則訊息＋1 秒，不晚於現在；跟 db.js dataEndLocal 同一條規則）。to 為 undefined＝到今天 */
+async function periodEnd(db: DbLike, q: URLSearchParams): Promise<{ iso: string; to: string | undefined }> {
+  const nowIso = new Date().toISOString();
+  if (q.get("anchor") === "today") return { iso: nowIso, to: undefined };
+  const r = await db.first("SELECT MAX(last_message_at) AS m FROM conversations");
+  const t = r && r["m"] ? Date.parse(String(r["m"])) + 1000 : NaN;
+  if (!Number.isFinite(t) || t >= Date.now()) return { iso: nowIso, to: undefined };
+  const iso = new Date(t).toISOString(); return { iso, to: iso };
+}
+
 const LEAD_SELECT = `
   SELECT l.id, l.stage, l.outcome, l.opened_at, l.closed_at, l.source, l.staff_id, l.vehicle_id,
          c.id AS contact_id, c.pseudonym, c.display_name, c.grade, c.first_contact_at,
@@ -113,7 +123,8 @@ export async function handleViews(url: URL, method: string, db: DbLike, me: Me):
 
   /* ── 需要注意 ── */
   if (p === "/api/attention") {
-    const a = await analytics(db, { days: 7 });
+    const pe = await periodEnd(db, q);
+    const a = await analytics(db, { days: 7, to: pe.to });
     const items = canSeeAll(me.role) ? a.attention : a.attention.filter((x) => x.staff === me.name);
     const counts: Record<string, number> = {};
     for (const x of items) counts[x.kind] = (counts[x.kind] ?? 0) + 1;
@@ -122,14 +133,14 @@ export async function handleViews(url: URL, method: string, db: DbLike, me: Me):
     const shaped = items.map((x) => ({ ...x, contact: String(byId.get(x.lead_id)?.["pseudonym"] || x.contact), last_at: byId.get(x.lead_id)?.["last_message_at"] ?? null }));
     const actions = canSeeAll(me.role) ? await db.all(`SELECT a.*, i.title AS insight_title, i.severity FROM actions a LEFT JOIN insights i ON i.id = a.insight_id WHERE a.status IN ('proposed','approved') ORDER BY CASE a.status WHEN 'approved' THEN 0 ELSE 1 END, a.id DESC LIMIT 30`) : [];
     const done = canSeeAll(me.role) ? await db.all(`SELECT a.*, i.title AS insight_title FROM actions a LEFT JOIN insights i ON i.id = a.insight_id WHERE a.status IN ('done','dismissed') ORDER BY a.decided_at DESC LIMIT 10`) : [];
-    return J({ ok: true, counts, items: shaped, actions, done });
+    return J({ ok: true, counts, items: shaped, actions, done, as_of: pe.iso });
   }
 
   /* ── 預約與到店 ── */
   if (p === "/api/appointments") {
     const days = Math.min(30, Math.max(1, Number(q.get("days") || 7)));
-    const now = Date.now(); const nowIso = new Date(now).toISOString();
-    const a = await analytics(db, { days });
+    const pe = await periodEnd(db, q); const nowIso = pe.iso; const now = Date.parse(nowIso);
+    const a = await analytics(db, { days, to: pe.to });
     const base = `SELECT ap.id, ap.lead_id, ap.scheduled_for, ap.status, ap.status_at, c.pseudonym, c.display_name, COALESCE(u.name,'') AS staff, COALESCE(v.brand||' '||v.model,'') AS vehicle,
                     EXISTS (SELECT 1 FROM visits vi WHERE vi.lead_id = ap.lead_id AND vi.visited_at >= ap.scheduled_for) AS visited
                FROM appointments ap JOIN leads l ON l.id = ap.lead_id JOIN contacts c ON c.id = l.contact_id LEFT JOIN users u ON u.id = ap.staff_id LEFT JOIN vehicles v ON v.id = l.vehicle_id`;
@@ -142,13 +153,13 @@ export async function handleViews(url: URL, method: string, db: DbLike, me: Me):
       WHERE 1=1${mine} ORDER BY vi.visited_at DESC LIMIT 12`);
     const shape = (r: Row) => ({ ...r, contact: String(r["pseudonym"] || r["display_name"]), overdue: String(r["status"]) === "booked" && Date.parse(String(r["scheduled_for"])) < now && !num(r["visited"]), visited: !!num(r["visited"]) });
     return J({ ok: true, counts: { ...a.appointments, visits: a.visits["count"], prev_visits: a.visits["prev_count"], booking_to_visit: a.conversion["booking_to_visit"], visit_to_sold: a.conversion["visit_to_sold"] },
-      timeline: timeline.map(shape), watch: watch.map(shape), recent_visits: recent.map((r) => ({ ...r, contact: String(r["pseudonym"] || r["display_name"]) })), period: a.period });
+      timeline: timeline.map(shape), watch: watch.map(shape), recent_visits: recent.map((r) => ({ ...r, contact: String(r["pseudonym"] || r["display_name"]) })), period: a.period, as_of: nowIso });
   }
 
   /* ── 成交明細 ── */
   if (p === "/api/deals/list") {
     const days = Math.min(90, Math.max(1, Number(q.get("days") || 30)));
-    const from = new Date(Date.now() - days * D).toISOString();
+    const from = new Date(Date.parse((await periodEnd(db, q)).iso) - days * D).toISOString();
     const rows = await db.all(`SELECT d.id, d.status, d.closed_at, d.sale_price, d.cost, d.gross_profit, d.lost_reason, d.lead_id,
         d.plate, d.deposit, d.loan_status, d.delivery_by, d.reported_by, d.source_kind, d.peer_dealer, d.cost_source, d.gp_is_estimate, d.report_id, d.source_system, d.price_source, d.sheet_status, d.delivered, COALESCE(d.closed_at_source,'') AS closed_at_source,
         c.pseudonym, c.display_name, COALESCE(u.name,'') AS staff, COALESCE(v.brand||' '||v.model,'') AS vehicle, COALESCE(v.plate,'') AS vehicle_plate, v.sell_price AS vehicle_sell_price, l.opened_at
@@ -161,13 +172,14 @@ export async function handleViews(url: URL, method: string, db: DbLike, me: Me):
   /* ── 週序列（KPI sparkline 與趨勢圖）── */
   if (p === "/api/series") {
     const weeks = Math.min(16, Math.max(2, Number(q.get("weeks") || 10)));
-    const now = Date.now(); const out = [];
+    const now = Date.parse((await periodEnd(db, q)).iso); const out = [];   // 週桶從期間終點往回切
     for (let i = weeks - 1; i >= 0; i--) {
       const to = new Date(now - i * 7 * D).toISOString(), from = new Date(now - (i + 1) * 7 * D).toISOString();
       const ev = await db.all(`SELECT type, COUNT(*) AS n FROM funnel_events WHERE at >= ? AND at < ? AND confidence <> 'UNCLEAR' AND type IN ('NEW_LEAD','PRICE_MENTIONED','APPOINTMENT_BOOKED','STORE_VISIT','SOLD','PRICE_DROP_OFF') GROUP BY type`, from, to);
       const e = Object.fromEntries(ev.map((r) => [String(r["type"]), num(r["n"])]));
+      const nl = await db.first("SELECT COUNT(*) AS n FROM leads WHERE first_real_at >= ? AND first_real_at < ?", from, to);   // 新進線跟 KPI 同源（first_real_at），不再用 NEW_LEAD 事件
       const d = await db.first(`SELECT SUM(CASE WHEN status='sold' THEN sale_price ELSE 0 END) AS rev, SUM(CASE WHEN status='sold' AND cost_source<>'none' THEN gross_profit ELSE 0 END) AS gp, SUM(CASE WHEN status='sold' THEN 1 ELSE 0 END) AS sold FROM deals WHERE closed_at >= ? AND closed_at < ?`, from, to);
-      out.push({ week_end: to.slice(0, 10), leads: e["NEW_LEAD"] ?? 0, priced: e["PRICE_MENTIONED"] ?? 0, booked: e["APPOINTMENT_BOOKED"] ?? 0, visits: e["STORE_VISIT"] ?? 0, sold: num(d?.["sold"]), dropoff: e["PRICE_DROP_OFF"] ?? 0, revenue: num(d?.["rev"]), gp: num(d?.["gp"]) });
+      out.push({ week_end: to.slice(0, 10), leads: num(nl?.["n"]), priced: e["PRICE_MENTIONED"] ?? 0, booked: e["APPOINTMENT_BOOKED"] ?? 0, visits: e["STORE_VISIT"] ?? 0, sold: num(d?.["sold"]), dropoff: e["PRICE_DROP_OFF"] ?? 0, revenue: num(d?.["rev"]), gp: num(d?.["gp"]) });
     }
     return J({ ok: true, weeks: out });
   }

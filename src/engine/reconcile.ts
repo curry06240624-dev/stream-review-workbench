@@ -301,8 +301,8 @@ export async function ingestPosts(db: DbLike, posts: Post[], opts: { kind: "deal
 }
 
 /* ── 畫面用的總覽 ── */
-export async function reconcileSummary(db: DbLike, opts: { status?: string; days?: number }) {
-  const days = opts.days ?? 30; const fromT = Date.now() - days * D;
+export async function reconcileSummary(db: DbLike, opts: { status?: string; days?: number; to?: string }) {
+  const days = opts.days ?? 30; const fromT = (opts.to ? Date.parse(opts.to) : Date.now()) - days * D;
   const where = opts.status ? "WHERE r.match_status = ?" : "";
   const rows = await db.all(
     `SELECT r.*, COALESCE(v.brand||' '||v.model,'') AS vehicle_label, v.plate AS vehicle_plate, v.color AS vehicle_color, v.year AS vehicle_year, v.cost_known, v.source AS vehicle_source, v.cost AS vehicle_cost,

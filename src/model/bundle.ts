@@ -35,7 +35,8 @@ export interface BundleCustomer {
 }
 export interface BundleLead {
   key: string; customer_key: string; staff_name: string | null; vehicle_key: string | null;
-  source: LeadSource; opened_at: string; closed_at: string | null; outcome: LeadOutcome;
+  source: LeadSource; opened_at: string;
+  first_real_at?: string | null; closed_at: string | null; outcome: LeadOutcome;
 }
 export interface BundleMessage { at: string; role: SenderRole; text: string; type?: MsgType; staff_name?: string; via?: "super8" | "line_oa" | "call" | "bot"; }
 export interface BundleConversation {

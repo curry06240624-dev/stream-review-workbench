@@ -90,7 +90,7 @@ export async function buildCoachingPlan(db: DbLike, report: StaffReport, staffId
   const lostRows = await db.all(
     `SELECT la.lead_id, la.primary_reason, la.driver, la.stage, COALESCE(NULLIF(c.pseudonym,''), c.display_name) AS contact
        FROM loss_analyses la JOIN leads l ON l.id = la.lead_id JOIN contacts c ON c.id = l.contact_id
-      WHERE l.staff_id = ? AND l.opened_at >= ? AND l.opened_at < ? AND la.status = 'lost'
+      WHERE l.staff_id = ? AND l.first_real_at >= ? AND l.first_real_at < ? AND la.status = 'lost'
       ORDER BY CASE la.driver WHEN 'process' THEN 0 ELSE 1 END, la.closed_at DESC LIMIT 8`, staffId, report.period.from, report.period.to);
   const evidence: CoachingPlan["evidence"] = {
     affected_leads: issues[0]?.affected ?? 0,
@@ -119,7 +119,7 @@ async function messageExamples(db: DbLike, s: StaffMetrics, report: StaffReport,
   const rows = await db.all(
     `SELECT b.lead_id, b.features, COALESCE(NULLIF(c.pseudonym,''), c.display_name) AS contact, v.list_price, COALESCE(v.brand||' '||v.model,'') AS vehicle
        FROM behaviors b JOIN leads l ON l.id = b.lead_id JOIN contacts c ON c.id = l.contact_id LEFT JOIN vehicles v ON v.id = l.vehicle_id
-      WHERE l.staff_id = ? AND l.opened_at >= ? AND l.opened_at < ? ORDER BY l.opened_at DESC`, staffId, report.period.from, report.period.to);
+      WHERE l.staff_id = ? AND l.first_real_at >= ? AND l.first_real_at < ? ORDER BY l.opened_at DESC`, staffId, report.period.from, report.period.to);
   const out: CoachingPlan["message_examples"] = [];
   const teamB = (k: string) => pct(valOf(report.team.behaviors[k]));
   const topB = (k: string) => { const p = poolPeers(report.staff.filter((x) => report.compare.top_ids.includes(x.id)).map((x) => x.behaviors[k])); return pct(p.value); };
@@ -181,7 +181,7 @@ export async function computeDecisions(db: DbLike, report: StaffReport, now: str
     cards.push({ key: "followup", priority: "medium", kind: "workflow", title: `團隊沉默後 24 小時內跟進只有 ${pct(t.activity.followup_24h.rate)}`, why: `${t.activity.followup_24h.n} 次客戶沉默中只有 ${t.activity.followup_24h.k} 次在 24 小時內被跟進`, observed: obsText("followup_24h_rate", "表現最佳組沉默後跟進比例明顯較高"), action: "把「客戶沉默 24 小時」做成每日清單，主管早會點名", measure: "接下來 30 天的沉默後跟進率", metric_key: "followup_24h", staff_ids: [], links: [{ label: "需要注意", href: "/attention" }], claim: "fact" });
   }
   // 3. 流失原因上升
-  const prevLoss = await db.all(`SELECT la.primary_reason, COUNT(*) AS n FROM loss_analyses la JOIN leads l ON l.id = la.lead_id WHERE la.status = 'lost' AND l.opened_at >= ? AND l.opened_at < ? GROUP BY la.primary_reason`, report.prev.from, report.prev.to);
+  const prevLoss = await db.all(`SELECT la.primary_reason, COUNT(*) AS n FROM loss_analyses la JOIN leads l ON l.id = la.lead_id WHERE la.status = 'lost' AND l.first_real_at >= ? AND l.first_real_at < ? GROUP BY la.primary_reason`, report.prev.from, report.prev.to);
   const prevMap = new Map(prevLoss.map((r) => [String(r["primary_reason"]), num(r["n"])]));
   for (const r of t.loss.reasons) {
     const p = prevMap.get(r.key) ?? 0;
@@ -243,7 +243,9 @@ export function metricSnapshot(report: StaffReport, metricKey: string, staffId: 
 export async function actionProgress(db: DbLike, action: Row, now: string): Promise<{ before: Row | null; after: Row | null; delta: number | null; enough: boolean; days_after: number }> {
   let before: Row | null = null; try { before = JSON.parse(String(action["baseline"] || "null")); } catch { before = null; }
   const key = String(action["metric_key"] || ""); if (!key || !before) return { before, after: null, delta: null, enough: false, days_after: 0 };
-  const created = Date.parse(String(action["created_at"])); const daysAfter = Math.max(7, Math.ceil((Date.parse(now) - created) / D));
+  const created = Date.parse(String(action["created_at"]));
+  if (Date.parse(now) <= created) return { before, after: null, delta: null, enough: false, days_after: 0 };   // 基準日（資料末端）比行動建立還早：還沒有「之後」可以量，不然前後窗重疊會出現假的「已改變」
+  const daysAfter = Math.max(7, Math.ceil((Date.parse(now) - created) / D));
   const report = await computeStaffReport(db, { days: daysAfter, to: now });
   const after = metricSnapshot(report, key, action["staff_id"] ? num(action["staff_id"]) : null);
   const bv = before["value"] as number | null, av = after.value;

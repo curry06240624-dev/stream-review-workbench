@@ -1,3 +1,4 @@
+import { MENU_SQL_WHERE } from "./menu.ts";
 /**
  * 資料庫遷移。既有的 db.js 用 CREATE TABLE IF NOT EXISTS 建了第一批表；
  * 這裡補新表，並用「先查欄位再 ALTER」的方式擴充舊表 —— 每次啟動都會跑，必須冪等。
@@ -414,7 +415,8 @@ const ADD_COLUMNS: ReadonlyArray<readonly [string, string, string]> = [
   ["deals",         "price_source",     "TEXT NOT NULL DEFAULT ''"],   // 售價從哪來：report／sheet_sell（調作價）／sheet_list（開價）
   ["deals",         "sheet_status",     "TEXT NOT NULL DEFAULT ''"],   // 車源表「目前狀況」原文（收訂(軒)…），車源表產生的才有
   ["deals",         "delivered",        "INTEGER NOT NULL DEFAULT 1"],   // 0＝成交但還沒交車（車源表 收訂／送貸／過件；Curry：收訂就算成交）
-  ["deals",         "closed_at_source", "TEXT NOT NULL DEFAULT ''"],   // ''＝真的成交日（送貨囉／帳本）；import＝車源表第一次匯入就是售出／收訂，日期不明（不算本期）；sheet_diff＝兩份車源表之間變的（日期≈上傳日）
+  ["deals",         "closed_at_source", "TEXT NOT NULL DEFAULT ''"],
+  ["leads",         "first_real_at",    "TEXT"],   // 第一則「非選單」客戶訊息時間＝新進線的日期（打字／照片／貼圖都算）；只點過選單的 NULL（2026-09-08 定義）   // ''＝真的成交日（送貨囉／帳本）；import＝車源表第一次匯入就是售出／收訂，日期不明（不算本期）；sheet_diff＝兩份車源表之間變的（日期≈上傳日）
   ["behaviors",     "chat_staff_id",    "INTEGER"],
 ];
 
@@ -475,6 +477,20 @@ export function migrate(sql: SqlLike): { added: string[] } {
         last_customer_at = COALESCE((SELECT MAX(m.created_at) FROM messages m WHERE m.conversation_id = conversations.id AND m.sender_role = 'customer'), '')`);
     sql.exec("INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES ('backfill_conv_last_at', '1', ?)", new Date().toISOString());
     added.push("conversations.last_*_at backfilled");
+  }
+  // 2026-09-08 第六輪：(1) 按鈕文字標成選單 (2) leads.first_real_at 回填 (3) 清快取。各自 try/catch、做完留記號，不能把 DO 建構子弄掛
+  const flag = (k: string) => sql.exec("SELECT 1 FROM settings WHERE key = ?", k).toArray().length > 0;
+  const mark = (k: string) => sql.exec("INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, '1', ?)", k, new Date().toISOString());
+  if (!flag("backfill_menu_buttons")) {
+    try { sql.exec(`UPDATE messages SET msg_type = 'menu' WHERE sender_role = 'customer' AND COALESCE(msg_type,'text') = 'text' AND ${MENU_SQL_WHERE}`); mark("backfill_menu_buttons"); added.push("messages.msg_type menu buttons"); }
+    catch (e) { console.error("backfill_menu_buttons failed", e); }
+  }
+  if (added.includes("leads.first_real_at") || !flag("backfill_first_real_at")) {
+    try {
+      sql.exec(`UPDATE leads SET first_real_at = (SELECT MIN(m.created_at) FROM messages m JOIN conversations cv ON cv.id = m.conversation_id
+                 WHERE cv.lead_id = leads.id AND m.sender_role = 'customer' AND COALESCE(m.msg_type,'text') <> 'menu')`);
+      mark("backfill_first_real_at"); sql.exec("DELETE FROM cache_json"); added.push("leads.first_real_at backfilled");
+    } catch (e) { console.error("backfill_first_real_at failed", e); }
   }
   // 舊資料的 sender_role 補值：out 是員工，in 是客戶
   sql.exec(`UPDATE messages SET sender_role = CASE direction WHEN 'out' THEN 'staff' ELSE 'customer' END

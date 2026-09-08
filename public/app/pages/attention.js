@@ -22,7 +22,7 @@ export async function render(el, ctx) {
     { key: "contact", label: "客戶" },
     { key: "kind", label: "狀況", render: (x) => chip(KIND[x.kind] || x.kind, x.kind === "high_intent_no_followup" ? "amber" : "") },
     { key: "staff", label: "業務" }, { key: "vehicle", label: "車款" },
-    { key: "since", label: "等了", num: true, render: (x) => (x.since ? ago(x.since) : "—"), cls: (x) => (x.kind === "high_intent_no_followup" ? "warn" : "") },
+    { key: "since", label: "等了", num: true, render: (x) => (x.since ? ago(x.since, Date.parse(r.as_of || new Date().toISOString())) : "—"), cls: (x) => (x.kind === "high_intent_no_followup" ? "warn" : "") },
     { key: "reason", label: "原因" },
     { key: "last_at", label: "最後訊息", num: true, render: (x) => fmtDT(x.last_at) },
   ];
@@ -33,7 +33,7 @@ export async function render(el, ctx) {
       : chip(ST[x.status] || x.status, x.status === "approved" ? "cyan" : "")}</li>`;
 
   el.innerHTML = `<div class="wrap stack">
-    ${pageHead("需要注意", aiLine, `<span class="faint">四條規則現算 · 只看進行中的客戶</span>`)}
+    ${pageHead("需要注意", aiLine, `<span class="faint">四條規則現算 · 只看進行中的客戶 · 以${r.as_of ? `資料截至 ${fmtDT(r.as_of)}` : "現在"}計</span>`)}
     <section class="stats">${ORDER.map((k) => `<a class="stat ${k === kind ? "hot" : ""} ${k === "high_intent_no_followup" && (r.counts[k] || 0) ? "warn" : ""}" href="${k === kind ? "/attention" : `/attention?kind=${k}`}" data-link><div class="l">${KIND[k]}</div><b>${r.counts[k] || 0}</b></a>`).join("")}</section>
     <section class="panel"><h3>客戶清單 <span class="faint" style="font-weight:400;letter-spacing:0">${shown.length} 位${kind ? ` · ${KIND[kind] || kind}` : ""}</span>${kind ? `<span class="sp"></span><a href="/attention" data-link style="font-weight:400;letter-spacing:0">清除篩選</a>` : ""}</h3>
       ${table(cols, shown, { rowHref: (x) => `/conversations/${x.lead_id}`, dense: true, empty: "沒有需要注意的客戶。" })}

@@ -120,7 +120,9 @@ export function eventMark(e) {
 /* ── 雜項 ── */
 export function toast(msg) { const t = document.createElement("div"); t.className = "toast"; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2400); }
 export function bindRows(root) { root.querySelectorAll("tr[data-href]").forEach((tr) => tr.addEventListener("click", () => window.__nav(tr.dataset.href))); }
-export const periodSeg = (days, onChange) => { const id = "seg" + Math.random().toString(36).slice(2, 7); queueMicrotask(() => { document.getElementById(id)?.querySelectorAll("button").forEach((b) => b.onclick = () => onChange(Number(b.dataset.d))); }); return h`<div class="seg" id="${id}">${raw([7, 14, 30].map((d) => h`<button class="${d === days ? "on" : ""}" data-d="${d}">${d} 天</button>`).join(""))}</div>`; };
+/** 期間視窗的基準（跟 router.js 的切換鈕同一個狀態）：預設資料截至，可切到今天 */
+export const anchorNote = () => { let mode = "data"; try { mode = localStorage.getItem("anchor") === "today" ? "today" : "data"; } catch { /* 無痕 */ } const de = window.__dataEnd; return mode === "today" ? "到今天" : de ? `資料截至 ${fmtDT(de)}` : "資料到現在"; };
+export const periodSeg = (days, onChange) => { const id = "seg" + Math.random().toString(36).slice(2, 7); queueMicrotask(() => { document.getElementById(id)?.querySelectorAll("button").forEach((b) => b.onclick = () => onChange(Number(b.dataset.d))); }); return h`<div class="seg" id="${id}">${raw([7, 14, 30].map((d) => h`<button class="${d === days ? "on" : ""}" data-d="${d}">${d} 天</button>`).join(""))}</div><span class="faint" style="margin-left:8px;font-size:12px;white-space:nowrap">${anchorNote()}</span>`; };
 
 /* ── Chart.js 共用外觀：灰＝中性、琥珀＝警示、青＝系統強調；只在有用的時候畫圖 ── */
 export const chartOpts = () => ({

@@ -20,6 +20,7 @@ import { normalizePlate } from "../engine/posts.ts";
 import { ingestPosts } from "../engine/reconcile.ts";
 import { runFunnel } from "../engine/funnel.ts";
 import { syncSheetDeals } from "../engine/sheetdeals.ts";
+import { isMenuText } from "../model/menu.ts";
 
 type Row = Record<string, unknown>;
 export interface DbLike {
@@ -162,8 +163,8 @@ export async function importBundle(db: DbLike, b: NormalizedBundle, opts: { rese
   const leadId = new Map<string, number>();
   for (const l of b.leads) {
     const r = await db.run(
-      `INSERT INTO leads (contact_id, staff_id, vehicle_id, source, stage, outcome, opened_at, closed_at) VALUES (?,?,?,?,?,?,?,?)`,
-      cid(l.customer_key), sid(l.staff_name), vid(l.vehicle_key), l.source, "new", l.outcome, l.opened_at, l.closed_at);
+      `INSERT INTO leads (contact_id, staff_id, vehicle_id, source, stage, outcome, opened_at, closed_at, first_real_at) VALUES (?,?,?,?,?,?,?,?,?)`,
+      cid(l.customer_key), sid(l.staff_name), vid(l.vehicle_key), l.source, "new", l.outcome, l.opened_at, l.closed_at, l.first_real_at ?? null);
     leadId.set(l.key, r.lastRowId); bump("leads");
   }
   const lid = (key: string | null | undefined): number | null => (key && leadId.get(key)) || null;
@@ -191,6 +192,7 @@ export async function importBundle(db: DbLike, b: NormalizedBundle, opts: { rese
     for (const m of msgs) {
       const dir = m.role === "customer" ? "in" : "out";
       const sc = scrubMessage(m); if (sc.note) bump(sc.note === "id_photo" ? "id_photos_dropped" : "id_texts_scrubbed");
+      if (m.role === "customer" && sc.type === "text" && isMenuText(sc.text)) { sc.type = "menu"; bump("menu_texts"); }   // 按鈕文字當選單（src/model/menu.ts）
       await db.run(
         `INSERT INTO messages (conversation_id, direction, sender_user_id, text, created_at, sender_role, msg_type, external_id, via)
          VALUES (?,?,?,?,?,?,?,?,?)`,
@@ -199,6 +201,14 @@ export async function importBundle(db: DbLike, b: NormalizedBundle, opts: { rese
     }
     await db.run("INSERT OR IGNORE INTO source_records (source_system, entity, entity_id, external_id, captured_at) VALUES (?,?,?,?,?)", b.source_system, "conversation", convId, cv.key, opts.now);
     bump("conversations");
+  }
+
+  /* ── 新進線日期：第一則非選單客戶訊息；bundle 沒帶的 lead 從剛寫進去的訊息算 ── */
+  const newIds = [...leadId.values()];
+  for (let i = 0; i < newIds.length; i += 90) {
+    const chunk = newIds.slice(i, i + 90); const qs = chunk.map(() => "?").join(",");
+    await db.run(`UPDATE leads SET first_real_at = (SELECT MIN(m.created_at) FROM messages m JOIN conversations cv ON cv.id = m.conversation_id
+                    WHERE cv.lead_id = leads.id AND m.sender_role = 'customer' AND COALESCE(m.msg_type,'text') <> 'menu') WHERE id IN (${qs}) AND first_real_at IS NULL`, ...chunk);
   }
 
   /* ── 指派／交接紀錄（可選）── */

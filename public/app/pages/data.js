@@ -20,7 +20,7 @@ export async function render(el, ctx) {
       <div class="panel"><h3>資料來源</h3>
         <div class="kv">
           <div>模式</div><div>${chip("展示模式 · 模擬資料", "cyan")}</div>
-          <div>最近一年進線</div><div>${a.ok ? num(a.funnel.leads) : "—"} 位</div>
+          <div>最近一年進線</div><div>${a.ok ? num(a.funnel.leads) : "—"} 位${a.ok && a.funnel.menu_only_leads ? ` <span class="faint">另 ${num(a.funnel.menu_only_leads)} 位只加好友／點選單</span>` : ""}</div>
           <div>漏斗事件</div><div>${num(ev)} 筆（不含「不確定」）</div>
           <div>成交</div><div>${a.ok ? num(a.deals.sold) : "—"} 台 · 流失 ${a.ok ? num(a.deals.lost) : "—"} 台${a.ok && a.deals.gp_unknown ? ` · <span class="warn">${a.deals.gp_unknown} 台沒有成本</span>` : ""}</div>
           <div>送貨囉貼文</div><div>${pending == null ? "—" : `${pending} 則待處理`} · <a href="/reconcile" data-link>待確認配對 ›</a></div>

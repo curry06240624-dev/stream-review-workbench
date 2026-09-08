@@ -75,6 +75,7 @@ for (const [i, l] of leads.entries()) {
   if (l.vehicle_key && !vehKeys.has(l.vehicle_key)) err(`${at} vehicle_key「${l.vehicle_key}」不存在`);
   if (!staffOk(l.staff_name)) err(`${at} staff_name「${l.staff_name}」不在 staff 裡（本名或暱稱都可以）`);
   if (!isIso(l.opened_at)) err(`${at} opened_at 要是 ISO`);
+  if (l.first_real_at != null && !isIso(l.first_real_at)) err(`${at} first_real_at 要是 ISO 或 null`);
   if (!["", "sold", "lost"].includes(l.outcome ?? "")) err(`${at} outcome 要是 ''|sold|lost`);
 }
 

@@ -97,10 +97,15 @@ for fn in files:
     if lu: last_user[fn] = lu
 print(f"第一遍 {time.time()-t0:.0f}s：模板文字 {sum(1 for v in tpl.values() if v >= 30)}、群發鍵 {sum(1 for v in bc.values() if v >= 50)}、後台打字的人 {len(named)}")
 
-KNOWN_BUTTONS = {"回選單", "一年加油金", "瑋瑋中古車品牌理念", "我要諮詢哪裡瑕疵", "貸款", "售後保固", "想了解月繳款", "線上車庫", "本週新進車款", "出清專區", "國產車", "進口車", "露營車", "1", "2", "3", "4"}   # 2026-09-07：沒 emoji 開頭所以沒被抓成選單的按鈕文字（跟 src/engine/funnel.ts menuLike 同一份）
+KNOWN_BUTTONS = {"回選單", "一年加油金", "瑋瑋中古車品牌理念", "我要諮詢哪裡瑕疵", "貸款", "售後保固", "想了解月繳款", "線上車庫", "線上估車", "本週新進車款", "出清專區",
+                 "國產車", "進口車", "露營車", "圓夢計畫", "我要抽加油金", "我要參加0元起標", "TIKTOK影片 加入", "代操案例", "資金需求", "我要花蓮救災資訊", "1", "2", "3", "4"}
+# ↑ 鏡像 src/model/menu.ts MENU_BUTTONS（Python 讀不到 TS）：兩邊要一起改。前後 emoji（❤️國產車、線上車庫🚗）、「X庫存N台」、「X就是你了」也算按鈕
+SYMS_RE = re.compile(r"^[^\u4e00-\u9fffA-Za-z0-9]+|[^\u4e00-\u9fffA-Za-z0-9]+$")
 def is_menu(text):
     s = strip_menu(text)
-    if s in KNOWN_BUTTONS or text.strip() in KNOWN_BUTTONS: return True
+    core = SYMS_RE.sub("", text.strip())
+    if s in KNOWN_BUTTONS or text.strip() in KNOWN_BUTTONS or core in KNOWN_BUTTONS: return True
+    if re.match(r"^.{1,14}庫存\d+台$", core) or re.match(r"^\S{1,6}就是你了$", core): return True
     if not s or len(s) > 24: return False
     if s in MENU_SET or s.startswith(MENU_PREFIX): return True
     return len(s) >= 4 and menu_ct.get(s, 0) >= 200 and text.strip() != s   # 資料裡常見、而且原文帶 emoji 開頭（純文字短句如「好」「了解」不算）
@@ -193,6 +198,7 @@ for fn in selected:
     if not msgs: continue
     cust = [x for x in msgs if x["role"] == "customer"]
     first_at = (cust[0] if cust else msgs[0])["at"]
+    first_real = next((x["at"] for x in cust if x.get("type") != "menu"), None)   # 新進線日期：第一則非選單客戶訊息（打字／照片／貼圖）
     if s8c:
         pseudonym = s8c["pseudonym"]; display = s8c["display_name"]; grade = s8c.get("grade") or "C"; blocked = s8c.get("blocked", 0)
     else:
@@ -201,7 +207,7 @@ for fn in selected:
     named_staff = [n for n, _ in staff_ct.most_common() if n != PLACEHOLDER]
     assigned = named_staff[0] if named_staff else (PLACEHOLDER if staff_ct else None)
     buf["customers"].append({"key": key, "display_name": display, "pseudonym": pseudonym, "phone": "", "grade": grade, "external_key": key, "first_contact_at": first_at, "blocked": blocked})
-    buf["leads"].append({"key": key, "customer_key": key, "staff_name": assigned, "vehicle_key": None, "source": "line_search", "opened_at": first_at, "closed_at": None, "outcome": ""})
+    buf["leads"].append({"key": key, "customer_key": key, "staff_name": assigned, "vehicle_key": None, "source": "line_search", "opened_at": first_at, "first_real_at": first_real, "closed_at": None, "outcome": ""})
     buf["conversations"].append({"key": key, "customer_key": key, "lead_key": key, "channel": "line", "assigned_staff": assigned, "messages": msgs, "coverage": "full"})
     stats["conversations"] += 1
     if len(buf["conversations"]) >= A.chunk: flush()

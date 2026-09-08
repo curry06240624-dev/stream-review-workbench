@@ -12,6 +12,7 @@
  * 分級是「現在推進到哪」，每次分析重算；判斷用的是客戶自己打的字（按選單、貼圖、照片不算）。
  */
 import type { DbLike } from "../adapters/import.ts";
+import { MENU_LIKE } from "../model/menu.ts";
 
 type Row = Record<string, unknown>;
 const num = (v: unknown) => Number(v ?? 0) || 0;
@@ -32,7 +33,6 @@ const RE = {
   loanSent:   /送貸|進件|送件|對保|已送|送銀行/,
 };
 const NOT_TYPED = new Set(["menu", "image", "video", "sticker", "audio", "file", "location"]);
-const MENU_LIKE = /^[^\u4e00-\u9fffA-Za-z0-9]*(?:回選單|一年加油金|瑋瑋中古車品牌理念|我要諮詢哪裡瑕疵|貸款|售後保固|想了解月繳款|線上車庫|本週新進車款|出清專區|國產車|進口車|露營車|[1-4])\s*$/;   // 匯出裡沒標成選單的按鈕文字（跟 funnel.ts 同一份）
 
 export interface GradeOut { grade: Grade; reason: string; tags: string[] }
 

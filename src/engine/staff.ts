@@ -88,7 +88,7 @@ export async function computeStaffReport(db: DbLike, opts: { days?: number; to?:
   const jobOf = (u: Row) => String(u["job"] || "") || (u["role"] === "agent" ? "both" : "manager");
   const agents = users.filter((u) => u["role"] === "agent" || ["chat", "sales", "both"].includes(jobOf(u)));
   const userById = new Map(users.map((u) => [num(u["id"]), u]));
-  const leads = await db.all(`SELECT l.id, l.staff_id, l.outcome, l.opened_at, l.closed_at, l.vehicle_id, v.list_price, COALESCE(v.brand||' '||v.model,'') AS vehicle, COALESCE(NULLIF(c.pseudonym,''), c.display_name) AS contact
+  const leads = await db.all(`SELECT l.id, l.staff_id, l.outcome, l.opened_at, l.closed_at, l.first_real_at, l.vehicle_id, v.list_price, COALESCE(v.brand||' '||v.model,'') AS vehicle, COALESCE(NULLIF(c.pseudonym,''), c.display_name) AS contact
                                FROM leads l LEFT JOIN vehicles v ON v.id = l.vehicle_id JOIN contacts c ON c.id = l.contact_id`);
   const events = await db.all(`SELECT lead_id, type, at FROM funnel_events WHERE confidence <> 'UNCLEAR' AND type IN ('PRICE_MENTIONED','APPOINTMENT_BOOKED','STORE_VISIT','NEGOTIATION','SOLD','HIGH_INTENT','CUSTOMER_INACTIVE','RE_ENGAGED')`);
   // 車源表第一次匯入就是售出／收訂的成交日不明 → 不進員工的本期成交（不然全部落在匯入那一天）
@@ -175,8 +175,8 @@ export async function computeStaffReport(db: DbLike, opts: { days?: number; to?:
     const uid = num(u["id"]); const job = jobOf(u); const shared = !!num(u["seat_shared"]);
     const mine = leads.filter((l) => num(l["staff_id"]) === uid);
     const chatMine = leads.filter((l) => chatBy.get(num(l["id"])) === uid);
-    const leadsP = mine.filter((l) => inP(l["opened_at"])), leadsPrev = mine.filter((l) => inPrev(l["opened_at"]));
-    const chatP = chatMine.filter((l) => inP(l["opened_at"]));
+    const leadsP = mine.filter((l) => inP(l["first_real_at"])), leadsPrev = mine.filter((l) => inPrev(l["first_real_at"]));
+    const chatP = chatMine.filter((l) => inP(l["first_real_at"]));
     const chatSet = job === "chat" ? chatP : leadsP;                      // 訊息面指標的母體
     const own = job === "chat" ? chatMine : mine;                          // 進行中／停滯用
     const dealsP = deals.filter((d) => num(d["staff_id"]) === uid && inP(d["closed_at"])), dealsPrev = deals.filter((d) => num(d["staff_id"]) === uid && inPrev(d["closed_at"]));
@@ -186,7 +186,7 @@ export async function computeStaffReport(db: DbLike, opts: { days?: number; to?:
     let beh = behaviorsOf(chatSet);
     let firstResp = NM(fr, MIN_N.response), resp = NM(rp, MIN_N.response);
     const myRoles = roles.filter((r) => num(r["user_id"]) === uid);
-    const roleLeads = (role: string) => myRoles.filter((r) => String(r["role"]) === role).map((r) => num(r["lead_id"])).filter((id) => { const l = leadById.get(id); return !!l && inP(l["opened_at"]); });
+    const roleLeads = (role: string) => myRoles.filter((r) => String(r["role"]) === role).map((r) => num(r["lead_id"])).filter((id) => { const l = leadById.get(id); return !!l && inP(l["first_real_at"]); });
     const supportedLeads = roleLeads("supporting");
     const inactiveLeads = chatSet.filter((l) => has(num(l["id"]), "CUSTOMER_INACTIVE"));
     const reactLeads = roleLeads("reactivation");
@@ -226,8 +226,8 @@ export async function computeStaffReport(db: DbLike, opts: { days?: number; to?:
   /* ── 團隊（含訊息組在線上處理、還沒指派業務的客戶）── */
   const agentIds = new Set(agents.map((u) => num(u["id"])));
   const belongs = (l: Row) => agentIds.has(num(l["staff_id"])) || agentIds.has(chatBy.get(num(l["id"])) ?? -1);
-  const allP = leads.filter((l) => inP(l["opened_at"]) && belongs(l));
-  const allPrev = leads.filter((l) => inPrev(l["opened_at"]) && belongs(l));
+  const allP = leads.filter((l) => inP(l["first_real_at"]) && belongs(l));
+  const allPrev = leads.filter((l) => inPrev(l["first_real_at"]) && belongs(l));
   const teamDealsP = deals.filter((d) => inP(d["closed_at"]));
   const tds = dealStats(teamDealsP, leads);
   const teamBeh = behaviorsOf(allP);
@@ -340,7 +340,7 @@ export async function computeStaffReport(db: DbLike, opts: { days?: number; to?:
   const watch = watchCands.slice(0, watchN).filter((x) => !topSorted.some((t) => t.id === x.s.id)).map(({ s, flags }) => {
     const main = flags[0]!;
     const lostAt = s.loss.stages[0];
-    const lostLeadIds = leads.filter((l) => num(l["staff_id"]) === s.id && inP(l["opened_at"]) && l["outcome"] === "lost").map((l) => num(l["id"]));
+    const lostLeadIds = leads.filter((l) => num(l["staff_id"]) === s.id && inP(l["first_real_at"]) && l["outcome"] === "lost").map((l) => num(l["id"]));
     const processLosses = lostLeadIds.filter((id) => lossBy.get(id)?.["driver"] === "process").length;
     return {
       staff_id: s.id, name: s.name, team: s.team, rank_closers: rankOf("closers", s.id), leads: s.context.leads, sold: s.commercial.sold, close: s.funnel.close, gp: s.commercial.gp,
@@ -442,7 +442,7 @@ export async function computeStaffReport(db: DbLike, opts: { days?: number; to?:
   /* ── 協作組合（關聯）── */
   const pairMap = new Map<string, { a: number; b: number; cases: Set<number>; sold: number }>();
   for (const [lid, rs] of rolesBy) {
-    const l = leadById.get(lid); if (!l || !inP(l["opened_at"])) continue;
+    const l = leadById.get(lid); if (!l || !inP(l["first_real_at"])) continue;
     const people = [...new Set(rs.map((r) => r.uid))].filter((uid) => userById.has(uid)).sort((a, b) => a - b);
     for (let i = 0; i < people.length; i++) for (let j = i + 1; j < people.length; j++) {
       const k = `${people[i]}-${people[j]}`; if (!pairMap.has(k)) pairMap.set(k, { a: people[i]!, b: people[j]!, cases: new Set(), sold: 0 });

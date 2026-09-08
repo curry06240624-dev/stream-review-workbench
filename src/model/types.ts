@@ -146,6 +146,7 @@ export interface Lead {
   stage: string;               // 引擎推算的目前階段，可重算
   outcome: LeadOutcome;
   opened_at: string;
+  first_real_at: string | null;   // 第一則非選單客戶訊息（新進線日期）；只點過選單的 NULL
   closed_at: string | null;
   grade_auto: "S" | "A" | "B" | "C" | "";   // SABC 系統推算（訊息組自己標的在 contacts.grade）
   grade_reason: string;

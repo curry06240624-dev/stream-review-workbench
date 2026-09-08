@@ -35,8 +35,8 @@ export const numbersIn = (s: string) => new Set((s.match(/\d+(?:\.\d+)?/g) ?? []
 export function factsPack(a: Analytics, insights: Row[]): { text: string; allowed: Set<string> } {
   const pct = (x: number | null | undefined) => (x == null ? "—" : `${Math.round(x * 100)}%`);
   const lines = [
-    `期間：最近 ${a.period.days} 天（${a.period.from.slice(0, 10)} ～ ${a.period.to.slice(0, 10)}），對照前 ${a.period.days} 天`,
-    `新進線 ${a.funnel.leads}（前期 ${a.funnel.prev_leads}）；其中客戶自己打過字的 ${a.funnel.typed_leads}（前期 ${a.funnel.prev_typed_leads}），其餘只按選單或貼圖`,
+    `期間：最近 ${a.period.days} 天（${a.period.from.slice(0, 10)} ～ ${a.period.to.slice(0, 10)}），對照前 ${a.period.days} 天；基準＝${a.anchor === "today" ? "到今天" : `資料截至 ${(a.data_end ?? a.period.to).slice(0, 10)}`}`,
+    `新進線 ${a.funnel.leads}（前期 ${a.funnel.prev_leads}）＝有送過訊息（打字／照片／貼圖）的客戶；另有 ${a.funnel.menu_only_leads} 位只加好友／點選單（前期 ${a.funnel.prev_menu_only_leads}），不算進線；進線裡自己打過字的 ${a.funnel.typed_leads}`,
     `業務親自報價 ${a.price_dropoff.base} 次（客戶自己點車卡不算報價），價格後流失 ${a.price_dropoff.count} 位＝${pct(a.price_dropoff.rate)}（前期 ${pct(a.price_dropoff.prev_rate)}）`,
     `報價→預約 ${pct(a.conversion["price_to_booking"]?.rate)}（n=${a.conversion["price_to_booking"]?.n}）；預約→到店 ${pct(a.conversion["booking_to_visit"]?.rate)}（n=${a.conversion["booking_to_visit"]?.n}）；到店→成交 ${pct(a.conversion["visit_to_sold"]?.rate)}（n=${a.conversion["visit_to_sold"]?.n}）`,
     `預約：提議 ${a.appointments["proposed"]}、成立 ${a.appointments["booked"]}、爽約 ${a.appointments["no_show"]}（爽約率 ${pct(a.appointments["no_show_rate"])}）`,
@@ -137,7 +137,7 @@ function templateBrief(a: Analytics, insights: Row[]): BriefContent {
   const worst = Object.entries(a.conversion).filter(([, v]) => v.n >= 8 && v.rate != null).sort((x, y) => (x[1].rate ?? 1) - (y[1].rate ?? 1))[0];
   const label: Record<string, string> = { price_to_booking: "報價→預約", booking_to_visit: "預約→到店", visit_to_sold: "到店→成交", lead_to_sold: "進線→成交", price_to_sold: "報價→成交" };
   return {
-    happened: `最近 ${a.period.days} 天新進線 ${a.funnel.leads} 位（打過字 ${a.funnel.typed_leads}），業務報價 ${a.price_dropoff.base} 次，有日期的成交 ${a.deals.sold} 台、毛利 ${Math.round(a.deals.gross_profit / 10000)} 萬。`,
+    happened: `最近 ${a.period.days} 天新進線 ${a.funnel.leads} 位（另 ${a.funnel.menu_only_leads} 位只點選單），業務報價 ${a.price_dropoff.base} 次，有日期的成交 ${a.deals.sold} 台、毛利 ${Math.round(a.deals.gross_profit / 10000)} 萬。`,
     changed: `成交${dSold >= 0 ? "多" : "少"}了 ${Math.abs(dSold)} 台，進線${dLeads >= 0 ? "多" : "少"}了 ${Math.abs(dLeads)} 位；價格後流失率 ${pct(a.price_dropoff.rate)}（前期 ${pct(a.price_dropoff.prev_rate)}）。`,
     good: a.deals.sold ? `到店→成交 ${pct(a.conversion["visit_to_sold"]?.rate)}，來店的客人多數有買。` : "本期沒有成交，好消息要等。",
     bad: worst ? `${label[worst[0]] ?? worst[0]} 只有 ${pct(worst[1].rate)}（n=${worst[1].n}），是漏斗最弱的一段。` : "樣本不足，還看不出最弱的一段。",
