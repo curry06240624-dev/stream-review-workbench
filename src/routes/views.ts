@@ -15,7 +15,7 @@ const S = (v: unknown, n = 80) => String(v ?? "").trim().slice(0, n);
 /** 分析數字優先走 DO 端的快取版（免費方案列讀取有限）；沒有那個方法（測試用的假 db）才在這裡算 */
 const analytics = (db: DbLike, opts: { days: number; to?: string }) => {
   const local = (db as unknown as { analyticsLocal?: (o: { days: number; to?: string }) => Promise<Awaited<ReturnType<typeof computeAnalytics>>> }).analyticsLocal;
-  return local ? local.call(db, opts) : computeAnalytics(db, opts);
+  return local ? (db as unknown as { analyticsLocal: (o: { days: number; to?: string }) => ReturnType<typeof computeAnalytics> }).analyticsLocal(opts) : computeAnalytics(db, opts);   // 不能 .call：db 是 DO 的 RPC 代理，.call 會被當成遠端方法
 };
 
 /** 期間終點：?anchor=today → 現在；否則資料末端（最後一則訊息＋1 秒，不晚於現在；跟 db.js dataEndLocal 同一條規則）。to 為 undefined＝到今天 */
