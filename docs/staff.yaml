@@ -12,17 +12,19 @@ staff:
     job: "both"   # 訊息＋業務都做
     team: "訊息組"
     seat_shared: false
+    aliases: ["趙 君岳", "趙君岳"]
   - name: "黎妍宣"
     role: agent   # 業務或訊息組
     job: "both"   # 訊息＋業務都做
     team: "訊息組"
     seat_shared: false
+    aliases: ["妍宣 黎"]
   - name: "賴安"
     role: agent   # 業務或訊息組
     job: "both"   # 訊息＋業務都做
     team: "訊息組"
     seat_shared: false
-    aliases: ["賴安Ash｜瑋瑋中古車"]
+    aliases: ["賴安Ash｜瑋瑋中古車", "安 賴", "安賴"]
   - name: "蔡孜侑"
     role: agent   # 業務或訊息組
     job: "both"   # 訊息＋業務都做
@@ -34,19 +36,19 @@ staff:
     job: "both"   # 訊息＋業務都做
     team: "管理"
     seat_shared: false
-    aliases: ["瑋瑋", "瑋瑋中古車", "陳昱孝"]
+    aliases: ["瑋瑋", "瑋瑋中古車", "陳昱孝", "陳 昱孝"]
   - name: "阿木"
     role: agent   # 業務或訊息組
     job: "both"   # 訊息＋業務都做
     team: "訊息組"
     seat_shared: false
-    aliases: ["木"]
+    aliases: ["木", "木 阿"]
   - name: "小魚"
     role: agent   # 業務或訊息組
     job: "both"   # 訊息＋業務都做
     team: "訊息組"
     seat_shared: false
-    aliases: ["魚♡"]
+    aliases: ["魚♡", "魚 小"]
   - name: "張小恩"
     role: agent   # 業務或訊息組
     job: "both"   # 訊息＋業務都做
@@ -57,6 +59,7 @@ staff:
     job: "both"   # 訊息＋業務都做
     team: "訊息組"
     seat_shared: false
+    aliases: ["L L"]
   - name: "張"
     role: agent   # 業務或訊息組
     job: "both"   # 訊息＋業務都做
@@ -99,6 +102,7 @@ staff:
     job: "both"   # 訊息＋業務都做
     team: "訊息組"
     seat_shared: false
+    aliases: ["阿軍 詹", "詹阿軍", "阿軍"]
   - name: "謝"
     role: agent   # 業務或訊息組
     job: "chat"   # 訊息組（線上回訊息）
@@ -141,6 +145,18 @@ staff:
     job: "chat"   # 訊息組（線上回訊息）
     team: "訊息組"
     seat_shared: false
+  - name: "貳零貳🧊"
+    role: agent   # 業務或訊息組
+    job: "both"   # 訊息＋業務都做
+    team: ""
+    seat_shared: false
+    aliases: ["貳零貳 我", "貳零貳", "202"]
+  - name: "Xm"
+    role: agent   # 業務或訊息組
+    job: "both"   # 訊息＋業務都做
+    team: ""
+    seat_shared: false
+    aliases: ["x m", "xm", "X m"]
 unresolved_group_names:   # 成交群／估車群／接待組出現、對不到員工
   - "貳零貳🧊"
   - "惟"
