@@ -10,8 +10,8 @@ The client's own three-phase plan (in `專案狀態_2026-09-06.md`): phase 1 rea
 
 ## 2. Hard rules (these are not suggestions)
 
-1. **No real customer data on your machine.** You get the synthetic dataset (`data/mock/`) and the empty test site. Real exports live only on Curry's PC and the production site.
-2. **Never touch the production site** `ai-command-center.curry06240624.workers.dev`. Test on `ai-command-center-curry.curry06240624.workers.dev` (empty) or `-demo` (synthetic).
+1. **No real customer data on your machine**, with one exception: the pseudonymized LINE export pack Curry hands you for the count audit (section 9). It stays on your own disk, never goes into git, a screenshot, a chat or any cloud/AI tool, and you delete it when that task is done. Everything else you work with is the synthetic dataset (`data/mock/`).
+2. **Never touch the production site** `ai-command-center.curry06240624.workers.dev`. Your instance is `ai-command-center-rayson.curry06240624.workers.dev` (empty, yours to fill and reset); `-demo` has synthetic data.
 3. **No secrets in git.** `.dev.vars` is git-ignored; never paste keys into code, screenshots or chat.
 4. **The system recommends, it never acts.** No feature may send a message, assign a customer, or change Super 8.
 5. **Every number must be traceable** to messages or records. If you add a number, add the evidence path too.
@@ -24,7 +24,8 @@ The client's own three-phase plan (in `專案狀態_2026-09-06.md`): phase 1 rea
 |---|---|---|---|
 | official | ai-command-center.curry06240624.workers.dev | real, de-identified | 瑋瑋's company, Curry only |
 | demo | ai-command-center-demo.curry06240624.workers.dev | synthetic | anyone testing |
-| curry | ai-command-center-curry.curry06240624.workers.dev | empty | you can use this |
+| rayson | ai-command-center-rayson.curry06240624.workers.dev | empty | **you** (`wrangler.rayson.toml`) |
+| curry | ai-command-center-curry.curry06240624.workers.dev | empty | Curry's own test site |
 | frank | ai-command-center-frank.curry06240624.workers.dev | empty | Frank (parallel analysis) |
 
 Login on demo/test sites: click 老闆 (DEMO_MODE) or `boss@test.local` / `test-pass-123`.
@@ -132,7 +133,31 @@ Conventions that bite: never call `.call`/`.apply` on `db` methods (it is an RPC
 | 需要注意 | today's neglected customers; 決策卡 = decision cards for the manager; 管理行動 = tracked actions |
 | Super 8 | the CRM/chat console the company uses on top of LINE; we only read its exports |
 
-## 9. Your first task: 人工抽查標記工具 (manual accuracy labelling)
+## 9. Your first task: the count audit (資料量時間核對)
+
+**Why:** the boss reads one number first: 新進線 for the last 7 days (his screen says 319, down 29 from the previous week). If the amount of data per time window is wrong, every number downstream is wrong. Nobody outside the project has recounted it from the raw export yet. You are that person, and the point is to check whether *you* get the same answer, so work independently: raw files first, project code second.
+
+**What you get from Curry (not in the repo):** a pack with the pseudonymized LINE export (54,498 CSV files, about 5.5 million rows), the production numbers as of 2026-09-09, and a `README.md` with the exact definitions, windows and steps. That README is the spec; read it before anything else.
+
+**Steps, short version**
+
+1. Recount from the CSVs with your own script (any language). Per Taiwan day and for the 7/14/30-day windows in the README.
+2. Compare with the production numbers. Explain every difference with conversation ids.
+3. Reproduce on your instance with the project's own tools, then compare all three (your count, your instance, production):
+
+```bash
+py scripts/adapters/line_oa_csv_to_bundles.py <unzipped folder> out/bundles --since 2024-01-01 --today 2026-09-06
+node scripts/import_parts.mjs out/bundles https://ai-command-center-rayson.curry06240624.workers.dev
+node scripts/run_pipeline.mjs https://ai-command-center-rayson.curry06240624.workers.dev --no-insights --days=7
+```
+
+The adapter is `scripts/adapters/line_oa_csv_to_bundles.py` (its docstring explains the export format and every rule). The first import on an empty instance needs the instance's `SETUP_CODE` in your local `.dev.vars`; it is in the pack, not in git. The pipeline on 5 million rows takes a while; the scripts print progress.
+
+4. Report as markdown: your numbers vs production, discrepancies with causes, and anything about "amount of data by time" that looks wrong.
+
+**Done means:** the report exists, every number in it is reproducible from your script, and each discrepancy has either a cause or an explicit "unexplained".
+
+## 9b. Second task: 人工抽查標記工具 (manual accuracy labelling)
 
 **Why:** the client's success criterion is "system numbers match manual counts". A student auditor and a second team (Frank) will judge system labels by hand. Today they write in a Google Sheet; the system should record their verdicts and compute precision itself.
 
@@ -150,7 +175,7 @@ Conventions that bite: never call `.call`/`.apply` on `db` methods (it is an RPC
 ## 10. Working agreement
 
 - Branch per task (`rayson/labels`), small commits, PR to `main`. Curry reviews; nothing merges without typecheck plus the three gates passing.
-- Test on your local mock DB and on the empty `-curry` site. Deploy there only with `npx wrangler deploy --config wrangler.curry.toml` after Curry adds you to the Cloudflare account; ask before your first deploy.
+- Test on your local mock DB and on your `-rayson` site. Deploy there only with `npx wrangler deploy --config wrangler.rayson.toml` after Curry adds you to the Cloudflare account; ask before your first deploy. Until then, Curry deploys for you.
 - If a rule looks wrong (a funnel event fires on a message it shouldn't), do not patch the regex silently. Note the example in `docs/FUNNEL_MODEL.md` style and raise it; every rule change goes through the gates.
 - Questions: write them down in the PR or the group chat with the exact lead id and message text from the **mock** data.
 

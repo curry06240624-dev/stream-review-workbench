@@ -201,6 +201,8 @@ for fn in selected:
     first_real = next((x["at"] for x in cust if x.get("type") != "menu"), None)   # 新進線日期：第一則非選單客戶訊息（打字／照片／貼圖）
     if s8c:
         pseudonym = s8c["pseudonym"]; display = s8c["display_name"]; grade = s8c.get("grade") or "C"; blocked = s8c.get("blocked", 0)
+    elif re.fullmatch(r"客戶#\d{5}", disp):   # 已去識別化的複本（line_oa_scrub_export.py 產的）：沿用檔名裡的化名，跟正式站對得上號
+        pseudonym = display = disp; grade = "C"; blocked = 0
     else:
         pseudonym = f"客戶#{next_no:05d}"; next_no += 1; display = pseudonym; grade = "C"; blocked = 0
     name_map[pseudonym] = {"name": disp, "file": os.path.basename(fn)}
