@@ -1,0 +1,33 @@
+# Frank 的測試站 —— 空的（沒有任何資料），給 Frank 自己灌資料、對照他那套分析用。
+# 同一份程式碼、同帳號，自己的 Worker／Durable Object／KV。正式站＝ai-command-center（瑋瑋），模擬站＝-demo，Curry 測試站＝-curry。
+#   部署：npx wrangler deploy --config wrangler.frank.toml
+#   秘密：npx wrangler secret put SETUP_CODE --config wrangler.frank.toml；GEMINI_API_KEY 同
+
+name = "ai-command-center-frank"
+main = "src/index.js"
+compatibility_date = "2026-06-24"
+
+[assets]
+directory = "public"
+binding = "ASSETS"
+
+[[durable_objects.bindings]]
+name = "APPDB"
+class_name = "AppDB"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["AppDB"]
+
+[[kv_namespaces]]
+binding = "DOCS"
+id = "634df43eb0c846d4ba0d93570249fb55"
+
+[limits]
+cpu_ms = 300000
+
+[triggers]
+crons = ["10 16 * * *"]
+
+[vars]
+DEMO_MODE = "on"

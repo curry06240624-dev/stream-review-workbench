@@ -1,0 +1,139 @@
+# labels.yaml —— 訊息到成交 AI 影子控制台 的標籤定義（2026-09-09 匯出，來源：src/engine/funnel.ts、grade.ts、loss.ts、behavior.ts）
+# 用途：兩套分析用同一組標籤，準確率才能對照。事件以「lead（客戶旅程）」為單位，每個事件帶 confidence 與證據訊息 id。
+
+message:
+  roles: [customer, staff, bot]
+  types: [text, menu, sticker, image, video, audio, file, location]
+  menu_note: "menu＝圖文選單／按鈕文字（含沒 emoji 的按鈕：回選單、貸款、想了解月繳款、X庫存N台、X就是你了…，清單在 src/model/menu.ts）；不算客戶打字"
+
+confidence:
+  CONFIRMED: "確定"
+  STRONGLY_SUGGESTED: "強烈建議"
+  POSSIBLE: "可能"
+  UNCLEAR: "不確定"
+
+funnel_events:
+  NEW_LEAD:
+    label: "新進線"
+    rule: "第一則非選單客戶訊息（打字／照片／貼圖）；只點選單的不算進線"
+  VEHICLE_INTEREST:
+    label: "車款興趣"
+    rule: "對話提到車輛主檔的車款，或客戶按車卡「我要了解」"
+  ACTIVE_DISCUSSION:
+    label: "有來有往"
+    rule: "48 小時內客戶 ≥2 則、業務 ≥1 則"
+  PRICE_MENTIONED:
+    label: "報價"
+    rule: "業務親自報車價或月繳（開價 X／X 萬含過戶／月繳抓 X）；客戶點車卡、業務問預算不算"
+  PRICE_OBJECTION:
+    label: "價格異議"
+    rule: "報價後客戶討價（太貴／可以便宜嗎／X 萬以內）"
+  PRICE_DROP_OFF:
+    label: "價格後流失"
+    rule: "業務報價後客戶消失 ≥72 小時或異議後沉默（無後續正向事件）"
+  FINANCING_QUESTION:
+    label: "貸款詢問"
+    rule: "客戶用問句問貸款／利率／頭期／月繳；detail.resolved＝業務 24 小時內有具體答案"
+  APPOINTMENT_PROPOSED:
+    label: "提議看車"
+    rule: "業務提議來店／看車"
+  APPOINTMENT_BOOKED:
+    label: "預約成立"
+    rule: "客戶給了時間且業務確認（或預約紀錄）"
+  APPOINTMENT_CHANGED:
+    label: "改期"
+    rule: "改期"
+  APPOINTMENT_CANCELLED:
+    label: "取消預約"
+    rule: "取消"
+  NO_SHOW:
+    label: "爽約"
+    rule: "爽約"
+  STORE_VISIT:
+    label: "到店"
+    rule: "接待群到店紀錄（或預約後業務說「今天看的車」）"
+  NEGOTIATION:
+    label: "議價"
+    rule: "報價後客戶出價（X 萬可以嗎／X 萬我就簽）"
+  FOLLOW_UP:
+    label: "業務跟進"
+    rule: "客戶沉默 ≥24 小時後業務主動訊息"
+  HIGH_INTENT:
+    label: "高意圖"
+    rule: "前四則客戶訊息有急迫用語（很急／急需／這週就要…；不急／應急不算）"
+  CUSTOMER_INACTIVE:
+    label: "客戶沉默"
+    rule: "客戶沉默 ≥7 天"
+  RE_ENGAGED:
+    label: "回流"
+    rule: "沉默 ≥7 天後客戶再發訊"
+  SOLD:
+    label: "成交"
+    rule: "成交帳本（成交群收訂單／車源表／送貨囉）或業務說已交車／過戶完成（過去式）"
+  LOST:
+    label: "流失"
+    rule: "客戶明說不買、顯示名稱標 ❌、或沉默 ≥21 天（推定，confidence POSSIBLE）"
+
+stages:   # 由事件推出的目前階段（順序）
+  new: "新進線"
+  interest: "車款興趣"
+  discussion: "有來有往"
+  price: "報價"
+  appointment: "預約"
+  visit: "到店"
+  negotiation: "議價"
+  closed: "結案（成交或流失，推定流失不算結案）"
+
+sabc:   # 系統推算（公司規則見 docs/SABC_RULES.md）
+  S: "S 高推進"
+  A: "A 資料齊"
+  B: "B 對談中"
+  C: "C 未對談"
+  rules:
+    S: "已發生高推進動作：預約成立／到店／成交紀錄，或客戶說已付訂／匯訂／下訂／視訊過，或員工確認收到訂金／拉群／送件／過件／撥款（員工提議不算）"
+    A: "有真人對談＋車款已知＋客戶自己講過預算／月繳"
+    B: "有真人對談，車款或錢缺一"
+    C: "沒有真人對談（只按選單、只有機器人、或客戶打了字沒人回）"
+  result_tags: [長週期, 已送貸, 未過件, 純研究]
+
+loss_reasons:
+  price_resistance: "價格抗拒"
+  financing: "貸款問題"
+  vehicle_mismatch: "車款不符"
+  vehicle_condition: "車況疑慮"
+  trade_in: "舊車折抵談不攏"
+  timing: "時機未到"
+  family: "家人決定"
+  bought_elsewhere: "別家買了"
+  no_stock: "無車可賣"
+  slow_response: "業務回覆太慢"
+  weak_followup: "跟進不足"
+  no_show: "預約爽約"
+  stopped_replying: "客戶停止回覆"
+  browsing: "隨便看看"
+  negotiation_failed: "議價破局"
+  other: "其他"
+  unclear: "不明／證據不足"
+  driver: [customer, process, unclear]   # process＝slow_response／weak_followup（公司可以改的）
+
+behavior_features:   # 每個 lead 一組，員工效能／教練用
+  first_response_min: { label: "首次回覆時間", unit: min, good_is_up: false, situation: "每個客戶" }
+  median_response_min: { label: "回覆中位數", unit: min, good_is_up: false, situation: "有客戶訊息" }
+  followup_24h_rate: { label: "客戶沉默後 24 小時內跟進", unit: rate, good_is_up: true, situation: "客戶沉默 ≥24 小時" }
+  asked_after_price: { label: "報價後接一個問題", unit: rate, good_is_up: true, situation: "有報價" }
+  objection_clarified: { label: "價格異議後先釐清", unit: rate, good_is_up: true, situation: "客戶說太貴" }
+  proposed_after_intent: { label: "高意圖後主動約看車", unit: rate, good_is_up: true, situation: "客戶表達急迫" }
+  fin_answered: { label: "貸款問題給具體答案", unit: rate, good_is_up: true, situation: "客戶問貸款" }
+  postvisit_24h: { label: "到店後 24 小時內跟進", unit: rate, good_is_up: true, situation: "到店沒當場買" }
+  budget_clarified: { label: "開場就問預算", unit: rate, good_is_up: true, situation: "每個客戶" }
+  opening_question: { label: "開場第一句就問問題", unit: rate, good_is_up: true, situation: "每個客戶" }
+  questions_per_msg: { label: "每則訊息的提問率", unit: rate, good_is_up: true, situation: "業務訊息" }
+  reactivated_by_staff: { label: "沉默客戶被業務叫回來", unit: rate, good_is_up: true, situation: "客戶沉默 ≥7 天" }
+  escalated: { label: "找主管或同事協助", unit: rate, good_is_up: true, situation: "每個客戶" }
+  discount_pct: { label: "成交折讓（佔定價）", unit: pct, good_is_up: false, situation: "成交" }
+
+deal_report:   # 成交群貼文（收訂囉／送貸囉／過件囉／售出囉）
+  stage: [deposit, loan_sent, loan_approved, delivered]
+  loan_status: [pending, approved, rejected, none]   # none＝現金
+  delivered: "售出囉＝1；收訂／送貸／過件＝0（收訂就算成交，未交車）"
+  closed_at_source: ["", import, sheet_diff]   # ''＝真成交日（貼文時間）；import＝車源表第一次匯入、日期不明、不算本期
