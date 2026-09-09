@@ -334,6 +334,33 @@ export class AppDB extends DurableObject {
   }
   /** 暱稱表補了之後：沒對到業務的貼文與成交重新歸屬 */
   async restaffLocal() { this.bust(); return restaffReports(this); }
+  /** 同一個人在不同系統有兩個帳號（後台打字的 Ash ＝ 群組裡的 賴安）→ 把 from 併進 to：
+   *  所有指向 from 的欄位改指 to、暱稱搬過去、from 的名字變成 to 的暱稱、刪掉 from（含 session）。不可逆，所以只開給管理者。 */
+  async mergeUserLocal({ from, to }) {
+    from = Number(from); to = Number(to);
+    const a = await this.first("SELECT id, name, role FROM users WHERE id = ?", from);
+    const b = await this.first("SELECT id, name FROM users WHERE id = ?", to);
+    if (!a || !b || from === to) return { ok: false, message: "找不到員工，或兩邊是同一個帳號。" };
+    if (a.role === "admin") return { ok: false, message: "管理者帳號不能併入別人。" };
+    const COLS = new Set(["staff_id", "sender_user_id", "assigned_to", "user_id", "reported_by_user_id", "chat_staff_id", "owner_user_id", "reviewer_user_id"]);
+    const tables = (await this.all("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT IN ('users','sessions') AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_cf_%'")).map((r) => String(r.name));
+    const moved = {};
+    for (const t of tables) {
+      const cols = (await this.all(`PRAGMA table_info(${t})`)).map((c) => String(c.name)).filter((c) => COLS.has(c));
+      for (const c of cols) {
+        const n = Number((await this.first(`SELECT COUNT(*) AS n FROM ${t} WHERE ${c} = ?`, from)).n);
+        if (!n) continue;
+        await this.run(`UPDATE OR IGNORE ${t} SET ${c} = ? WHERE ${c} = ?`, to, from);
+        await this.run(`DELETE FROM ${t} WHERE ${c} = ?`, from);   // 撞到 UNIQUE 沒改成的（同一個 lead 兩邊都有角色）就丟掉
+        moved[`${t}.${c}`] = n;
+      }
+    }
+    await this.run("DELETE FROM sessions WHERE user_id = ?", from);
+    if (!(await this.first("SELECT 1 FROM staff_aliases WHERE alias = ?", a.name))) await this.run("INSERT INTO staff_aliases (user_id, alias, system) VALUES (?,?,?)", to, a.name, "");
+    await this.run("DELETE FROM users WHERE id = ?", from);
+    this.bust();
+    return { ok: true, from: a.name, into: b.name, moved };
+  }
   /** 重新配對所有還沒確認的貼文（例如補了暱稱或車源表之後） */
   async rematchAllLocal(opts) {
     this.bust();

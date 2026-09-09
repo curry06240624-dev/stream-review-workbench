@@ -12,7 +12,8 @@ export async function render(el, ctx) {
       <td>${isAdmin ? `<select data-job><option value="">依角色</option>${["chat", "sales", "both", "manager"].map((j) => `<option value="${j}" ${u.job === j ? "selected" : ""}>${JOB[j]}${j === "both" ? "（線上也回）" : ""}</option>`).join("")}</select>` : (JOB[u.job] || "依角色")}</td>
       <td>${isAdmin ? `<label style="font-size:12px"><input type="checkbox" data-shared ${u.seat_shared ? "checked" : ""}> 共用</label>` : (u.seat_shared ? "共用" : "—")}</td>
       <td>${(u.aliases || []).map((al) => `<span class="chip">${esc(al.alias)}${isAdmin ? ` <a href="#" data-del="${al.id}" title="刪除" style="color:var(--faint)">×</a>` : ""}</span>`).join(" ")}
-          ${isAdmin ? `<input data-alias placeholder="加暱稱，Enter" style="width:120px;padding:3px 8px;font-size:12px;margin-left:6px">` : ""}</td></tr>`).join("");
+          ${isAdmin ? `<input data-alias placeholder="加暱稱，Enter" style="width:120px;padding:3px 8px;font-size:12px;margin-left:6px">` : ""}
+          ${isAdmin && u.role !== "admin" ? `<select data-merge title="這個帳號其實是另一個人：把對話、成交、暱稱全部併過去（不能復原）" style="font-size:12px;margin-left:6px"><option value="">同一人，併入…</option>${staff.filter((o) => o.id !== u.id && o.role !== "admin").map((o) => `<option value="${o.id}">${esc(o.name)}</option>`).join("")}</select>` : ""}</td></tr>`).join("");
 
   el.innerHTML = `<div class="wrap stack">
     ${pageHead("資料與設定", "目前跑的是模擬資料。真實對話進來時走同一條管線：先去識別化，再入庫、再分析；群組貼文在「待確認配對」貼上。", "")}
@@ -63,4 +64,12 @@ export async function render(el, ctx) {
   el.querySelectorAll("[data-shared]").forEach((cb) => cb.onchange = async () => { const r = await api(`/api/members/${cb.closest("tr").dataset.uid}`, { seat_shared: cb.checked }, "PATCH"); toast(r.ok ? "已更新" : (r.message || "失敗")); });
   el.querySelectorAll("[data-alias]").forEach((inp) => inp.addEventListener("keydown", async (e) => { if (e.key !== "Enter") return; e.preventDefault(); const alias = inp.value.trim(); if (!alias) return; const r = await api("/api/staff-aliases", { user_id: Number(inp.closest("tr").dataset.uid), alias, system: "line" }); toast(r.ok ? "已加暱稱" : (r.message || "失敗")); if (r.ok) render(el, ctx); }));
   el.querySelectorAll("[data-del]").forEach((a) => a.onclick = async (e) => { e.preventDefault(); const r = await api(`/api/staff-aliases/${a.dataset.del}`, null, "DELETE"); toast(r.ok ? "已刪除" : (r.message || "失敗")); if (r.ok) render(el, ctx); });
+  /* 併帳號：同一個人在後台與群組用不同名字（Ash＝賴安）→ 把這列併進選的那個人；不可逆，所以先確認 */
+  el.querySelectorAll("[data-merge]").forEach((sel) => sel.onchange = async () => {
+    const into = Number(sel.value); if (!into) return;
+    const tr = sel.closest("tr"); const from = tr.querySelector("b")?.textContent || ""; const target = sel.options[sel.selectedIndex].textContent;
+    if (!confirm(`把「${from}」併入「${target}」？\n所有對話、成交、暱稱都會改成 ${target}，「${from}」會變成 ${target} 的暱稱。這個動作不能復原。`)) { sel.value = ""; return; }
+    const r = await api(`/api/members/${tr.dataset.uid}/merge`, { into });
+    toast(r.ok ? `已把 ${from} 併入 ${target}` : (r.message || "失敗")); if (r.ok) render(el, ctx); else sel.value = "";
+  });
 }

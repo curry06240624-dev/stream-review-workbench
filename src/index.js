@@ -348,6 +348,16 @@ async function route(request, env, db, url) {
     await db.bust();
     return J({ ok: true });
   }
+  /* ── 兩個帳號其實是同一人 → 併進去（不可逆；只有管理者） ── */
+  const mMerge = p.match(/^\/api\/members\/(\d+)\/merge$/);
+  if (mMerge && m === "POST") {
+    const me = await currentUser(request, db);
+    if (!me || me.role !== "admin") return J({ ok: false, error: "forbidden", message: "只有管理者可以合併帳號。" }, 403);
+    const b = await request.json().catch(() => ({}));
+    if (!b.into) return J({ ok: false, message: "要指定併進哪個帳號（into）。" }, 400);
+    const r = await db.mergeUserLocal({ from: Number(mMerge[1]), to: Number(b.into) });
+    return J(r, r.ok ? 200 : 400);
+  }
   const mMem = p.match(/^\/api\/members\/(\d+)$/);
   if (mMem && m === "PATCH") {
     const me = await currentUser(request, db);
