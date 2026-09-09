@@ -137,7 +137,7 @@ Conventions that bite: never call `.call`/`.apply` on `db` methods (it is an RPC
 
 **Why:** the boss reads one number first: 新進線 for the last 7 days (his screen says 319, down 29 from the previous week). If the amount of data per time window is wrong, every number downstream is wrong. Nobody outside the project has recounted it from the raw export yet. You are that person, and the point is to check whether *you* get the same answer, so work independently: raw files first, project code second.
 
-**What you get from Curry (not in the repo):** a pack with the pseudonymized LINE export (54,498 CSV files, about 5.5 million rows), the production numbers as of 2026-09-09, and a `README.md` with the exact definitions, windows and steps. That README is the spec; read it before anything else.
+**What you get from Curry (not in the repo):** a pack with the pseudonymized LINE export cut to the last two months (every conversation where the customer wrote on or after 2026-07-06, full history of each), the production numbers as of 2026-09-09, and a `README.md` with the exact definitions, windows and steps. That README is the spec; read it before anything else.
 
 **Steps, short version**
 
@@ -151,7 +151,7 @@ node scripts/import_parts.mjs out/bundles https://ai-command-center-rayson.curry
 node scripts/run_pipeline.mjs https://ai-command-center-rayson.curry06240624.workers.dev --no-insights --days=7
 ```
 
-The adapter is `scripts/adapters/line_oa_csv_to_bundles.py` (its docstring explains the export format and every rule). The first import on an empty instance needs the instance's `SETUP_CODE` in your local `.dev.vars`; it is in the pack, not in git. The pipeline on 5 million rows takes a while; the scripts print progress.
+The adapter is `scripts/adapters/line_oa_csv_to_bundles.py` (its docstring explains the export format and every rule). Your instance already has the test admin (boss@test.local / test-pass-123); `import_parts.mjs` logs in with it, so no setup code is needed. To start over, run the first part with `--reset`. The pipeline takes a while on real volume; the scripts print progress.
 
 4. Report as markdown: your numbers vs production, discrepancies with causes, and anything about "amount of data by time" that looks wrong.
 
