@@ -90,7 +90,7 @@ for fn in files:
         elif st == "Account":
             if sn == "Unknown":
                 nm = norm(m); seen_t.add(nm[:80]); seen_b.add((d, t[:5], nm[:60]))
-            elif sn != "Auto-response": named[sn] += 1
+            elif sn not in ("Auto-response", "瑋瑋中古車"): named[sn] += 1   # 瑋瑋中古車＝加好友自動回覆的發送者名（Curry 9/9 確認），不是人
     for k in seen_t: tpl[k] += 1
     for k in seen_b: bc[k] += 1
     for k in seen_m: menu_ct[k] += 1
@@ -182,7 +182,7 @@ for fn in selected:
         if media:
             g = media.group(1); mt = MEDIA_TYPE.get(g, {"photo": "image", "sticker": "sticker", "video": "video", "file": "file", "voice message": "audio", "image": "image"}.get(g.lower(), "file"))
             text = f"[{g}]"
-        if sn == "Auto-response":
+        if sn in ("Auto-response", "瑋瑋中古車"):   # 瑋瑋中古車＝加好友自動回覆（Curry 9/9 確認）→ bot
             msgs.append({"at": iso(at), "role": "bot", "text": text, "type": mt, "via": "bot"}); stats["bot:auto"] += 1; continue
         if sn == "Unknown":
             if bc.get((d, t[:5], nm[:60]), 0) >= 50: msgs.append({"at": iso(at), "role": "bot", "text": text, "type": mt, "via": "bot"}); stats["bot:broadcast"] += 1; continue
