@@ -291,6 +291,15 @@ async function route(request, env, db, url) {
     if (!me || !canSeeAll(me.role)) return J({ ok: false, error: "forbidden" }, 403);
     return J({ ok: true, ...(await db.restaffLocal()) });
   }
+  /* ── SUPER8 匯出的「誰發的」覆蓋我們猜的 staff／bot（patch 只有訊息 id／角色／座位名） ── */
+  if (p === "/api/admin/sender-patch" && m === "POST") {
+    const me = await currentUser(request, db);
+    if (!me || me.role !== "admin") return J({ ok: false, error: "forbidden" }, 403);
+    const b = await request.json().catch(() => ({}));
+    if (!Array.isArray(b.items) || !b.items.length) return J({ ok: false, message: "items 要是陣列。" }, 400);
+    if (b.items.length > 5000) return J({ ok: false, message: "一次最多 5000 筆。" }, 400);
+    return J({ ok: true, ...(await db.senderPatchLocal({ items: b.items })) });
+  }
   if (p === "/api/reconcile/rematch-all" && m === "POST") {
     const me = await currentUser(request, db);
     if (!me || !canSeeAll(me.role)) return J({ ok: false, error: "forbidden" }, 403);

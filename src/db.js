@@ -334,6 +334,55 @@ export class AppDB extends DurableObject {
   }
   /** 暱稱表補了之後：沒對到業務的貼文與成交重新歸屬 */
   async restaffLocal() { this.bust(); return restaffReports(this); }
+  /** SUPER8 匯出說了每則訊息是誰發的（scripts/adapters/super8_sender_patch.py 產的 patch）→ 覆蓋我們猜的 staff／bot 與發送者。
+   *  items: [{id, role: 'staff'|'bot', seat}]；座位名（「趙 君岳」「L L」）經 staff_aliases／users.name 對到人，對不到的記在 unresolved、先掛「Super 8 客服（未署名）」。 */
+  async senderPatchLocal({ items }) {
+    const nk = (s) => String(s || "").normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+    const byKey = new Map();
+    for (const u of await this.all("SELECT id, name FROM users")) byKey.set(nk(u.name), Number(u.id));
+    for (const a of await this.all("SELECT user_id, alias FROM staff_aliases")) if (!byKey.has(nk(a.alias))) byKey.set(nk(a.alias), Number(a.user_id));
+    const placeholder = (await this.first("SELECT id FROM users WHERE name LIKE 'Super 8 客服%'"))?.id ?? null;
+    const unresolved = {}; let updated = 0, notFound = 0; const ids = [];
+    const norm = (t) => String(t || "").replace(/\s+/g, " ").trim().slice(0, 60);
+    // 跨資料庫比對：先一次把化名對到對話 id（每 90 個一查），再用 (conversation_id, created_at) 索引找訊息
+    const convOf = new Map();
+    const pseudos = [...new Set((items || []).filter((it) => !it.by_id && it.pseudonym).map((it) => String(it.pseudonym)))];
+    for (let i = 0; i < pseudos.length; i += 90) {
+      const chunk = pseudos.slice(i, i + 90);
+      for (const r of await this.all(`SELECT c.pseudonym AS p, cv.id AS cv FROM contacts c JOIN conversations cv ON cv.contact_id = c.id WHERE c.pseudonym IN (${chunk.map(() => "?").join(",")})`, ...chunk)) {
+        if (!convOf.has(r.p)) convOf.set(r.p, []); convOf.get(r.p).push(Number(r.cv));
+      }
+    }
+    for (const it of items || []) {
+      let id = Number(it.id) || 0;
+      if (!it.by_id && it.pseudonym) {
+        const t0 = new Date(Date.parse(it.at) - 120_000).toISOString(), t1 = new Date(Date.parse(it.at) + 120_000).toISOString();
+        let hit = null;
+        for (const cv of convOf.get(String(it.pseudonym)) || []) {
+          const cands = await this.all("SELECT id, text FROM messages WHERE conversation_id = ? AND created_at >= ? AND created_at <= ? AND sender_role IN ('staff','bot') AND msg_type = 'text'", cv, t0, t1);
+          hit = cands.find((c) => norm(c.text) === it.text); if (hit) break;
+        }
+        if (!hit) { notFound++; continue; }
+        id = Number(hit.id);
+      }
+      if (!id) { notFound++; continue; }
+      let uid = null;
+      if (it.role === "staff") { uid = byKey.get(nk(it.seat)) ?? null; if (uid == null) { unresolved[it.seat] = (unresolved[it.seat] || 0) + 1; uid = placeholder; } }
+      const r = await this.run("UPDATE messages SET sender_role = ?, sender_user_id = ? WHERE id = ?", it.role === "bot" ? "bot" : "staff", uid, id);
+      updated += Number(r?.changes ?? 1); ids.push(id);
+    }
+    // 對話表的「最後員工／客戶訊息時間」是匯入時算好的，改了角色要重算（只重算碰到的對話）
+    const convs = new Set();
+    for (let i = 0; i < ids.length; i += 90) { const chunk = ids.slice(i, i + 90); for (const r of await this.all(`SELECT DISTINCT conversation_id AS c FROM messages WHERE id IN (${chunk.map(() => "?").join(",")})`, ...chunk)) convs.add(Number(r.c)); }
+    const cl = [...convs];
+    for (let i = 0; i < cl.length; i += 90) {
+      const chunk = cl.slice(i, i + 90); const qs = chunk.map(() => "?").join(",");
+      await this.run(`UPDATE conversations SET last_staff_at = COALESCE((SELECT MAX(created_at) FROM messages m WHERE m.conversation_id = conversations.id AND m.sender_role = 'staff'), ''),
+        last_customer_at = COALESCE((SELECT MAX(created_at) FROM messages m WHERE m.conversation_id = conversations.id AND m.sender_role = 'customer'), '') WHERE id IN (${qs})`, ...chunk);   // 欄位 NOT NULL：沒有員工訊息的對話寫空字串
+    }
+    this.bust();
+    return { updated, not_found: notFound, conversations: cl.length, unresolved };
+  }
   /** 同一個人在不同系統有兩個帳號（後台打字的 Ash ＝ 群組裡的 賴安）→ 把 from 併進 to：
    *  所有指向 from 的欄位改指 to、暱稱搬過去、from 的名字變成 to 的暱稱、刪掉 from（含 session）。不可逆，所以只開給管理者。 */
   async mergeUserLocal({ from, to }) {
