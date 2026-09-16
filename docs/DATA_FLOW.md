@@ -105,3 +105,13 @@
 
 - 暱稱表（`staff_aliases`，`scratchpad/set_staff.mjs`）：賴安Ash｜瑋瑋中古車→賴安、孜侑→蔡孜侑、木→阿木、Y.T→Y.T Lin、陳昱孝→昱孝陳、歆語♡→歆語❁、Lorsin→L🌵（中等把握）、陳諺諺→ChenYen（猜的）、魚♡→小魚。**對不到的：貳零貳🧊（38 篇，估車也是他）、惟（13）、筬陞、瑄（收款）、Xm** → 要問瑋瑋真名。名字比對鍵會把全形標點轉半形（貼文者存進來時 ｜ 已變成 |）。
 - 正式站 9/8 灌完：30 天成交 61 台／NT$3,661 萬（未交車 60、有成本 3）、7 天 14 台／880 萬；待確認 51 篇沒售價、2 篇待選；車源表日期不明剩 8 台（3 台被貼文接走）。資料末端改成「對話最後一則 或 群組貼文最後一篇」取晚者（成交群比對話匯出晚兩天）。
+
+## SUPER8 匯出（綠化 9/15 給的）：每則訊息都寫了誰發的
+
+LINE 官方匯出的死穴是「透過 Super 8 發的訊息一律 Unknown」，我們只能用「同一句話出現過幾次」猜是機器人還是客服。綠化用他的工具從 Super 8 拉出來的匯出（一段對話一個 .txt，zip 打包；`SUPER8_2026年8月對話與進人_25321份對話.zip`、`SUPER8_近30天對話客戶_全部歷史_6842位_20260914.zip`）每則訊息的標頭都是 `[id] 2026/08/21 10:30:01｜趙 君岳（客服）`／`｜Jing（客戶）`／`｜系統／自動訊息`，時間是台灣時間，類型欄有 `text/plain`、`application/x-template`、`application/x-broadcast`…。
+
+- 讀取器 `scripts/adapters/super8_dump.py`（`iter_conversations(zip)`）。
+- 對照與修正 `scripts/adapters/super8_sender_patch.py <sqlite> <patch.json> <zip…> --map oa.map.json`：SUPER8 訊息以 (客戶顯示名, 文字前 60 字, 台灣分鐘) 建索引，我們資料庫裡官方帳號這邊的文字訊息逐則查，角色不同或原本掛「Super 8 客服（未署名）」的寫進 patch（只有訊息 id／化名／時間／文字前 60 字／角色／座位名）。
+- 套用 `node scripts/admin/apply_sender_patch.mjs <patch.json> <base_url> [--by-id]` → `POST /api/admin/sender-patch`（`db.js senderPatchLocal`）：座位名（「趙 君岳」「L L」「x m」）經 `staff_aliases`／`users.name`（NFKC、去空白、小寫）對到人，對不到的掛未署名並回報 `unresolved`；改完重算碰到的對話的 `last_staff_at／last_customer_at`。`--by-id` 只能在產 patch 的那個資料庫用；跨資料庫（正式站）用化名＋時間 ±2 分＋文字比對，每 2,000 筆約 1～3 秒。
+- 8 月實測：猜成員工的 56,305 則 SUPER8 全部證實（100%）；猜成機器人的 83,835 則裡 12,513 則其實是客服的制式回覆（妍宣 黎 5,071、安 賴 1,819、趙 君岳 1,648…），另 45,334 則對不到（LINE 自動回覆、選單回覆等本來就不經 Super 8）。套用後 8 月：客戶打字沒人回 544 → 175、進入對談 2,079 → 2,448（42%）、新客首次回覆中位數 8 → 9 分鐘。
+- 已知缺口：patch 只處理文字訊息（客服傳的圖片／貼圖仍掛未署名，8 月約 11,587 則）；Super 8 只從客戶加入那天起有紀錄；SUPER8 座位「浦瑞 黃」「以諾 張」對不到人，要問。
