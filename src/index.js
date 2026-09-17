@@ -357,6 +357,21 @@ async function route(request, env, db, url) {
     await db.bust();
     return J({ ok: true });
   }
+  /* ── 人工判讀（對答案）：匯入一批人標的答案；準確率頁 ── */
+  if (p === "/api/labels/import" && m === "POST") {
+    const me = await currentUser(request, db);
+    if (!me || !canSeeAll(me.role)) return J({ ok: false, error: "forbidden" }, 403);
+    const b = await request.json().catch(() => ({}));
+    if (!Array.isArray(b.rows) || !b.rows.length) return J({ ok: false, message: "rows 要是陣列。" }, 400);
+    if (b.rows.length > 2000) return J({ ok: false, message: "一次最多 2000 段。" }, 400);
+    const r = await db.labelsImportLocal({ source: String(b.source || "manual").slice(0, 40), batch: String(b.batch || "").slice(0, 60), reviewer: String(b.reviewer || me.name).slice(0, 40), rows: b.rows, now: now() });
+    return J({ ok: true, ...r });
+  }
+  if (p === "/api/labels/summary" && m === "GET") {
+    const me = await currentUser(request, db);
+    if (!me || !canSeeAll(me.role)) return J({ ok: false, error: "forbidden" }, 403);
+    return J({ ok: true, ...(await db.labelsSummaryLocal({ source: url.searchParams.get("source") || undefined })) });
+  }
   /* ── 兩個帳號其實是同一人 → 併進去（不可逆；只有管理者） ── */
   const mMerge = p.match(/^\/api\/members\/(\d+)\/merge$/);
   if (mMerge && m === "POST") {

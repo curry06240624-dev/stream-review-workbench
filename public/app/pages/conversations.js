@@ -1,6 +1,7 @@
 /* 對話與證據：左清單／中時間軸（事件插在訊息之間、證據高亮）／右 AI 分析（事實與假設分開）。 */
 import { api } from "../api.js";
 import { h, raw, esc, fmtDT, fmtD, ago, chipStage, chipGrade, GRADE, chip, chipClaim, chipConf, bubble, eventMark, EVENT, CONF, STAGE, wan, toast, lossLabel, DRIVER, roleLabel, lostReason, coverageChip, MATCH, nt } from "../ui.js";
+const LABEL_NAME = { grade: "SABC 分級", PRICE_MENTIONED: "業務報價", PRICE_DROP_OFF: "報價後流失", APPOINTMENT_PROPOSED: "提議看車", APPOINTMENT_BOOKED: "預約成立", HIGH_INTENT: "急迫", FINANCING_QUESTION: "問貸款", financing_resolved: "貸款有答", SOLD: "成交", result_tag: "結果標籤" };
 
 const FLAG = { price_dropoff: "價格後流失", high_intent: "高意圖", financing: "貸款未回", insights: "有洞察的" };
 
@@ -119,6 +120,7 @@ function sideHtml(d) {
       <p class="faint" style="margin-top:4px">${esc(d.loss.summary || "")}</p></div>` : ""}
     <div class="aibox"><h4>建議下一步</h4><ul>${next.map((t) => `<li>${esc(t)}</li>`).join("")}</ul>
       ${proposed.filter((a) => a.status === "proposed").map((a) => `<div class="row-actions" style="margin-top:6px"><button class="btn sm primary" data-act="${a.id}" data-st="approved">核准</button><button class="btn sm" data-act="${a.id}" data-st="dismissed">駁回</button></div>`).join("")}</div>
+    ${(d.labels || []).length ? `<div class="aibox"><h4>人工判讀 <span class="faint">${esc([...new Set(d.labels.map((x) => x.source))].join("、"))}</span></h4><ul>${d.labels.map((x) => `<li>${esc(LABEL_NAME[x.target_key] || x.target_key)}：<b>${esc({ true: "有", false: "沒有", unsure: "不確定" }[x.human_value] || x.human_value)}</b>${x.note ? ` <span class="faint">${esc(x.note)}</span>` : ""}</li>`).join("")}</ul><p class="faint" style="margin-top:4px"><a href="/labels" data-link>看整體準確率</a></p></div>` : ""}
     <div class="aibox"><h4>出現在哪些洞察</h4>${d.insights.length ? `<ul>${d.insights.map((i) => `<li><a href="/insights/${i.id}" data-link>#${i.id} ${esc(i.title)}</a></li>`).join("")}</ul>` : '<p class="faint">沒有。</p>'}</div>
     <div class="aibox"><h4>偵測到的事件</h4><ul>${ev.map((e) => `<li><a href="#e${e.id}"><span class="mono" style="font-size:11px">${fmtD(e.at)}</span> ${EVENT[e.type] || e.type} <span class="faint">${CONF[e.confidence]}</span></a></li>`).join("")}</ul></div>`;
 }

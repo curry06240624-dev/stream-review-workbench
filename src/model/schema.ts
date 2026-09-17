@@ -315,6 +315,25 @@ CREATE TABLE IF NOT EXISTS staff_aliases (
   system  TEXT NOT NULL DEFAULT ''
 );
 
+/* 人工判讀（對答案）：一個 lead × 一個來源 × 一個標籤一列。human_value：true／false／unsure／S A B C／文字。
+   系統的答案不存，比對時從 funnel_events／leads 現算，規則改了準確率就跟著變。 */
+CREATE TABLE IF NOT EXISTS label_reviews (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  lead_id     INTEGER NOT NULL REFERENCES leads(id),
+  source      TEXT NOT NULL DEFAULT '',
+  batch       TEXT NOT NULL DEFAULT '',
+  external_id TEXT NOT NULL DEFAULT '',
+  target_key  TEXT NOT NULL,
+  human_value TEXT NOT NULL DEFAULT '',
+  note        TEXT NOT NULL DEFAULT '',
+  reviewer    TEXT NOT NULL DEFAULT '',
+  labeled_at  TEXT NOT NULL DEFAULT '',
+  created_at  TEXT NOT NULL,
+  UNIQUE(lead_id, source, target_key)
+);
+CREATE INDEX IF NOT EXISTS idx_labels_lead      ON label_reviews(lead_id);
+CREATE INDEX IF NOT EXISTS idx_labels_source    ON label_reviews(source, target_key);
+
 CREATE INDEX IF NOT EXISTS idx_leads_contact    ON leads(contact_id, opened_at);
 /* 2026-09-06：免費方案每天 500 萬列讀取，兩天撞頂兩次。原因是每個 lead 的查詢都在掃整張表：
    conversations 沒有 lead_id 索引（588 個 lead × 每次掃 588 列 × 漏斗／角色／行為／流失四趟）、deals／visits／evidence(loss_id)／assignment_log 也沒有。補齊後同一批分析少讀九成以上。 */

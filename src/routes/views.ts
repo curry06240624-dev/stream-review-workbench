@@ -117,8 +117,9 @@ export async function handleViews(url: URL, method: string, db: DbLike, me: Me):
     const lossEv = lossRow ? await db.all("SELECT message_id, note FROM evidence WHERE loss_id = ?", lossRow["id"]) : [];
     const appraisals = await db.all("SELECT * FROM appraisals WHERE lead_id = ? ORDER BY reported_at DESC", id);
     const reports = await db.all("SELECT id, reported_at, reported_by, plate, sale_price, match_status, match_confidence, source_kind, peer_dealer, loan_status FROM deal_reports WHERE lead_id = ? ORDER BY reported_at DESC", id);
+    const labels = await db.all("SELECT source, target_key, human_value, note, reviewer, labeled_at FROM label_reviews WHERE lead_id = ? ORDER BY source, target_key", id);
     return J({ ok: true, lead, messages, events, insights: insights.map((i) => ({ ...i, evidence: insEvidence.filter((x) => x["insight_id"] === i["id"]) })), actions, appointments, visits, deals,
-      roles, loss: lossRow ? { ...lossRow, evidence: lossEv } : null, appraisals, reports });
+      roles, loss: lossRow ? { ...lossRow, evidence: lossEv } : null, appraisals, reports, labels });
   }
 
   /* ── 需要注意 ── */

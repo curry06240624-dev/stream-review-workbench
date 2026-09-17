@@ -19,6 +19,7 @@ import { computeStaffReport } from "./engine/staff.ts";
 import { buildCoachingPlan, computeDecisions, metricSnapshot, actionProgress } from "./engine/coaching.ts";
 import { ingestPosts, matchReport, applyReport, unapplyReport, reconcileSummary, restaffReports } from "./engine/reconcile.ts";
 import { parseLineExport } from "./engine/posts.ts";
+import { importLabels, labelSummary } from "./engine/labels.ts";
 import { syncSheetDeals } from "./engine/sheetdeals.ts";
 import { vehicleKey, VANISHED_TEXT } from "./engine/csv.ts";
 
@@ -334,6 +335,9 @@ export class AppDB extends DurableObject {
   }
   /** 暱稱表補了之後：沒對到業務的貼文與成交重新歸屬 */
   async restaffLocal() { this.bust(); return restaffReports(this); }
+  /** 人工判讀：匯入一批（來源＋批次＋每段的標籤）／每個標籤的準確率（系統答案現算） */
+  async labelsImportLocal(opts) { return importLabels(this, opts); }
+  async labelsSummaryLocal(opts) { return labelSummary(this, opts?.source); }
   /** SUPER8 匯出說了每則訊息是誰發的（scripts/adapters/super8_sender_patch.py 產的 patch）→ 覆蓋我們猜的 staff／bot 與發送者。
    *  items: [{id, role: 'staff'|'bot', seat}]；座位名（「趙 君岳」「L L」）經 staff_aliases／users.name 對到人，對不到的記在 unresolved、先掛「Super 8 客服（未署名）」。 */
   async senderPatchLocal({ items }) {
