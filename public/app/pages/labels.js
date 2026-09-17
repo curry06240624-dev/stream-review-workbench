@@ -3,7 +3,7 @@ import { api } from "../api.js";
 import { h, raw, esc, pageHead, chip, pct } from "../ui.js";
 
 export async function render(el, ctx) {
-  const source = ctx.query.get("source") || "";
+  const source = ctx.query.source || "";
   const d = await api(`/api/labels/summary${source ? `?source=${encodeURIComponent(source)}` : ""}`);
   if (!d.ok) { el.innerHTML = `<div class="empty">${esc(d.message || "讀不到")}</div>`; return; }
   const rows = d.rows || [];
