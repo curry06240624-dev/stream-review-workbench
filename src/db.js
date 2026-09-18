@@ -378,7 +378,7 @@ export class AppDB extends DurableObject {
       if (!id) { notFound++; continue; }
       let uid = null;
       if (it.role === "staff") { uid = byKey.get(nk(it.seat)) ?? null; if (uid == null) { unresolved[it.seat] = (unresolved[it.seat] || 0) + 1; uid = placeholder; } }
-      const r = await this.run("UPDATE messages SET sender_role = ?, sender_user_id = ? WHERE id = ?", it.role === "bot" ? "bot" : "staff", uid, id);
+      const r = await this.run("UPDATE messages SET sender_role = ?, sender_user_id = ?, via = 'super8' WHERE id = ?", it.role === "bot" ? "bot" : "staff", uid, id);   // via=super8：這則是 Super 8 匯出證實的（資料上傳頁的收集進度也看它）
       updated += Number(r?.changes ?? 1); ids.push(id);
     }
     // 對話表的「最後員工／客戶訊息時間」是匯入時算好的，改了角色要重算（只重算碰到的對話）
@@ -391,6 +391,11 @@ export class AppDB extends DurableObject {
         last_customer_at = COALESCE((SELECT MAX(created_at) FROM messages m WHERE m.conversation_id = conversations.id AND m.sender_role = 'customer'), '') WHERE id IN (${qs})`, ...chunk);   // 欄位 NOT NULL：沒有員工訊息的對話寫空字串
     }
     this.bust();
+    // 留記號給「資料上傳」收集進度（腳本灌的沒有 documents 列）：累計對到幾則、最後一次時間
+    try {
+      const prev = JSON.parse(String((await this.first("SELECT value FROM settings WHERE key = 'super8_sender_patch'"))?.value || "{}"));
+      await this.run("INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES ('super8_sender_patch', ?, ?)", JSON.stringify({ updated: Number(prev.updated || 0) + updated, at: new Date().toISOString() }), new Date().toISOString());
+    } catch { /* settings 表不在就算了 */ }
     return { updated, not_found: notFound, conversations: cl.length, unresolved };
   }
   /** 同一個人在不同系統有兩個帳號（後台打字的 Ash ＝ 群組裡的 賴安）→ 把 from 併進 to：

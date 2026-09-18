@@ -411,7 +411,16 @@ async function route(request, env, db, url) {
     if (!canSeeAll(me.role)) return J({ ok: false, message: "資料上傳只開放給老闆與主管。" }, 403);
     if (m === "GET") {
       const docs = await db.documentsLocal();
-      return J({ ok: true, documents: docs, checklist: checklist(docs), kinds: KIND_LABEL, processable: PROCESSABLE, storage: env.DOCS ? "kv" : "none" });
+      // 資料庫裡真的有什麼（腳本／API 灌進來的不會有 documents 列）。Super 8 用 sender-patch 留的記號，不掃 messages
+      const pr = await db.first(`SELECT
+          (SELECT COUNT(*) FROM group_posts WHERE kind = 'deal') AS deal_group, (SELECT COUNT(*) FROM group_posts WHERE kind = 'reception') AS reception_group, (SELECT COUNT(*) FROM group_posts WHERE kind = 'appraisal') AS appraisal_group,
+          (SELECT COUNT(*) FROM vehicles WHERE source = 'stock') AS sheet, (SELECT COUNT(*) FROM deals WHERE cost_source = 'accounting') AS accounting,
+          (SELECT COUNT(*) FROM users WHERE role <> 'admin' AND COALESCE(job,'') <> '') AS roster_jobs, (SELECT COUNT(*) FROM staff_aliases) AS roster_aliases,
+          (SELECT COUNT(*) FROM contacts WHERE source_system = 'line_oa_export') AS line_oa,
+          (SELECT value FROM settings WHERE key = 'super8_sender_patch') AS super8_marker`).catch(() => null);
+      const presence = Object.fromEntries(Object.entries(pr || {}).filter(([k]) => k !== "super8_marker").map(([k, v]) => [k, Number(v || 0)]));
+      try { presence.super8 = Number(JSON.parse(String(pr?.super8_marker || "{}")).updated || 0); } catch { presence.super8 = 0; }
+      return J({ ok: true, documents: docs, checklist: checklist(docs, presence), kinds: KIND_LABEL, processable: PROCESSABLE, storage: env.DOCS ? "kv" : "none" });
     }
     if (!env.DOCS) return J({ ok: false, message: "還沒設定檔案儲存空間（KV binding DOCS）。" }, 500);
     let form; try { form = await request.formData(); } catch { return J({ ok: false, message: "要用 multipart/form-data 上傳。" }, 400); }

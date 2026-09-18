@@ -25,7 +25,7 @@ export async function render(el, ctx) {
   if (!r.ok) { el.innerHTML = `<div class="empty">${esc(r.message || "資料上傳只開放給老闆與主管。")}</div>`; return; }
   const isAdmin = ctx.me?.role === "admin", docs = r.documents || [];
   const done = r.checklist.filter((c) => c.done).length;
-  const tiles = r.checklist.map((c) => `<div class="tile ${c.done ? "" : "warn"}"><div class="h"><span class="st">${c.done ? "已有" : "還沒有"}</span>${esc(c.label)}</div><div class="m">${esc(c.hint)}</div></div>`).join("");
+  const tiles = r.checklist.map((c) => `<div class="tile ${c.done ? "" : "warn"}"><div class="h"><span class="st">${c.done ? "已有" : "還沒有"}</span>${esc(c.label)}${c.done && c.count ? `<span class="faint" style="margin-left:6px;font-weight:400">${Number(c.count).toLocaleString("zh-TW")} ${esc(c.unit || "")}</span>` : ""}</div><div class="m">${esc(c.hint)}</div></div>`).join("");
   const kindOpts = (sel) => Object.entries(r.kinds).map(([k, l]) => `<option value="${k}" ${k === sel ? "selected" : ""}>${esc(l)}</option>`).join("");
   const rows = docs.map((d) => {
     const canProc = r.processable.includes(d.kind) || ["csv", "text", "json", "other"].includes(d.kind);

@@ -99,19 +99,21 @@ export async function processDocument(db: any, kv: KVNamespace, doc: Record<stri
   }
 }
 
-/** 收集進度：哪些資料已經有了 */
-export function checklist(docs: Array<Record<string, unknown>>) {
+/** 收集進度：哪些資料已經有了。上傳箱丟進來的（documents）或資料庫裡真的有（presence：匯入腳本、API 進來的也算）都算「已有」。
+ *  2026-09-18 之前只看上傳箱：整個 LINE 匯出、三個群、Super 8 發送者、名冊都是腳本灌的，畫面卻寫「還沒有」（收集進度 1／8）。 */
+export function checklist(docs: Array<Record<string, unknown>>, presence: Record<string, number> = {}) {
   const has = (f: (d: Record<string, unknown>) => boolean) => docs.some(f);
+  const n = (k: string) => Number(presence[k] ?? 0);
   const res = (d: Record<string, unknown>): Record<string, unknown> => { const r = d["result"]; if (r && typeof r === "object") return r as Record<string, unknown>; try { return JSON.parse(String(r || "{}")); } catch { return {}; } };
   const lineWith = (key: string) => has((d) => d["kind"] === "line_export" && d["status"] === "parsed" && Number(res(d)?.[key] ?? 0) > 0);
   return [
-    { key: "super8", label: "Super 8 對話", done: has((d) => d["kind"] === "bundle" && d["status"] === "parsed"), hint: "MCP 抓的或匯出鈕的檔案，做成 bundle.json 上傳" },
-    { key: "deal_group", label: "成交群匯出", done: lineWith("deal_reports"), hint: "LINE 聊天室 › 設定 › 匯出聊天紀錄" },
-    { key: "reception_group", label: "接待群匯出", done: lineWith("visits"), hint: "同上" },
-    { key: "appraisal_group", label: "估車群匯出", done: lineWith("appraisals"), hint: "同上" },
-    { key: "sheet", label: "車源表", done: has((d) => d["kind"] === "sheet_csv" && d["status"] === "parsed"), hint: "Google Sheet › 檔案 › 下載 › CSV" },
-    { key: "accounting", label: "會計成本表", done: has((d) => d["kind"] === "accounting_csv" && d["status"] === "parsed"), hint: "車號、成交日、售價、成本" },
-    { key: "roster", label: "員工名冊", done: has((d) => d["kind"] === "roster_csv" || /名冊|員工/.test(String(d["name"]) + String(d["note"]))), hint: "姓名、組別、工作性質、暱稱；或直接在資料與設定填" },
-    { key: "line_oa", label: "LINE 官方後台匯出", done: has((d) => /官方|OA|後台/i.test(String(d["note"]) + String(d["name"])) ), hint: "補 Super 8 看不到的回覆；備註寫「官方後台」" },
+    { key: "super8", label: "Super 8 對話", done: has((d) => d["kind"] === "bundle" && d["status"] === "parsed") || n("super8") > 0, count: n("super8"), unit: "則訊息對到誰發的", hint: "綠化的 Super 8 匯出 zip → super8_sender_patch.py → apply_sender_patch.mjs" },
+    { key: "deal_group", label: "成交群匯出", done: lineWith("deal_reports") || n("deal_group") > 0, count: n("deal_group"), unit: "則貼文", hint: "LINE 聊天室 › 設定 › 匯出聊天紀錄" },
+    { key: "reception_group", label: "接待群匯出", done: lineWith("visits") || n("reception_group") > 0, count: n("reception_group"), unit: "則貼文", hint: "同上" },
+    { key: "appraisal_group", label: "估車群匯出", done: lineWith("appraisals") || n("appraisal_group") > 0, count: n("appraisal_group"), unit: "則貼文", hint: "同上" },
+    { key: "sheet", label: "車源表", done: has((d) => d["kind"] === "sheet_csv" && d["status"] === "parsed") || n("sheet") > 0, count: n("sheet"), unit: "台在庫車", hint: "Google Sheet › 檔案 › 下載 › CSV" },
+    { key: "accounting", label: "會計成本表", done: has((d) => d["kind"] === "accounting_csv" && d["status"] === "parsed") || n("accounting") > 0, count: n("accounting"), unit: "筆成交有會計成本", hint: "車號、成交日、售價、成本；沒有這份，賣掉的車算不出毛利" },
+    { key: "roster", label: "員工名冊", done: has((d) => d["kind"] === "roster_csv" || /名冊|員工/.test(String(d["name"]) + String(d["note"]))) || (n("roster_jobs") > 0 && n("roster_aliases") > 0), count: n("roster_aliases"), unit: "個暱稱", hint: "姓名、組別、工作性質、暱稱；或直接在資料與設定填" },
+    { key: "line_oa", label: "LINE 官方後台匯出", done: has((d) => /官方|OA|後台/i.test(String(d["note"]) + String(d["name"]))) || n("line_oa") > 0, count: n("line_oa"), unit: "位客戶", hint: "LINE 官方後台匯出 → line_oa_csv_to_bundles.py → import_parts.mjs" },
   ];
 }
