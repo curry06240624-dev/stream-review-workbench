@@ -115,3 +115,17 @@ LINE 官方匯出的死穴是「透過 Super 8 發的訊息一律 Unknown」，�
 - 套用 `node scripts/admin/apply_sender_patch.mjs <patch.json> <base_url> [--by-id]` → `POST /api/admin/sender-patch`（`db.js senderPatchLocal`）：座位名（「趙 君岳」「L L」「x m」）經 `staff_aliases`／`users.name`（NFKC、去空白、小寫）對到人，對不到的掛未署名並回報 `unresolved`；改完重算碰到的對話的 `last_staff_at／last_customer_at`。`--by-id` 只能在產 patch 的那個資料庫用；跨資料庫（正式站）用化名＋時間 ±2 分＋文字比對，每 2,000 筆約 1～3 秒。
 - 8 月實測：猜成員工的 56,305 則 SUPER8 全部證實（100%）；猜成機器人的 83,835 則裡 12,513 則其實是客服的制式回覆（妍宣 黎 5,071、安 賴 1,819、趙 君岳 1,648…），另 45,334 則對不到（LINE 自動回覆、選單回覆等本來就不經 Super 8）。套用後 8 月：客戶打字沒人回 544 → 175、進入對談 2,079 → 2,448（42%）、新客首次回覆中位數 8 → 9 分鐘。
 - 已知缺口：patch 只處理文字訊息（客服傳的圖片／貼圖仍掛未署名，8 月約 11,587 則）；Super 8 只從客戶加入那天起有紀錄；SUPER8 座位「浦瑞 黃」「以諾 張」對不到人，要問。
+
+## 只留一個月的測試站（2026-09-18，Curry：「只有 8 月資料，數字才能跟 Frank／黎的 Super 8 8 月匯出對得上」）
+
+人工判讀（Frank 的 24 段、歆語要標的 30 段）都是看 Super 8 **8 月匯出**標的；正式站看的是 2024 起的完整對話，同一位客戶系統會因為 9 月的訊息或 2025 年的歷史給出不同的 SABC／事件，
+比對就不是同一份內容。所以另開一個站（`ai-command-center-curry`，`wrangler.curry.toml`），資料庫裡**只有 2026/08/01 00:00 ～ 09/01 00:00（台灣時間）**的東西：
+
+- **切片**：`node scripts/adapters/bundle_slice.mjs <bundles> <out> --from=2026-08-01 --to=2026-09-01`（訊息只留期間內；對話至少一則才留；lead 的 `opened_at`＝期間內第一則客戶訊息、`first_real_at` 由匯入器算、期間外的 `closed_at`／`outcome` 清掉；客戶 `first_contact_at` 照舊）；
+  三個群 `node scripts/adapters/group_txt_slice.mjs <in.txt> <out.txt> --from --to`（整天為單位）。切好的放 `data/real/2026-09-18/aug/`（git-ignored）。
+- **灌站**：`bash scripts/admin/build_month_instance.sh <base_url> data/real/2026-09-18/aug [起始步驟]`：主匯出重灌 → 舊歷史補灌 → 車源表 → 三個群 → 名冊（黎 9/9）→ Super 8 發送者（化名＋時間＋文字對，`sender_patch_aug.json`）→ 漏斗／分析／洞察 → Frank 的人工判讀（對照表用化名，換站不用重做）→ 摘要。本機先 `command-center-aug`（8790，`--persist-to .wrangler/state-aug`）跑一遍再上 `-curry`。
+- **跟 Super 8 8 月匯出對**（它的 `0000_匯出範圍與核對說明.txt`：對話 25,321 份、8 月訊息 242,704 則、客戶／客服發言 160,968 則、8 月進人 2,829 位；「8 月只要有任何訊息就納入，含系統／自動訊息，舊客戶亦納入」）：
+  我們的 8 月切片＝主匯出 11,760 段（訊息 232,169：客戶 80,337、員工 67,997、機器人 83,835）＋ 舊歷史 10,874 段只收到群發的（訊息 11,199，全是機器人）＝ **22,634 段、243,368 則**；
+  人的發言 148,339 ＋ Super 8 修正會把 12,513 則「機器人」改回客服 ≈ 160,852（Super 8 160,968，差 116）。對話少 2,687 段：Super 8 那份含 Facebook 對話與「未能對應現行客戶」的歷史對話，LINE 官方匯出沒有——尚未逐一證實。
+- **已知偏差（只留一個月必然的）**：7 月以前就在談、8 月又打字的老客戶，在這個站會被當成 8 月新進線（`first_real_at` 只看得到 8 月）；Super 8 月匯出給 Frank 的資料也一樣看不到，所以兩邊一致，但**不是**真實的新進線數。真實的新進線以正式站（完整歷史）為準；Super 8 的「8 月進人 2,829 位」是以 joinedAt 算的第三種定義。
+- 舊歷史（`bundles_old`，2026-03 以後沒再有客戶訊息的 31,643 段）8 月只剩機器人群發：這批在這個站會出現在「只加好友／點選單」裡（opened_at＝群發時間），跟 Super 8 把它們算成 8 月對話一致。

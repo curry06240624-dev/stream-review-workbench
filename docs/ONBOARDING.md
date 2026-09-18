@@ -25,7 +25,7 @@ The client's own three-phase plan (in `專案狀態_2026-09-06.md`): phase 1 rea
 | official | ai-command-center.curry06240624.workers.dev | real, de-identified | 瑋瑋's company, Curry only |
 | demo | ai-command-center-demo.curry06240624.workers.dev | synthetic | anyone testing |
 | rayson | ai-command-center-rayson.curry06240624.workers.dev | empty | **you** (`wrangler.rayson.toml`) |
-| curry | ai-command-center-curry.curry06240624.workers.dev | empty | Curry's own test site |
+| curry | ai-command-center-curry.curry06240624.workers.dev | real, de-identified, **August 2026 only** (matches the Super 8 August export; see DATA_FLOW.md) | Curry's accuracy test site |
 | frank | ai-command-center-frank.curry06240624.workers.dev | empty | Frank (parallel analysis) |
 
 Login on demo/test sites: click 老闆 (DEMO_MODE) or `boss@test.local` / `test-pass-123`.

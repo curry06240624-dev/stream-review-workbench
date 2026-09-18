@@ -1,4 +1,5 @@
-# Curry 的測試站 —— 空的（沒有任何資料），測新功能用，不動正式站。
+# Curry 的測試站 —— 2026-09-18 起是「只有 8 月資料」版：LINE 對話／成交群／接待組／估車群／Super 8 發送者全部只留 2026/08/01–08/31（台灣時間），
+# 跟 Frank／黎手上的 Super 8 8 月匯出等價，人工判讀與數字核對用。做法見 docs/DATA_FLOW.md「只留一個月的測試站」。不動正式站。
 # 同一份程式碼、同帳號，自己的 Worker／Durable Object／KV。正式站＝ai-command-center（瑋瑋），模擬站＝-demo，Frank 測試站＝-frank。
 #   部署：npx wrangler deploy --config wrangler.curry.toml
 #   秘密：npx wrangler secret put SETUP_CODE --config wrangler.curry.toml；GEMINI_API_KEY 同
