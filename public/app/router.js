@@ -96,7 +96,10 @@ function paintWho() {
   }
   // 分析視窗基準：資料截至（預設）／到今天。存 localStorage，api() 自動帶；切了就重畫本頁
   window.__dataEnd = me.data_end || null; const mode = anchorMode(); const de = me.data_end ? fmtDT(me.data_end) : null;
-  w.innerHTML += `<div class="faint" style="margin-top:6px;font-size:12px;line-height:1.5">${mode === "today" ? "視窗：到今天" : de ? `資料截至 ${esc(de)}` : "資料到現在"}${de ? ` · <a href="#" id="anchorToggle" style="color:var(--cyan)">${mode === "today" ? "改看資料截至" : "改看到今天"}</a>` : ""}</div>`;
+  // 其他來源比對話晚（成交群常晚兩天）就標出來：那幾天的成交不在本期，等下次對話匯出才算
+  const se = me.source_ends || {}; const later = [["成交群", se.deal_reports], ["群組", se.group_posts]].filter(([, t]) => t && me.data_end && Date.parse(t) > Date.parse(me.data_end) + 60_000);
+  const laterNote = mode !== "today" && later.length ? `<br>${later.map(([k, t]) => `${k}到 ${esc(fmtDT(t))}`).join("、")}<span title="視窗以 LINE 對話的最後一天為準，這幾天的成交會在下次對話匯出後才算進本期">（不在本期）</span>` : "";
+  w.innerHTML += `<div class="faint" style="margin-top:6px;font-size:12px;line-height:1.5">${mode === "today" ? "視窗：到今天" : de ? `對話資料截至 ${esc(de)}` : "資料到現在"}${de ? ` · <a href="#" id="anchorToggle" style="color:var(--cyan)">${mode === "today" ? "改看資料截至" : "改看到今天"}</a>` : ""}${laterNote}</div>`;
   const tg = document.getElementById("anchorToggle"); if (tg) tg.onclick = (e) => { e.preventDefault(); setAnchorMode(mode === "today" ? "data" : "today"); paintWho(); render(); };
 }
 

@@ -191,9 +191,15 @@ export class AppDB extends DurableObject {
   /** 資料末端＝最後一則訊息時間＋1 秒（引擎用半開區間 at < to）。資料已到現在（或排在未來，模擬資料會）就回 null＝「到今天」。
       每次查一句、不暫存：收件匣回覆／模擬進線會改 last_message_at 但不 bust（有 idx_conv_last，MAX 很快） */
   dataEndLocal() {
-    // 資料末端＝對話最後一則 或 群組貼文最後一篇（成交群常比對話匯出晚兩天）取晚的那個
-    const r = this.first("SELECT MAX(m) AS m FROM (SELECT MAX(last_message_at) AS m FROM conversations UNION ALL SELECT MAX(reported_at) AS m FROM deal_reports UNION ALL SELECT MAX(at) AS m FROM group_posts)");
+    // 資料末端＝LINE 對話最後一則。2026-09-16 實測：把成交群貼文（9/8）也算進來會把 7 天視窗推到 9/8，但對話只到 9/6，
+    // 視窗裡只有 5 天 LINE 資料 → 新進線「↓29」是假的（LINE 末端當基準是 403／前期 397）。成交群等其他來源的末端另外給（sourceEndsLocal），畫面標出來。
+    const r = this.first("SELECT MAX(last_message_at) AS m FROM conversations");
     const t = r && r.m ? Date.parse(r.m) + 1000 : NaN; return Number.isFinite(t) && t < Date.now() ? new Date(t).toISOString() : null;
+  }
+  /** 每個資料來源各自的末端（頂欄「對話資料截至 9/6 · 成交群到 9/8」用）；沒有那種資料就 null */
+  sourceEndsLocal() {
+    const r = this.first("SELECT (SELECT MAX(last_message_at) FROM conversations) AS conversations, (SELECT MAX(reported_at) FROM deal_reports) AS deal_reports, (SELECT MAX(at) FROM group_posts) AS group_posts, (SELECT MAX(closed_at) FROM deals WHERE closed_at_source = '') AS deals");
+    return { conversations: r?.conversations ?? null, deal_reports: r?.deal_reports ?? null, group_posts: r?.group_posts ?? null, deals: r?.deals ?? null };
   }
   /** 分析視窗的終點（2026-09-08 Curry 定案：預設以資料最後一天為準，可切到今天）：to 明講 → 用它；anchor=today → undefined（引擎用牆鐘、快取鍵按台灣日期）；否則資料末端（沒有就 undefined） */
   resolveTo(opts) { if (opts && opts.to) return opts.to; if (opts && opts.anchor === "today") return undefined; return this.dataEndLocal() ?? undefined; }

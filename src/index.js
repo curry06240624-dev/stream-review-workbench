@@ -630,7 +630,7 @@ async function route(request, env, db, url) {
   if (p === "/api/me") {
     const u = await currentUser(request, db);
     const n = await db.first("SELECT COUNT(*) AS c FROM users");
-    return J({ ok: true, user: u ? { email: u.email, name: u.name, role: u.role } : null, needsSetup: n.c === 0, demo: env.DEMO_MODE === "on", data_end: u ? await db.dataEndLocal() : null });   // data_end：null＝資料到現在
+    return J({ ok: true, user: u ? { email: u.email, name: u.name, role: u.role } : null, needsSetup: n.c === 0, demo: env.DEMO_MODE === "on", data_end: u ? await db.dataEndLocal() : null, source_ends: u ? await db.sourceEndsLocal() : null });   // data_end：null＝資料到現在；source_ends：各來源末端
   }
 
   /* ── 以下全部要登入 ── */
