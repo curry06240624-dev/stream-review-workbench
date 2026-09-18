@@ -14,7 +14,7 @@ import type { BriefContent } from "../model/types.ts";
 import type { CoachingPlan } from "./coaching.ts";
 
 type Row = Record<string, unknown>;
-interface Env { GEMINI_API_KEY?: string; GEMINI_MODEL?: string; }
+interface Env { GEMINI_API_KEY?: string; GEMINI_MODEL?: string; FIXED_PERIOD?: string; }
 
 /* ── Gemini 呼叫（JSON 模式）── */
 export async function gemini(env: Env, prompt: string): Promise<unknown> {
