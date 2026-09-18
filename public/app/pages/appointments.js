@@ -1,6 +1,6 @@
 /* 預約與到店：戰術頁。時間軸看今天／這週誰要來；右邊盯「逾期未到店」與最近到店的結果。琥珀只給逾期與爽約。 */
 import { api } from "../api.js";
-import { esc, pct, num, delta, tw, fmtDT, ago, chip, table, bindRows, pageHead, periodSeg } from "../ui.js";
+import { esc, pct, num, delta, tw, fmtDT, ago, chip, table, bindRows, pageHead, periodSeg, periodLabel } from "../ui.js";
 
 const ST = { booked: "已約", proposed: "提議中", changed: "改期", cancelled: "取消", no_show: "爽約", visited: "已到店", done: "已到店" };
 const OUT = { sold: "成交", lost: "流失", pending: "未決" };
@@ -26,7 +26,7 @@ export async function render(el, ctx) {
   };
 
   el.innerHTML = `<div class="wrap stack">
-    ${pageHead("預約與到店", aiLine, `<span class="faint" style="margin-right:10px">最近 ${days} 天 · 對照前 ${days} 天</span>${periodSeg(days, (dd) => ctx.nav(`/appointments?days=${dd}`))}`)}
+    ${pageHead("預約與到店", aiLine, `<span class="faint" style="margin-right:10px">${periodLabel(days)}</span>${periodSeg(days, (dd) => ctx.nav(`/appointments?days=${dd}`))}`)}
     <section class="stats">
       ${stat("提議看車", num(c.proposed))}
       ${stat("預約成立", num(c.booked), delta(c.booked, c.prev_booked, { fmt: num }))}

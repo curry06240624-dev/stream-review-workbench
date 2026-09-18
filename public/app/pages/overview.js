@@ -1,6 +1,6 @@
 /* CEO 總覽：30 秒內回答「現在最需要我處理什麼」。極簡：簡報 → 洞察卡 → 漏斗快照 → 四格 → 需要注意前 5。 */
 import { api } from "../api.js";
-import { h, raw, esc, pct, nt, num, delta, insightCard, kpi, funnelStrip, periodSeg, stat, GRADE, ago, chip, toast, lostReason, fmtMin, fmtD } from "../ui.js";
+import { h, raw, esc, pct, nt, num, delta, insightCard, kpi, funnelStrip, periodSeg, stat, GRADE, ago, chip, toast, lostReason, fmtMin, fmtD, periodLabel } from "../ui.js";
 
 const KIND = { high_intent_no_followup: "急迫未跟進", price_dropoff_no_followup: "報價後未跟進", booked_but_no_visit: "預約已過未到店", financing_unresolved: "貸款未回覆" };
 const linkify = (s) => esc(s).replace(/#(\d+)/g, (_, id) => `<a href="/insights/${id}" data-link>#${id}</a>`);
@@ -20,7 +20,7 @@ export async function render(el, ctx) {
   const brief = br.brief?.content;
   const briefLines = brief
     ? [["發生了什麼", brief.happened], ["變了什麼", brief.changed], ["最該注意", brief.attention], ["今天做什麼", brief.do_today]]
-    : [["發生了什麼", `最近 ${days} 天新進線 ${f.leads} 位（另有 ${num(f.menu_only_leads || 0)} 位只加好友／點選單，不算進線）、業務報價 ${a.price_dropoff.base} 次、有日期的成交 ${d.sold} 台${d.undated?.n ? `；車源表另有 ${d.undated.n} 台售出／收訂（日期不明）` : ""}。`],
+    : [["發生了什麼", `${periodLabel(days, false)}新進線 ${f.leads} 位（另有 ${num(f.menu_only_leads || 0)} 位只加好友／點選單，不算進線）、業務報價 ${a.price_dropoff.base} 次、有日期的成交 ${d.sold} 台${d.undated?.n ? `；車源表另有 ${d.undated.n} 台售出／收訂（日期不明）` : ""}。`],
        ["變了什麼", `成交 ${d.sold} 台（前期 ${d.prev_sold}），價格後流失率 ${pct(a.price_dropoff.rate)}（前期 ${pct(a.price_dropoff.prev_rate)}）。`],
        ["最該注意", insights[0] ? `#${insights[0].id} ${insights[0].title}` : "目前沒有成立的洞察。"],
        ["今天做什麼", a.attention.length ? `先處理需要注意清單的 ${a.attention.length} 位客戶。` : "看一遍需要注意清單。"]];
@@ -56,7 +56,7 @@ export async function render(el, ctx) {
     ${openActs.length ? `<ul class="acts">${openActs.slice(0, 3).map((x) => `<li class="act"><span class="txt"><b>${esc(x.title)}</b> <span class="faint">${esc(x.staff_name || "團隊")} · 期限 ${fmtD(x.due_at)}</span></span><span class="faint">${x.progress && x.progress.before && x.progress.before.value != null ? `${fmtSnap(x.progress.before)} → ${x.progress.after ? fmtSnap(x.progress.after) : "—"}` : "還沒有基準"}</span></li>`).join("")}</ul>` : '<div class="empty">還沒有進行中的管理行動。從決策中心的卡片建立。</div>'}</section>`;
 
   el.innerHTML = h`<div class="wrap stack">
-    <div class="ph"><h1>CEO 總覽</h1><span class="faint">最近 ${days} 天 · 對照前 ${days} 天</span><span class="sp"></span>${raw(periodSeg(days, (dd) => ctx.nav(`/overview?days=${dd}`)))}
+    <div class="ph"><h1>CEO 總覽</h1><span class="faint">${periodLabel(days)}</span><span class="sp"></span>${raw(periodSeg(days, (dd) => ctx.nav(`/overview?days=${dd}`)))}
       ${isAdmin ? raw('<button class="btn sm" id="rerun" style="margin-left:10px">重新分析</button>') : ""}</div>
 
     <section class="panel brief"><h3>AI 指揮簡報 ${brief ? raw(h`<span class="faint" style="letter-spacing:0;font-weight:400">${br.brief.brief_date} · ${br.brief.model === "template" ? "規則版" : br.brief.model}</span>`) : ""}</h3>

@@ -1,7 +1,7 @@
 /* 流失原因：哪裡掉＋為什麼掉。本期 vs 前期、分項（業務／車款／車型／階段／價格帶／組別）、每位客戶的主因／副因／替代可能／信心／證據。
    規則判定；客戶自己講的才是「確定」；沉默只能「可能」；推定流失另列不計入總數。 */
 import { api } from "../api.js";
-import { esc, pct, num, chip, table, bindRows, pageHead, periodSeg, fmtD, fmtDT, chipConf, wan, drawChart, DRIVER } from "../ui.js";
+import { esc, pct, num, chip, table, bindRows, pageHead, periodSeg, fmtD, fmtDT, chipConf, wan, drawChart, DRIVER, periodLabel } from "../ui.js";
 
 const DIMS = [["staff", "業務"], ["vehicle", "車款"], ["body", "車型"], ["stage", "階段"], ["band", "價格帶"], ["team", "組別"]];
 
@@ -30,7 +30,7 @@ export async function render(el, ctx) {
   const suspCols = [{ key: "contact", label: "客戶" }, { key: "staff", label: "業務" }, { key: "vehicle", label: "車款" }, { key: "stage_label", label: "掉在" }, { key: "reason_label", label: "推定原因", render: (x) => `${esc(x.reason_label)} ${chipConf(x.confidence)}` }, { key: "last_customer_at", label: "最後客戶訊息", render: (x) => fmtDT(x.last_customer_at) }];
 
   el.innerHTML = `<div class="wrap stack">
-    ${pageHead("流失原因", aiLine, `<span class="faint" style="margin-right:10px">最近 ${days} 天（以結案日計）· 對照前 ${days} 天</span>${periodSeg(days, (dd) => ctx.nav(`/loss?days=${dd}&by=${by}`))}`)}
+    ${pageHead("流失原因", aiLine, `<span class="faint" style="margin-right:10px">${periodLabel(days)}（以結案日計）</span>${periodSeg(days, (dd) => ctx.nav(`/loss?days=${dd}&by=${by}`))}`)}
     <section class="stats">
       <div class="stat"><div class="l">未成交</div><b>${num(r.totals.lost)}</b><div class="d faint">前期 ${num(r.totals.prev)}</div></div>
       <div class="stat ${r.driver.process ? "warn" : ""}"><div class="l">流程面（回覆太慢／跟進不足）</div><b>${num(r.driver.process)}</b><div class="d faint">${pct(r.totals.lost ? r.driver.process / r.totals.lost : null)}</div></div>

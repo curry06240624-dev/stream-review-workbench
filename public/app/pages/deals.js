@@ -1,7 +1,7 @@
 /* 成交與毛利：財務語氣、中性配色。成交表看每一台的售價／成本／毛利，只有低於成本標琥珀。
    毛利＝售價－車源表成本（估算，標「估算」）；同行車或車號空白沒有成本 → 「無成本」，不算進毛利。正式毛利以會計為準。 */
 import { api } from "../api.js";
-import { esc, pct, nt, num, delta, fmtD, chip, table, bindRows, pageHead, periodSeg, drawChart, lostReason, gpCell, LOAN } from "../ui.js";
+import { esc, pct, nt, num, delta, fmtD, chip, table, bindRows, pageHead, periodSeg, drawChart, lostReason, gpCell, LOAN, periodLabel } from "../ui.js";
 
 const stat = (label, value, extra = "", cls = "") => `<div class="stat ${cls}"><div class="l">${esc(label)}</div><b>${value}</b>${extra ? `<div class="d">${extra}</div>` : ""}</div>`;
 
@@ -56,7 +56,7 @@ export async function render(el, ctx) {
   const topReasons = (d.lost_reasons || []).slice(0, 2).map((x) => `${lostReason(x.reason)} ${x.n}`).join(" · ");
 
   el.innerHTML = `<div class="wrap stack">
-    ${pageHead("成交與毛利", aiLine, `<span class="faint" style="margin-right:10px">最近 ${days} 天 · 對照前 ${days} 天</span>${periodSeg(days, (dd) => ctx.nav(`/deals?days=${dd}&tab=${tab}`))}`)}
+    ${pageHead("成交與毛利", aiLine, `<span class="faint" style="margin-right:10px">${periodLabel(days)}</span>${periodSeg(days, (dd) => ctx.nav(`/deals?days=${dd}&tab=${tab}`))}`)}
     <section class="stats">
       ${stat("成交", `${num(d.sold)} 台`, `${delta(d.sold, d.prev_sold, { fmt: num })}${d.peer_sold ? ` <span class="faint">同行 ${d.peer_sold}</span>` : ""}${d.sheet_sold ? ` <span class="faint">車源表 ${d.sheet_sold}</span>` : ""}${d.undelivered ? ` <span class="faint">未交車 ${d.undelivered}</span>` : ""}${d.undated?.n ? ` <span class="faint">車源表另 ${d.undated.n} 台售出／收訂，日期不明</span>` : ""}`)}
       ${stat("營收", nt(d.revenue), delta(d.revenue, d.prev_revenue, { fmt: nt }))}

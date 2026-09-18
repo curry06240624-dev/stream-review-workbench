@@ -32,9 +32,9 @@ export async function gemini(env: Env, prompt: string): Promise<unknown> {
 
 /* ── 閘門 1：數字白名單 ── */
 export const numbersIn = (s: string) => new Set((s.match(/\d+(?:\.\d+)?/g) ?? []).map((x) => x.replace(/^0+(?=\d)/, "")));
-export function factsPack(a: Analytics, insights: Row[]): { text: string; allowed: Set<string> } {
+export function factsPack(a: Analytics, insights: Row[], fixed?: string): { text: string; allowed: Set<string> } {
   const pct = (x: number | null | undefined) => (x == null ? "—" : `${Math.round(x * 100)}%`);
-  const lines = [
+  let lines = [
     `期間：最近 ${a.period.days} 天（${a.period.from.slice(0, 10)} ～ ${a.period.to.slice(0, 10)}），對照前 ${a.period.days} 天；基準＝${a.anchor === "today" ? "到今天" : `資料截至 ${(a.data_end ?? a.period.to).slice(0, 10)}`}`,
     `新進線 ${a.funnel.leads}（前期 ${a.funnel.prev_leads}）＝有送過訊息（打字／照片／貼圖）的客戶；另有 ${a.funnel.menu_only_leads} 位只加好友／點選單（前期 ${a.funnel.prev_menu_only_leads}），不算進線；進線裡自己打過字的 ${a.funnel.typed_leads}`,
     `業務親自報價 ${a.price_dropoff.base} 次（客戶自己點車卡不算報價），價格後流失 ${a.price_dropoff.count} 位＝${pct(a.price_dropoff.rate)}（前期 ${pct(a.price_dropoff.prev_rate)}）`,
@@ -49,6 +49,11 @@ export function factsPack(a: Analytics, insights: Row[]): { text: string; allowe
     "已成立的洞察（id｜嚴重度｜標題｜摘要）：",
     ...insights.map((i) => `#${i["id"]}｜${i["severity"]}｜${i["title"]}｜${i["summary"]}`),
   ];
+  if (fixed) {   // 只有某一個月資料的站：沒有前期可比，事實包不給「前期」數字，簡報就寫不出「激增／惡化」
+    const mo = Number(fixed.slice(5, 7));
+    lines = lines.map((l) => l.replace(/（前期 [^）]*）/g, "").replace(/，對照前 \d+ 天/, ""));
+    lines[0] = `期間：整個 ${fixed.slice(0, 4)} 年 ${mo} 月（${a.period.from.slice(0, 10)} ～ ${a.period.to.slice(0, 10)}）。這個站只有這個月的資料，沒有前期：changed 一律寫「只有 ${mo} 月資料，沒有前期可比」，不要寫激增、成長、惡化這類比較`;
+  }
   const text = lines.join("\n");
   return { text, allowed: numbersIn(text) };
 }
@@ -58,7 +63,7 @@ export const violates = (s: string, allowed: Set<string>) => [...numbersIn(s)].s
 export async function narrateInsights(db: DbLike, env: Env, a: Analytics, now: string): Promise<{ narrated: number; mode: "ai" | "template" }> {
   const insights = await db.all("SELECT id, kind, title, summary, severity, claim FROM insights WHERE period_from = ? AND period_to = ? AND dismissed = 0 ORDER BY id", a.period.from, a.period.to);
   if (!insights.length) return { narrated: 0, mode: "template" };
-  const { text, allowed } = factsPack(a, insights);
+  const { text, allowed } = factsPack(a, insights, env.FIXED_PERIOD);
   const prompt = `你是中古車公司的資深銷售營運顧問，面對的是老闆。下面是系統從 LINE 對話算出來的數字與已成立的洞察。
 
 你的任務：對每一條洞察，用繁體中文寫
@@ -98,9 +103,9 @@ ${text}`;
 /* ── CEO 每日簡報 ── */
 export async function generateBrief(db: DbLike, env: Env, a: Analytics, date: string, now: string): Promise<{ content: BriefContent; mode: "ai" | "template"; model: string }> {
   const insights = await db.all("SELECT id, kind, title, summary, severity, claim FROM insights WHERE period_from = ? AND period_to = ? AND dismissed = 0 ORDER BY CASE severity WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END, id", a.period.from, a.period.to);
-  const { text, allowed } = factsPack(a, insights);
+  const { text, allowed } = factsPack(a, insights, env.FIXED_PERIOD);
   const ids = insights.map((i) => Number(i["id"]));
-  const template = templateBrief(a, insights);
+  const template = templateBrief(a, insights, env.FIXED_PERIOD);
   if (!env.GEMINI_API_KEY) return { content: template, mode: "template", model: "" };
 
   const prompt = `你是中古車公司老闆的幕僚。用下面的事實包寫一份「30 秒讀完」的每日簡報，繁體中文，每一題最多兩句話。
@@ -130,15 +135,15 @@ ${text}`;
 }
 
 /** 沒有 AI 也要能出簡報：從數字直接組句子 */
-function templateBrief(a: Analytics, insights: Row[]): BriefContent {
+function templateBrief(a: Analytics, insights: Row[], fixed?: string): BriefContent {
   const pct = (x: number | null | undefined) => (x == null ? "—" : `${Math.round(x * 100)}%`);
   const top = insights[0], sec = insights[1];
   const dSold = a.deals.sold - a.deals.prev_sold, dLeads = a.funnel.leads - a.funnel.prev_leads;
   const worst = Object.entries(a.conversion).filter(([, v]) => v.n >= 8 && v.rate != null).sort((x, y) => (x[1].rate ?? 1) - (y[1].rate ?? 1))[0];
   const label: Record<string, string> = { price_to_booking: "報價→預約", booking_to_visit: "預約→到店", visit_to_sold: "到店→成交", lead_to_sold: "進線→成交", price_to_sold: "報價→成交" };
   return {
-    happened: `最近 ${a.period.days} 天新進線 ${a.funnel.leads} 位（另 ${a.funnel.menu_only_leads} 位只點選單），業務報價 ${a.price_dropoff.base} 次，有日期的成交 ${a.deals.sold} 台、毛利 ${Math.round(a.deals.gross_profit / 10000)} 萬。`,
-    changed: `成交${dSold >= 0 ? "多" : "少"}了 ${Math.abs(dSold)} 台，進線${dLeads >= 0 ? "多" : "少"}了 ${Math.abs(dLeads)} 位；價格後流失率 ${pct(a.price_dropoff.rate)}（前期 ${pct(a.price_dropoff.prev_rate)}）。`,
+    happened: `${fixed ? `整個 ${Number(fixed.slice(5, 7))} 月` : `最近 ${a.period.days} 天`}新進線 ${a.funnel.leads} 位（另 ${a.funnel.menu_only_leads} 位只點選單），業務報價 ${a.price_dropoff.base} 次，有日期的成交 ${a.deals.sold} 台、毛利 ${Math.round(a.deals.gross_profit / 10000)} 萬。`,
+    changed: fixed ? `只有 ${Number(fixed.slice(5, 7))} 月資料，沒有前期可比。` : `成交${dSold >= 0 ? "多" : "少"}了 ${Math.abs(dSold)} 台，進線${dLeads >= 0 ? "多" : "少"}了 ${Math.abs(dLeads)} 位；價格後流失率 ${pct(a.price_dropoff.rate)}（前期 ${pct(a.price_dropoff.prev_rate)}）。`,
     good: a.deals.sold ? `到店→成交 ${pct(a.conversion["visit_to_sold"]?.rate)}，來店的客人多數有買。` : "本期沒有成交，好消息要等。",
     bad: worst ? `${label[worst[0]] ?? worst[0]} 只有 ${pct(worst[1].rate)}（n=${worst[1].n}），是漏斗最弱的一段。` : "樣本不足，還看不出最弱的一段。",
     unusual: a.deals.below_cost ? `有 ${a.deals.below_cost} 筆成交低於成本。` : (a.appointments["no_show"] ?? 0) >= 3 ? `爽約 ${a.appointments["no_show"]} 位。` : "沒有明顯異常。",

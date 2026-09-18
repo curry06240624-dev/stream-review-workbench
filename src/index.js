@@ -34,10 +34,20 @@ const J = (o, s = 200, headers = {}) => new Response(JSON.stringify(o), {
   headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", ...headers },
 });
 const now = () => new Date().toISOString();
-async function warmCaches(db) {
+/** 只有某一個月資料的站（wrangler [vars] FIXED_PERIOD = "2026-08"）：期間鎖整個月、畫面沒有 7/14/30、沒有前期可比。沒設就 null */
+function fixedPeriodOf(env) {
+  const m = String(env.FIXED_PERIOD || "").match(/^(\d{4})-(\d{2})$/); if (!m) return null;
+  const y = Number(m[1]), mo = Number(m[2]);
+  const from = new Date(Date.UTC(y, mo - 1, 1) - 8 * 3600_000), to = new Date(Date.UTC(y, mo, 1) - 8 * 3600_000);   // 台灣時間當月 1 日 00:00 ～ 下月 1 日 00:00
+  const days = Math.round((to - from) / 86400_000);
+  return { ym: m[0], label: `整個 ${mo} 月`, range: `${mo}/1–${mo}/${days}`, from: from.toISOString(), to: to.toISOString(), days };
+}
+async function warmCaches(db, env) {
   const out = {}; const t0 = Date.now();
   try { await db.run("DELETE FROM cache_json WHERE exp < ?", Date.now()); } catch { /* 表還沒建 */ }
-  for (const anchor of ["data", "today"]) for (const days of [7, 14, 30]) {   // 兩種基準都暖：資料截至（預設）與到今天
+  const fixed = env ? fixedPeriodOf(env) : null;
+  const dayList = fixed ? [fixed.days] : [7, 14, 30];   // 只有一個月資料的站只暖整個月
+  for (const anchor of ["data", "today"]) for (const days of dayList) {   // 兩種基準都暖：資料截至（預設）與到今天
     await db.analyticsLocal({ days, anchor }); await db.staffLocal({ days, anchor }); await db.decisionsLocal({ days, anchor, now: now() });
     out[`${anchor}:${days}`] = Date.now() - t0;
   }
@@ -48,7 +58,7 @@ export default {
   /** 排程（wrangler.toml [triggers]）：把每個人一開站就會看的頁面先算好放進持久快取；也可以 POST /api/admin/warm 手動觸發 */
   async scheduled(_event, env, ctx) {
     const db = env.APPDB.get(env.APPDB.idFromName("main"));
-    ctx.waitUntil(warmCaches(db));
+    ctx.waitUntil(warmCaches(db, env));
   },
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -309,7 +319,7 @@ async function route(request, env, db, url) {
   if (p === "/api/admin/warm" && m === "POST") {
     const me = await currentUser(request, db);
     if (!me || !canSeeAll(me.role)) return J({ ok: false, error: "forbidden" }, 403);
-    return J({ ok: true, ms: await warmCaches(db) });
+    return J({ ok: true, ms: await warmCaches(db, env) });
   }
   /* ── 車源表 售出／收訂 → 成交／收訂中：重跑同步（匯入與上傳時會自動跑） ── */
   if (p === "/api/admin/sheet-deals/sync" && m === "POST") {
@@ -630,7 +640,7 @@ async function route(request, env, db, url) {
   if (p === "/api/me") {
     const u = await currentUser(request, db);
     const n = await db.first("SELECT COUNT(*) AS c FROM users");
-    return J({ ok: true, user: u ? { email: u.email, name: u.name, role: u.role } : null, needsSetup: n.c === 0, demo: env.DEMO_MODE === "on", data_end: u ? await db.dataEndLocal() : null, source_ends: u ? await db.sourceEndsLocal() : null });   // data_end：null＝資料到現在；source_ends：各來源末端
+    return J({ ok: true, user: u ? { email: u.email, name: u.name, role: u.role } : null, needsSetup: n.c === 0, demo: env.DEMO_MODE === "on", data_end: u ? await db.dataEndLocal() : null, source_ends: u ? await db.sourceEndsLocal() : null, fixed_period: fixedPeriodOf(env) });   // data_end：null＝資料到現在；source_ends：各來源末端
   }
 
   /* ── 以下全部要登入 ── */

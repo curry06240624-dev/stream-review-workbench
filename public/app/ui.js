@@ -18,6 +18,7 @@ export const ago = (iso, now = Date.now()) => { if (!iso) return "—"; const m 
 
 /** 差異箭頭：正向保持中性（灰綠），只有「壞方向」才用琥珀。goodIsUp 表示數字變大是好事 */
 export function delta(cur, prev, { goodIsUp = true, fmt = pct } = {}) {
+  if (window.__fixedPeriod) return "";   // 只有一個月資料的站沒有「前期」可比，箭頭一律不畫
   if (cur == null || prev == null) return h`<span class="delta">—</span>`;
   const d = cur - prev; if (Math.abs(d) < 1e-9) return h`<span class="delta">持平</span>`;
   const good = goodIsUp ? d > 0 : d < 0;
@@ -121,8 +122,10 @@ export function eventMark(e) {
 export function toast(msg) { const t = document.createElement("div"); t.className = "toast"; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2400); }
 export function bindRows(root) { root.querySelectorAll("tr[data-href]").forEach((tr) => tr.addEventListener("click", () => window.__nav(tr.dataset.href))); }
 /** 期間視窗的基準（跟 router.js 的切換鈕同一個狀態）：預設資料截至，可切到今天 */
-export const anchorNote = () => { let mode = "data"; try { mode = localStorage.getItem("anchor") === "today" ? "today" : "data"; } catch { /* 無痕 */ } const de = window.__dataEnd; return mode === "today" ? "到今天" : de ? `資料截至 ${fmtDT(de)}` : "資料到現在"; };
-export const periodSeg = (days, onChange) => { const id = "seg" + Math.random().toString(36).slice(2, 7); queueMicrotask(() => { document.getElementById(id)?.querySelectorAll("button").forEach((b) => b.onclick = () => onChange(Number(b.dataset.d))); }); return h`<div class="seg" id="${id}">${raw([7, 14, 30].map((d) => h`<button class="${d === days ? "on" : ""}" data-d="${d}">${d} 天</button>`).join(""))}</div><span class="faint" style="margin-left:8px;font-size:12px;white-space:nowrap">${anchorNote()}</span>`; };
+/** 期間文字：一般站「最近 N 天 · 對照前 N 天」；只有一個月資料的站（window.__fixedPeriod）＝「整個 8 月」 */
+export const periodLabel = (days, compare = true) => { const f = window.__fixedPeriod; return f ? f.label : `最近 ${days} 天${compare ? ` · 對照前 ${days} 天` : ""}`; };
+export const anchorNote = () => { const f = window.__fixedPeriod; if (f) return `${f.label}（${f.range}）`; let mode = "data"; try { mode = localStorage.getItem("anchor") === "today" ? "today" : "data"; } catch { /* 無痕 */ } const de = window.__dataEnd; return mode === "today" ? "到今天" : de ? `資料截至 ${fmtDT(de)}` : "資料到現在"; };
+export const periodSeg = (days, onChange) => { const f = window.__fixedPeriod; if (f) return h`<div class="seg"><button class="on" title="${f.range}">${f.label}</button></div><span class="faint" style="margin-left:8px;font-size:12px;white-space:nowrap">${f.range}</span>`; const id = "seg" + Math.random().toString(36).slice(2, 7); queueMicrotask(() => { document.getElementById(id)?.querySelectorAll("button").forEach((b) => b.onclick = () => onChange(Number(b.dataset.d))); }); return h`<div class="seg" id="${id}">${raw([7, 14, 30].map((d) => h`<button class="${d === days ? "on" : ""}" data-d="${d}">${d} 天</button>`).join(""))}</div><span class="faint" style="margin-left:8px;font-size:12px;white-space:nowrap">${anchorNote()}</span>`; };
 
 /* ── Chart.js 共用外觀：灰＝中性、琥珀＝警示、青＝系統強調；只在有用的時候畫圖 ── */
 export const chartOpts = () => ({

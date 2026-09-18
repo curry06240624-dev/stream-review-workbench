@@ -24,7 +24,8 @@ export async function ensureLogin() {
   }
   if (!me.user) { location.href = "/login.html"; return null; }
   me.user.data_end = me.data_end ?? null;   // 資料末端（null＝資料到現在），頂欄與各頁「資料截至」用
-  me.user.source_ends = me.source_ends || {};   // 各來源末端（成交群／群組常比對話晚兩天），頂欄標「不在本期」用
+  me.user.source_ends = me.source_ends || {};
+  me.user.fixed_period = me.fixed_period || null;   // 只有某一個月資料的站（FIXED_PERIOD）：期間鎖整個月，沒有 7/14/30 可切   // 各來源末端（成交群／群組常比對話晚兩天），頂欄標「不在本期」用
   return me.user;
 }
 

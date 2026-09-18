@@ -1,6 +1,6 @@
 /* 漏斗與價格流失：每一階段都能點進去看是哪些客戶；價格後流失拆到業務、車型、車款；最後是業務與車款總表。 */
 import { api } from "../api.js";
-import { esc, pct, nt, num, delta, funnelStrip, periodSeg, table, bindRows, pageHead, CONF, drawChart, lostReason, bodyType } from "../ui.js";
+import { esc, pct, nt, num, delta, funnelStrip, periodSeg, table, bindRows, pageHead, CONF, drawChart, lostReason, bodyType, periodLabel } from "../ui.js";
 
 const stat = (label, value, extra = "", cls = "") => `<div class="stat ${cls}"><div class="l">${esc(label)}</div><b>${value}</b>${extra ? `<div class="d">${extra}</div>` : ""}</div>`;
 const sub = (t) => `<h4 class="sub">${esc(t)}</h4>`;
@@ -55,7 +55,7 @@ export async function render(el, ctx) {
   const vehRows = (a.vehicles || []).slice(0, 10);
 
   el.innerHTML = `<div class="wrap stack">
-    ${pageHead("漏斗與價格流失", aiLine, `<span class="faint" style="margin-right:10px">最近 ${days} 天 · 對照前 ${days} 天</span>${periodSeg(days, (dd) => ctx.nav(`/funnel?days=${dd}`))}`)}
+    ${pageHead("漏斗與價格流失", aiLine, `<span class="faint" style="margin-right:10px">${periodLabel(days)}</span>${periodSeg(days, (dd) => ctx.nav(`/funnel?days=${dd}`))}`)}
     <section class="panel"><h3>漏斗 <span class="faint" style="font-weight:400;letter-spacing:0">點任何一階看是哪些客戶 · 階段旁的百分比＝之後走到下一階的比例（以客戶計）</span></h3>
       ${funnelStrip(stages, { bottleneck: weakest ? weakest.key : null })}
     </section>

@@ -1,7 +1,7 @@
 /* 決策中心：最重要的四個問題（人／客戶／漏斗／獲利）→ 需要決定的卡 → 管理行動中心（基準 → 現在）→ 先前行動的結果。
    卡片全部由規則產生；「建立教練行動」會存基準指標，之後自動比前後。系統不代發訊息。 */
 import { api } from "../api.js";
-import { esc, pct, nt, num, chip, table, bindRows, fmtD, fmtDT, prioChip, mval, fmtMin, periodSeg, toast, wan } from "../ui.js";
+import { esc, pct, nt, num, chip, table, bindRows, fmtD, fmtDT, prioChip, mval, fmtMin, periodSeg, toast, wan, periodLabel } from "../ui.js";
 import { createAction, updateAction } from "../mgmt.js";
 
 const KIND = { coach: "教練業務", workflow: "改流程", review_financing: "檢視貸款回覆", review_pricing: "檢視報價流程", review_process: "檢視流程", contact_leads: "聯絡客戶", document_pattern: "寫成教材", review_handoff: "檢視交接", recognize: "表揚" };
@@ -45,7 +45,7 @@ export async function render(el, ctx) {
   const todo = cards.filter((c) => c.kind !== "recognize").slice(0, 6).map((c, i) => `<li class="act"><span>${chip(KIND[c.kind] || c.kind)}</span><span class="txt">${esc(c.action)}</span>${open.some((x) => x.title === c.title) ? chip("已建立", "cyan") : `<button class="btn sm" data-mk="${cards.indexOf(c)}">建立</button>`}</li>`).join("");
 
   el.innerHTML = `<div class="wrap stack">
-    <div class="ph"><h1>決策中心</h1><div class="ai">${cards.length ? `今天有 ${cards.length} 個決定要做：${cards.filter((c) => c.priority === "high").length} 個緊急、${cards.filter((c) => c.priority === "medium").length} 個中等。` : "目前沒有需要你決定的事。"}</div><span class="sp"></span><span class="faint" style="margin-right:10px">最近 ${days} 天</span>${periodSeg(days, (dd) => ctx.nav(`/decisions?days=${dd}`))}</div>
+    <div class="ph"><h1>決策中心</h1><div class="ai">${cards.length ? `今天有 ${cards.length} 個決定要做：${cards.filter((c) => c.priority === "high").length} 個緊急、${cards.filter((c) => c.priority === "medium").length} 個中等。` : "目前沒有需要你決定的事。"}</div><span class="sp"></span><span class="faint" style="margin-right:10px">${periodLabel(days, false)}</span>${periodSeg(days, (dd) => ctx.nav(`/decisions?days=${dd}`))}</div>
     <section><div class="ph" style="margin-bottom:6px"><h3 class="muted" style="margin:0;font-weight:500;letter-spacing:.06em">最重要的問題</h3></div>
       <div class="tiles">${tile("人", people, !!people)}${tile("客戶", customer, !!customer && !!customer.key)}${tile("漏斗", funnelTile, false)}${tile("獲利", profit, !!(profit && profit.key))}</div></section>
     <section><div class="ph" style="margin-bottom:6px"><h3 class="muted" style="margin:0;font-weight:500;letter-spacing:.06em">需要決定 · DECISION NEEDED</h3><span class="faint">規則產生；每張附影響人數、對照差異與衡量方式</span></div>

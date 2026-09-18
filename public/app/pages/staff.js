@@ -1,7 +1,7 @@
 /* 員工效能：誰在產生結果、為什麼、強在哪、客戶在哪流失、哪部分真的是他做的、該教什麼。
    全部數字附樣本；沒達門檻顯示「資料不足」；對照只講「觀察到的關聯」。琥珀只給需關注與落後，青只給互動。 */
 import { api } from "../api.js";
-import { esc, pct, nt, num, chip, table, bindRows, pageHead, periodSeg, mval, fmtMin, fmtFeat, FEAT, poolGroup, heatStyle, wan, chipConf, jobChip } from "../ui.js";
+import { esc, pct, nt, num, chip, table, bindRows, pageHead, periodSeg, mval, fmtMin, fmtFeat, FEAT, poolGroup, heatStyle, wan, chipConf, jobChip, periodLabel } from "../ui.js";
 import { createAction, metricKeyFor } from "../mgmt.js";
 
 const CMP_FEATS = ["first_response_min", "followup_24h_rate", "asked_after_price", "objection_clarified", "proposed_after_intent", "fin_answered", "postvisit_24h", "budget_clarified", "reactivated_by_staff", "escalated"];
@@ -124,7 +124,7 @@ export async function render(el, ctx) {
   ];
 
   el.innerHTML = `<div class="wrap stack">
-    ${pageHead("員工效能", r.top.length ? `表現最佳：${r.top.map((x) => x.name).join("、")}；需關注：${r.watch.map((w) => w.name).join("、") || "無"}` : "還沒有人達到樣本門檻", `<span class="faint" style="margin-right:10px">成功 vs 需關注 · 最近 ${days} 天</span>${periodSeg(days, (dd) => ctx.nav(`/staff?days=${dd}&rank=${rk.key}`))}`)}
+    ${pageHead("員工效能", r.top.length ? `表現最佳：${r.top.map((x) => x.name).join("、")}；需關注：${r.watch.map((w) => w.name).join("、") || "無"}` : "還沒有人達到樣本門檻", `<span class="faint" style="margin-right:10px">成功 vs 需關注 · ${periodLabel(days, false)}</span>${periodSeg(days, (dd) => ctx.nav(`/staff?days=${dd}&rank=${rk.key}`))}`)}
     <div class="two">
       <div class="stack">
         <section class="panel brief"><h3>AI 團隊簡報 <span class="faint" style="letter-spacing:0;font-weight:400">規則版 · 每句都是算出來的</span></h3>${brief.map((b) => `<p>${esc(b)}</p>`).join("")}</section>

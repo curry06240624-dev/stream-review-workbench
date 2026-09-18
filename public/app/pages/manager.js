@@ -2,7 +2,7 @@
    ① 漏追客戶（今天要回誰、誰手上最多）→ ② 銷售卡點（哪一段掉最多、誰報價後掉最多）→ ③ 人員異常（誰低於團隊基準、建議教練什麼）→ ④ 待處理行動（核准／完成）。
    全部由現有規則現算（/api/attention、/api/analytics、/api/staff、/api/decisions、/api/mgmt-actions）；每一列點進去就是證據。系統只建議，不代發訊息。 */
 import { api } from "../api.js";
-import { esc, pct, chip, table, bindRows, fmtDT, ago, prioChip, periodSeg, toast, funnelStrip, fmtD, pageHead } from "../ui.js";
+import { esc, pct, chip, table, bindRows, fmtDT, ago, prioChip, periodSeg, toast, funnelStrip, fmtD, pageHead, periodLabel } from "../ui.js";
 import { createAction, updateAction, metricKeyFor } from "../mgmt.js";
 
 const KIND = { high_intent_no_followup: "急迫未跟進", price_dropoff_no_followup: "報價後未跟進", booked_but_no_visit: "預約已過未到店", financing_unresolved: "貸款未回覆" };
@@ -93,7 +93,7 @@ export async function render(el, ctx) {
   ].filter(Boolean).join("；") + "。";
 
   el.innerHTML = `<div class="wrap stack">
-    ${pageHead("主管工作台", line, `<span class="faint" style="margin-right:10px">卡點／人員看最近 ${days} 天 · 漏追固定 7 天</span>${periodSeg(days, (dd) => ctx.nav(`/manager?days=${dd}`))}`)}
+    ${pageHead("主管工作台", line, `<span class="faint" style="margin-right:10px">卡點／人員看${periodLabel(days, false)} · 漏追固定 7 天</span>${periodSeg(days, (dd) => ctx.nav(`/manager?days=${dd}`))}`)}
     <section class="panel"><h3>① 漏追客戶 <span class="faint" style="font-weight:400;letter-spacing:0">${items.length} 位 · 以資料截至 ${fmtDT(new Date(asOf).toISOString())} 計</span><span class="sp"></span><a href="/attention" data-link style="font-weight:400;letter-spacing:0">全部與待辦 ›</a></h3>
       <section class="stats" style="margin-bottom:10px">${ORDER.map((k) => `<a class="stat ${k === "high_intent_no_followup" && (at.counts[k] || 0) ? "warn" : ""}" href="/attention?kind=${k}" data-link><div class="l">${KIND[k]}</div><b>${at.counts[k] || 0}</b></a>`).join("")}</section>
       ${items.length ? `<div class="faint" style="margin-bottom:8px;font-size:12.5px">誰手上最多：${staffChips}</div>` : ""}
@@ -101,7 +101,7 @@ export async function render(el, ctx) {
       ${items.length > shown.length ? `<div class="faint" style="margin-top:6px;font-size:12px">只列最急的 ${shown.length} 位，其餘 ${items.length - shown.length} 位在 <a href="/attention" data-link>需要注意</a>。</div>` : ""}
     </section>
     <section class="grid g2">
-      <div class="panel"><h3>② 銷售卡點 <span class="faint" style="font-weight:400;letter-spacing:0">最近 ${days} 天</span><span class="sp"></span><a href="/funnel" data-link style="font-weight:400;letter-spacing:0">漏斗與價格流失 ›</a></h3>
+      <div class="panel"><h3>② 銷售卡點 <span class="faint" style="font-weight:400;letter-spacing:0">${periodLabel(days, false)}</span><span class="sp"></span><a href="/funnel" data-link style="font-weight:400;letter-spacing:0">漏斗與價格流失 ›</a></h3>
         ${funnelStrip(stages, { slim: true, bottleneck: weakKey })}
         <div class="faint" style="font-size:12px;margin:6px 0 10px">預約／到店只算 LINE 對話裡看得到的；電話約的不在裡面。</div>
         <div class="why" style="font-size:13px;line-height:1.55;margin-bottom:10px">${weak ? `<b>最弱的一段：${esc(weak.l)} ${pct(weak.rate)}</b>（n=${weak.n}，前期 ${pct(weak.prev_rate)}）` : "各段樣本還不夠比，先看報價後流失。"}</div>
