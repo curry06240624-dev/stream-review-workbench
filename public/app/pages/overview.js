@@ -47,7 +47,7 @@ export async function render(el, ctx) {
   const tCust = lossCard ? { title: lossCard.title, href: "/loss", warn: true } : (d.lost ? { title: `本期流失 ${d.lost} 台${d.lost_reasons[0] ? `，最多「${lostReason(d.lost_reasons[0].reason)}」` : ""}`, href: "/loss" } : null);
   const tFunnel = weakest ? { title: `${PAIR_LABEL[weakest[0]] || weakest[0]} ${pct(weakest[1].rate)} 是最弱的一段（n=${weakest[1].n}）`, href: "/funnel" } : null;
   const undatedNote = d.undated?.n ? `車源表另 ${d.undated.n} 台售出／收訂，成交日不明` : "";
-  const tProfit = pricing ? { title: pricing.title, href: "/decisions", warn: true } : { title: d.below_cost ? `${d.below_cost} 筆成交低於成本` : (!d.sold && d.undated?.n) ? `本期沒有有日期的成交；${undatedNote}（${nt(d.undated.amount)}）` : `毛利率 ${pct(d.gp_margin)}、毛利 ${nt(d.gross_profit)}`, href: "/deals", warn: !!d.below_cost };
+  const tProfit = pricing ? { title: pricing.title, href: "/decisions", warn: true } : { title: d.below_cost ? `${d.below_cost} 筆成交低於成本` : (!d.sold && d.undated?.n) ? `本期沒有有日期的成交；${undatedNote}（${nt(d.undated.amount)}）` : (d.gp_unknown ? `毛利只算得出 ${d.gp_known} 台（${nt(d.gross_profit)}），${d.gp_unknown} 台沒有成本` : `毛利率 ${pct(d.gp_margin)}、毛利 ${nt(d.gross_profit)}`), href: "/deals", warn: !!d.below_cost || (d.gp_unknown > d.gp_known) };
   const tile = (hd, x) => x ? `<a class="tile ${x.warn ? "warn" : ""}" href="${esc(x.href)}" data-link><div class="h">${hd}</div><div class="t">${esc(x.title)}</div><div class="m"><span class="sp"></span><span style="color:var(--cyan)">查看 ›</span></div></a>` : `<div class="tile"><div class="h">${hd}</div><div class="t faint">目前沒有明顯問題</div></div>`;
   const tilesHtml = `<section><div class="ph" style="margin-bottom:6px"><h3 class="muted" style="margin:0;font-weight:500;letter-spacing:.06em">最重要的問題</h3><a href="/decisions" data-link class="faint">決策中心 ›</a></div><div class="tiles">${tile("人", tPeople)}${tile("客戶", tCust)}${tile("漏斗", tFunnel)}${tile("獲利", tProfit)}</div></section>`;
   const fmtSnap = (x) => (x.value == null ? "—" : x.key === "first_response" ? fmtMin(x.value) : (x.key === "gp" || x.key === "avg_gp") ? nt(x.value) : String(x.key).startsWith("loss:") ? `${x.value} 位` : pct(x.value));
@@ -75,7 +75,7 @@ export async function render(el, ctx) {
 
     <section class="grid g4">
       ${raw(kpi(undatedNote ? "營收（有日期的成交）" : "營收", nt(d.revenue), undatedNote && !d.sold ? `<span class="faint">${esc(undatedNote)}</span>` : delta(d.revenue, d.prev_revenue, { fmt: nt }), series("revenue")))}
-      ${raw(kpi(undatedNote ? "毛利（有日期的成交）" : "毛利", nt(d.gross_profit), undatedNote && !d.sold ? `<span class="faint">${esc(undatedNote)}</span>` : delta(d.gross_profit, d.prev_gross_profit, { fmt: nt }), series("gp")))}
+      ${raw(kpi(d.gp_unknown ? `毛利（只算得出 ${d.gp_known} 台）` : undatedNote ? "毛利（有日期的成交）" : "毛利", nt(d.gross_profit), d.gp_unknown ? `<span class="faint">${d.gp_unknown} 台沒有成本${d.peer_sold ? `（同行車 ${d.peer_sold} 台）` : ""}</span>` : undatedNote && !d.sold ? `<span class="faint">${esc(undatedNote)}</span>` : delta(d.gross_profit, d.prev_gross_profit, { fmt: nt }), series("gp")))}
       ${raw(kpi("預約成立", num(ap.booked), delta(ap.booked, ap.prev_booked, { fmt: num }), series("booked")))}
       ${raw(kpi("到店", num(a.visits.count), delta(a.visits.count, a.visits.prev_count, { fmt: num }), series("visits")))}
     </section>

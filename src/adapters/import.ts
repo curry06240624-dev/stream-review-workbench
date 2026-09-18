@@ -133,6 +133,17 @@ export async function importBundle(db: DbLike, b: NormalizedBundle, opts: { rese
   const vehId = new Map<string, number>();
   for (const v of b.vehicles) {
     const costKnown = v.cost != null ? 1 : 0;
+    // 2026-09-18：以 external_id（bundle 的 key）去重。分批匯入每批都帶同一份車輛，以前每批重插 → 同一台車幾十列、車源表同步替每一列的收訂車各建一筆成交
+    const ex = await db.first("SELECT id FROM vehicles WHERE external_id = ? ORDER BY id LIMIT 1", v.key);
+    if (ex) {
+      await db.run(
+        `UPDATE vehicles SET brand = ?, model = ?, year = ?, body_type = ?, list_price = ?, cost = ?, cost_known = ?, stock_status = ?, plate = ?, plate_norm = ?, color = ?, trim = ?, mileage_km = ?, stock_in_at = ?, cert = ?, sell_price = ?, source = ?, peer_dealer = ?, status_text = ? WHERE id = ?`,
+        v.brand, v.model, v.year, v.body_type, v.list_price, v.cost ?? 0, costKnown, v.stock_status,
+        v.plate ?? "", normalizePlate(v.plate), v.color ?? "", v.trim ?? "", v.mileage_km ?? null, v.stock_in_at ?? null, v.cert ?? "", v.sell_price ?? null,
+        v.source ?? (v.stock_status === "peer" ? "peer" : "stock"), v.peer_dealer ?? "", v.status_text ?? "", Number(ex["id"]));
+      vehId.set(v.key, Number(ex["id"])); bump("vehicles_updated");
+      continue;
+    }
     const r = await db.run(
       `INSERT INTO vehicles (brand, model, year, body_type, list_price, cost, cost_known, stock_status, external_id, plate, plate_norm, color, trim, mileage_km, stock_in_at, cert, sell_price, source, peer_dealer, status_text)
        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,

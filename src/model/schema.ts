@@ -503,6 +503,23 @@ export function migrate(sql: SqlLike): { added: string[] } {
   // 2026-09-08 第六輪：(1) 按鈕文字標成選單 (2) leads.first_real_at 回填 (3) 清快取。各自 try/catch、做完留記號，不能把 DO 建構子弄掛
   const flag = (k: string) => sql.exec("SELECT 1 FROM settings WHERE key = ?", k).toArray().length > 0;
   const mark = (k: string) => sql.exec("INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, '1', ?)", k, new Date().toISOString());
+  // 2026-09-18：車輛匯入以前沒有以 external_id 去重（每批 bundle 都重插同一份車 → 車源表同步替每一份重複的收訂車各建一筆「成交日不明」的成交；8 月站 229 筆、正式站 64 列車 32 台）。
+  // 同 external_id 只留最小 id：重複車掛的車源表成交刪掉、其他參照改指最小 id、重複車刪掉、清快取。只跑一次。
+  if (!flag("dedupe_vehicles_v1")) {
+    try {
+      const dupSel = "SELECT id FROM vehicles v WHERE external_id <> '' AND id <> (SELECT MIN(id) FROM vehicles w WHERE w.external_id = v.external_id)";
+      const n = Number(sql.exec(`SELECT COUNT(*) AS n FROM (${dupSel})`).toArray()[0]?.["n"] ?? 0);
+      if (n > 0) {
+        sql.exec(`DELETE FROM deals WHERE source_system = 'sheet' AND vehicle_id IN (${dupSel})`);
+        const tables = sql.exec("SELECT name FROM sqlite_master WHERE type = 'table' AND name <> 'vehicles' AND sql LIKE '%vehicle_id%'").toArray().map((r) => String(r["name"]));
+        for (const t of tables) sql.exec(`UPDATE ${t} SET vehicle_id = (SELECT MIN(w.id) FROM vehicles w WHERE w.external_id = (SELECT x.external_id FROM vehicles x WHERE x.id = ${t}.vehicle_id)) WHERE vehicle_id IN (${dupSel})`);
+        sql.exec(`DELETE FROM vehicles WHERE id IN (${dupSel})`);
+        sql.exec("DELETE FROM cache_json");
+        added.push(`vehicles deduped (${n} rows)`);
+      }
+      mark("dedupe_vehicles_v1");
+    } catch (e) { console.error("dedupe_vehicles_v1 failed", e); }
+  }
   if (!flag("backfill_menu_buttons")) {
     try { sql.exec(`UPDATE messages SET msg_type = 'menu' WHERE sender_role = 'customer' AND COALESCE(msg_type,'text') = 'text' AND ${MENU_SQL_WHERE}`); mark("backfill_menu_buttons"); added.push("messages.msg_type menu buttons"); }
     catch (e) { console.error("backfill_menu_buttons failed", e); }

@@ -48,7 +48,7 @@ function flush(force = false) {
     for (const k of ["appointments", "visits", "deals"]) buf[k] = buf[k].filter((x) => !leadKeys.has(x.lead_key));
     const convKeys = new Set(convs.map((c) => c.key));
     const assignments = buf.assignments.filter((a) => convKeys.has(a.conversation_key)); buf.assignments = buf.assignments.filter((a) => !convKeys.has(a.conversation_key));
-    const out = { ...head, generated_at: new Date().toISOString(), staff: [...staffByEmail.values()], vehicles: [...vehByKey.values()], customers, leads, conversations: convs, appointments, visits, deals };
+    const out = { ...head, generated_at: new Date().toISOString(), staff: [...staffByEmail.values()], vehicles: outN === 0 ? [...vehByKey.values()] : [], customers, leads, conversations: convs, appointments, visits, deals };   // 車輛只放第一批（匯入以 external_id 去重，但不用每批重送）
     if (outN === 0) { out.deal_reports = buf.deal_reports; out.appraisals = buf.appraisals; buf.deal_reports = []; buf.appraisals = []; }   // 貼文不掛 lead：全放第一批
     if (assignments.length) out.assignments = assignments;
     outN++; const name = `part-${String(outN).padStart(3, "0")}.json`;
