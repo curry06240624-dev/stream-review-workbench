@@ -105,7 +105,7 @@ function sideHtml(d) {
     : sold ? ["交車後 7 天關懷一次，順便問轉介。"] : ["維持跟進節奏，48 小時內至少一則主動訊息。"];
 
   return `<div class="kv"><div>客戶</div><div><b>${esc(L.pseudonym)}</b> <span class="faint">${esc(L.display_name)}</span></div>
-      <div>分級</div><div>${raw(chipGrade(L.grade_auto, L.grade_reason))} <span class="faint">${esc(L.grade_reason || "")}</span>${L.result_tag ? ` ${raw(chip(esc(L.result_tag), "amber"))}` : ""}${L.grade ? ` <span class="faint">· 訊息組標 ${esc(L.grade)}</span>` : ""}</div><div>首次進線</div><div>${fmtD(L.first_contact_at || L.opened_at)}</div>
+      <div>分級</div><div>${chipGrade(L.grade_auto, L.grade_reason)} <span class="faint">${esc(L.grade_reason || "")}</span>${L.result_tag ? ` ${chip(L.result_tag, "amber")}` : ""}${L.grade ? ` <span class="faint">· 訊息組標 ${esc(L.grade)}</span>` : ""}</div><div>首次進線</div><div>${fmtD(L.first_contact_at || L.opened_at)}</div>
       <div>車款</div><div>${esc(L.vehicle || "—")}${L.list_price ? ` <span class="faint">開價 ${wan(L.list_price)}</span>` : ""}${L.sell_price ? ` <span class="faint">調作價 ${wan(L.sell_price)}</span>` : ""}</div>
       <div>業務</div><div>${esc(L.staff || "未指派")}${(d.roles || []).filter((r) => r.role !== "primary").map((r) => ` ${chip(`${roleLabel(r.role)} ${r.staff}`, r.role === "chat_handler" ? "cyan" : "")}`).join("")}</div><div>階段</div><div>${chipStage(L.stage)} ${L.outcome ? chip({ sold: "已成交", lost: "已流失" }[L.outcome], L.outcome === "sold" ? "cyan" : "") : ""}</div>
       <div>訊息涵蓋</div><div>${L.coverage && L.coverage !== "full" ? `${coverageChip(L.coverage, L.coverage_note)} <span class="faint">${esc(L.coverage_note)}</span>` : "完整"}</div></div>
